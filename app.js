@@ -736,7 +736,7 @@ const App = {
     const prefilledMsg = data.prefill || '';
 
     return `
-      <div style="position:fixed; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column; background:var(--bg); z-index:10;">
+      <div style="position:fixed; top:0; left:0; right:0; bottom:calc(56px + var(--safe-bottom, 0px)); display:flex; flex-direction:column; background:var(--bg); z-index:10;">
         <div class="header" style="flex-shrink:0;">
           <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
           <span class="header-title">Coach Chat</span>
@@ -758,7 +758,6 @@ const App = {
                  id="chat-input" value="${this.escapeHtml(prefilledMsg)}">
           <button class="chat-send" id="btn-chat-send">${this.Icons.check}</button>
         </div>
-        <div style="height: calc(var(--safe-bottom, 0px));"></div>
       </div>
     `;
   },
