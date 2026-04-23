@@ -2072,6 +2072,14 @@ const App = {
       this.showToast('Settings Saved to the Keys!');
     });
 
+    const themeSelect = document.getElementById('setting-theme');
+    if (themeSelect) {
+      themeSelect.addEventListener('change', (e) => {
+        this.settings.theme = e.target.value;
+        this.applyTheme();
+      });
+    }
+
     this.bindClick('btn-manage-exercises', () => this.showScreen('exerciseLibrary'));
 
     this.bindClick('btn-export-json', () => ExportImport.exportJSON());
