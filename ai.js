@@ -4,13 +4,14 @@ const AI = {
     return await DB.getSetting('geminiApiKey');
   },
 
-  async fetchWithRetry(url, options, maxRetries = 3) {
+  async fetchWithRetry(url, options, maxRetries = 3, onProgress = null) {
     let delay = 2000;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const response = await fetch(url, options);
       if (!response.ok) {
         if (response.status === 429 && attempt < maxRetries) {
           console.warn(`Rate limited (429). Retrying in ${delay}ms...`);
+          if (onProgress) onProgress(`Rate limit hit. Retrying in ${delay/1000}s...`);
           await new Promise(r => setTimeout(r, delay));
           delay *= 2;
           continue;
@@ -93,7 +94,7 @@ const AI = {
     }
   },
 
-  async parseFileContent(content, type) {
+  async parseFileContent(content, type, onProgress = null) {
     const apiKey = await this.getApiKey();
     if (!apiKey) return { error: 'API Key missing' };
 
@@ -109,7 +110,7 @@ const AI = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
+      }, 3, onProgress);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

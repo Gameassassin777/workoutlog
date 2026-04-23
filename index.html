@@ -14,6 +14,8 @@
   <title>TropicalFit</title>
 </head>
 <body>
+  <canvas id="ocean-shader"></canvas>
+  <canvas id="palm-canvas" style="position:fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:-1;"></canvas>
   <div id="app">
     <div id="screen-container" class="screen"></div>
     <nav class="bottom-nav" id="bottom-nav">
@@ -45,6 +47,9 @@
   <div id="celebration-container"></div>
 
   <script src="db.js?v=19"></script>
+  <script src="shader.js?v=19"></script>
+  <script src="palm.js?v=19"></script>
+  <script src="transition.js?v=19"></script>
   <script src="timer.js?v=19"></script>
   <script src="ai.js?v=19"></script>
   <script src="export.js?v=19"></script>

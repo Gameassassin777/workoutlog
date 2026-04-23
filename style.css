@@ -1,46 +1,46 @@
 /* ─── Design Tokens ─────────────────────────────────────────── */
 :root {
-  /* Dark Mode (default) — Deep Ocean Blues + Warm Accents */
-  --bg:            #081825;   /* Deepest background */
-  --bg-2:          #0D2337;   /* Card / surface level */
-  --bg-3:          #122C42;   /* Elevated card */
-  --border:        rgba(0,229,255,0.12);
-  --border-strong: rgba(0,229,255,0.25);
+  /* Dark Mode (Sunset Ocean) — Deep Twilight Blues + Fiery Accents */
+  --bg:            #0B1B3D;   /* Twilight blue */
+  --bg-2:          #12274B;   /* Soft dark navy */
+  --bg-3:          #1A3668;   /* Elevated card */
+  --border:        rgba(255, 94, 58, 0.15); /* Faint warm orange glow */
+  --border-strong: rgba(255, 94, 58, 0.35);
 
   /* Brand */
-  --lagoon:        #087E8B;   /* Teal primary */
-  --teal:          #1BA098;   /* Mid teal */
-  --aqua:          #00D4E8;   /* Bright cyan accent */
-  --sea-foam:      #5EC4C8;   /* Muted teal text */
+  --lagoon:        #FF5E3A;   /* Fiery orange */
+  --teal:          #E03E36;   /* Deep red */
+  --aqua:          #FFC837;   /* Golden yellow */
+  --sea-foam:      #FFB085;   /* Soft warm text */
 
   /* Warm Accents */
-  --sunset:        #F6AE2D;   /* Yellow-gold (XP, levels) */
-  --sunrise:       #F08228;   /* Orange (buttons) */
-  --coral:         #E0533B;   /* Red-orange (alerts, delete) */
+  --sunset:        #FFC837;   /* Yellow-gold */
+  --sunrise:       #FF5E3A;   /* Orange */
+  --coral:         #E03E36;   /* Red */
 
   /* Greens */
-  --palm-green:    #3DA85C;   /* Success / complete */
-  --palm-light:    #5DD87C;   /* Light green */
+  --palm-green:    #2ECC71;
+  --palm-light:    #4CE087;
 
   /* Text */
-  --text-main:     #EEE8D8;   /* Warm off-white */
+  --text-main:     #F9F6EE;   /* Warm sand off-white */
   --text-sub:      #A8B8C4;   /* Muted blue-grey */
   --text-muted:    rgba(168,184,196,0.6);
-  --text-dark:     #081825;   /* For text on light/accent bg */
+  --text-dark:     #0B1B3D;   /* Navy for text on light bg */
 
   /* Misc */
-  --sand:          #EEE8D8;
+  --sand:          #F9F6EE;
   --white:         #FFFFFF;
-  --deep-keys:     #EEE8D8;   /* alias for main text */
-  --sand-light:    rgba(238,232,216,0.08);
-  --hibiscus:      #E0533B;
-  --ocean:         #081825;
-  --deep-ocean:    #081825;
-  --clear-water:   rgba(0,212,232,0.10);
+  --deep-keys:     #F9F6EE;
+  --sand-light:    rgba(255, 94, 58, 0.08);
+  --hibiscus:      #E03E36;
+  --ocean:         #0B1B3D;
+  --deep-ocean:    #0B1B3D;
+  --clear-water:   rgba(255, 200, 55, 0.10);
 
   /* Shadows */
-  --shadow-card:   0 8px 32px rgba(0,0,0,0.35);
-  --shadow-btn:    0 4px 16px rgba(0,0,0,0.3);
+  --shadow-card:   0 8px 32px rgba(0,0,0,0.4);
+  --shadow-btn:    0 4px 16px rgba(255, 94, 58, 0.3);
 
   /* Radii */
   --radius-sm:  8px;
@@ -58,41 +58,41 @@
   --text-sea:  var(--sea-foam);
 }
 
-/* ─── Light Mode Overrides ──────────────────────────────────── */
+/* ─── Light Mode Overrides (Bright Beach Day) ───────────────── */
 body.theme-light {
-  --bg:            #F2E8D0;
-  --bg-2:          #FFFDF6;
-  --bg-3:          #FFFFFF;
-  --border:        rgba(8,126,139,0.15);
-  --border-strong: rgba(8,126,139,0.35);
+  --bg:            #F9F6EE; /* Airy sand */
+  --bg-2:          #FFFFFF; /* Crisp white */
+  --bg-3:          #F2EFE8; /* Slightly elevated sand */
+  --border:        rgba(0, 168, 204, 0.15); /* Soft aqua */
+  --border-strong: rgba(0, 168, 204, 0.35);
 
-  --lagoon:        #056470;
-  --teal:          #0A7A72;
-  --aqua:          #0499AA;
-  --sea-foam:      #157A82;
+  --lagoon:        #00A8CC; /* Ocean blue */
+  --teal:          #007B99; /* Deep ocean */
+  --aqua:          #00E5FF; /* Sparkling cyan */
+  --sea-foam:      #008CA8; /* Muted ocean text */
 
-  --sunset:        #C87C00;
-  --sunrise:       #C06010;
-  --coral:         #B83820;
+  --sunset:        #FFB300; /* Sunny yellow */
+  --sunrise:       #FF7A00; /* Bright orange */
+  --coral:         #E03E36;
 
-  --palm-green:    #2A7A42;
-  --palm-light:    #3A9A54;
+  --palm-green:    #2ECC71;
+  --palm-light:    #4CE087;
 
-  --text-main:     #0B2B3D;
+  --text-main:     #0B1B3D; /* Deep navy */
   --text-sub:      #3A5A6A;
-  --text-muted:    rgba(11,43,61,0.55);
-  --text-dark:     #0B2B3D;
+  --text-muted:    rgba(11,27,61,0.55);
+  --text-dark:     #0B1B3D;
 
-  --sand:          #5A3A20;
-  --deep-keys:     #0B2B3D;
-  --sand-light:    rgba(11,43,61,0.06);
-  --hibiscus:      #B83820;
-  --ocean:         #F2E8D0;
-  --deep-ocean:    #F2E8D0;
-  --clear-water:   rgba(4,153,170,0.10);
+  --sand:          #EAE5D9;
+  --deep-keys:     #0B1B3D;
+  --sand-light:    rgba(0, 168, 204, 0.08);
+  --hibiscus:      #E03E36;
+  --ocean:         #F9F6EE;
+  --deep-ocean:    #F9F6EE;
+  --clear-water:   rgba(0, 229, 255, 0.10);
 
-  --shadow-card:   0 4px 20px rgba(8,126,139,0.10);
-  --shadow-btn:    0 4px 12px rgba(8,126,139,0.18);
+  --shadow-card:   0 8px 32px rgba(0, 168, 204, 0.08); /* Sparkling aqua shadow */
+  --shadow-btn:    0 4px 16px rgba(0, 168, 204, 0.2);
 
   --card-bg:       var(--bg-2);
 }
@@ -100,33 +100,33 @@ body.theme-light {
 /* ─── Auto (System) Theme ───────────────────────────────────── */
 @media (prefers-color-scheme: light) {
   body:not(.theme-dark):not(.theme-light) {
-    --bg:            #F2E8D0;
-    --bg-2:          #FFFDF6;
-    --bg-3:          #FFFFFF;
-    --border:        rgba(8,126,139,0.15);
-    --border-strong: rgba(8,126,139,0.35);
-    --lagoon:        #056470;
-    --teal:          #0A7A72;
-    --aqua:          #0499AA;
-    --sea-foam:      #157A82;
-    --sunset:        #C87C00;
-    --sunrise:       #C06010;
-    --coral:         #B83820;
-    --palm-green:    #2A7A42;
-    --palm-light:    #3A9A54;
-    --text-main:     #0B2B3D;
+    --bg:            #F9F6EE;
+    --bg-2:          #FFFFFF;
+    --bg-3:          #F2EFE8;
+    --border:        rgba(0, 168, 204, 0.15);
+    --border-strong: rgba(0, 168, 204, 0.35);
+    --lagoon:        #00A8CC;
+    --teal:          #007B99;
+    --aqua:          #00E5FF;
+    --sea-foam:      #008CA8;
+    --sunset:        #FFB300;
+    --sunrise:       #FF7A00;
+    --coral:         #E03E36;
+    --palm-green:    #2ECC71;
+    --palm-light:    #4CE087;
+    --text-main:     #0B1B3D;
     --text-sub:      #3A5A6A;
-    --text-muted:    rgba(11,43,61,0.55);
-    --text-dark:     #0B2B3D;
-    --sand:          #5A3A20;
-    --deep-keys:     #0B2B3D;
-    --sand-light:    rgba(11,43,61,0.06);
-    --hibiscus:      #B83820;
-    --ocean:         #F2E8D0;
-    --deep-ocean:    #F2E8D0;
-    --clear-water:   rgba(4,153,170,0.10);
-    --shadow-card:   0 4px 20px rgba(8,126,139,0.10);
-    --shadow-btn:    0 4px 12px rgba(8,126,139,0.18);
+    --text-muted:    rgba(11,27,61,0.55);
+    --text-dark:     #0B1B3D;
+    --sand:          #EAE5D9;
+    --deep-keys:     #0B1B3D;
+    --sand-light:    rgba(0, 168, 204, 0.08);
+    --hibiscus:      #E03E36;
+    --ocean:         #F9F6EE;
+    --deep-ocean:    #F9F6EE;
+    --clear-water:   rgba(0, 229, 255, 0.10);
+    --shadow-card:   0 8px 32px rgba(0, 168, 204, 0.08);
+    --shadow-btn:    0 4px 16px rgba(0, 168, 204, 0.2);
     --card-bg:       var(--bg-2);
   }
 }
@@ -139,8 +139,37 @@ body.theme-light {
   -webkit-tap-highlight-color: transparent;
 }
 
+#ocean-shader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+/* ─── Animations & Battery Saver ────────────────────────────── */
+@keyframes oceanSwell {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+body.battery-saver,
+body.battery-saver * {
+  animation: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+}
+
+body.battery-saver {
+  background: var(--bg) !important;
+}
+
 body {
-  background-color: var(--bg);
+  background-color: var(--bg); /* Fallback */
   color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
@@ -289,13 +318,23 @@ body {
   border-radius: var(--radius-lg);
   padding: 18px;
   margin: 10px 16px;
-  box-shadow: var(--shadow-card);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1), var(--shadow-card);
   border: 1px solid var(--border);
-  transition: transform 0.15s;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: var(--radius-lg);
 }
 
 .card:active {
-  transform: scale(0.985);
+  transform: scale(0.97);
 }
 
 .card-tappable {
@@ -342,13 +381,15 @@ body {
   font-size: 0.95rem;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s, opacity 0.15s;
-  box-shadow: var(--shadow-btn);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s, filter 0.2s;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), var(--shadow-btn);
   text-decoration: none;
   line-height: 1;
+  position: relative;
+  overflow: hidden;
 }
 
-.btn:active { transform: scale(0.96); }
+.btn:active { transform: scale(0.94); filter: brightness(0.9); }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--lagoon), var(--teal));

@@ -61,7 +61,8 @@ const App = {
     geminiApiKey: '',
     customFieldTemplates: [],
     aiSystemPrompt: '',
-    theme: 'auto'
+    theme: 'auto',
+    batterySaver: false
   },
 
   DEFAULT_PROFILE: {
@@ -117,9 +118,23 @@ const App = {
 
   applyTheme() {
     const theme = this.settings.theme || 'auto';
-    document.body.classList.remove('theme-light', 'theme-dark');
+    document.body.classList.remove('theme-light', 'theme-dark', 'battery-saver');
     if (theme === 'light') document.body.classList.add('theme-light');
     if (theme === 'dark') document.body.classList.add('theme-dark');
+    if (this.settings.batterySaver) {
+      document.body.classList.add('battery-saver');
+      if (window.oceanShader) window.oceanShader.stop();
+      if (window.palmTree) window.palmTree.stop();
+    } else {
+      if (!window.oceanShader && window.OceanShaderEngine) {
+        window.oceanShader = new window.OceanShaderEngine('ocean-shader');
+      }
+      if (!window.palmTree && window.PalmTreeEngine) {
+        window.palmTree = new window.PalmTreeEngine('palm-canvas');
+      }
+      if (window.oceanShader) window.oceanShader.start();
+      if (window.palmTree) window.palmTree.start();
+    }
   },
 
   registerSW() {
@@ -190,8 +205,17 @@ const App = {
 
     const renderer = renderers[name];
     if (renderer) {
-      container.innerHTML = await renderer();
-      this.bindScreenEvents(name, data);
+      const renderNext = async () => {
+        container.innerHTML = await renderer();
+        this.bindScreenEvents(name, data);
+      };
+
+      if (!this.settings.batterySaver && window.TransitionEngine) {
+        if (!window.transitionEngine) window.transitionEngine = new window.TransitionEngine();
+        await window.transitionEngine.runRandomTransition(renderNext);
+      } else {
+        await renderNext();
+      }
     }
   },
 
@@ -780,9 +804,15 @@ const App = {
             <label class="input-label">Color Scheme</label>
             <select class="input" id="setting-theme">
               <option value="auto" ${s.theme === 'auto' ? 'selected' : ''}>Auto (System Default)</option>
-              <option value="light" ${s.theme === 'light' ? 'selected' : ''}>Island Light (Florida Keys)</option>
-              <option value="dark" ${s.theme === 'dark' ? 'selected' : ''}>Deep Ocean (Original)</option>
+              <option value="light" ${s.theme === 'light' ? 'selected' : ''}>Bright Beach Day (Light)</option>
+              <option value="dark" ${s.theme === 'dark' ? 'selected' : ''}>Sunset Ocean (Dark)</option>
             </select>
+          </div>
+          <div class="input-group" style="margin-top: 16px;">
+            <label class="input-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Battery Saver (Disable Animations)</span>
+              <input type="checkbox" id="setting-battery-saver" ${s.batterySaver ? 'checked' : ''} style="width:20px;height:20px; accent-color: var(--lagoon);">
+            </label>
           </div>
         </div>
 
@@ -1243,6 +1273,16 @@ const App = {
             const val = e.target.value;
             this.settings.theme = val;
             DB.saveSetting('theme', val);
+            this.applyTheme();
+          });
+        }
+        
+        const batterySaverToggle = document.getElementById('setting-battery-saver');
+        if (batterySaverToggle) {
+          batterySaverToggle.addEventListener('change', (e) => {
+            const val = e.target.checked;
+            this.settings.batterySaver = val;
+            DB.saveSetting('batterySaver', val);
             this.applyTheme();
           });
         }
