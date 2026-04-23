@@ -1,0 +1,53 @@
+<!-- Save this as icons/generate-icons.html, open in browser, right-click save the canvas images -->
+<!DOCTYPE html>
+<html>
+<head><title>Generate Icons</title></head>
+<body>
+<canvas id="c192" width="192" height="192"></canvas>
+<canvas id="c512" width="512" height="512"></canvas>
+<script>
+function drawIcon(canvas) {
+  const ctx = canvas.getContext('2d');
+  const s = canvas.width;
+
+  // Background
+  const grad = ctx.createLinearGradient(0, 0, s, s);
+  grad.addColorStop(0, '#087E8B');
+  grad.addColorStop(1, '#0B3954');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, s, s, s * 0.2);
+  ctx.fill();
+
+  // Wave
+  ctx.fillStyle = '#0AADBE';
+  ctx.beginPath();
+  ctx.moveTo(0, s * 0.65);
+  for (let x = 0; x <= s; x += 4) {
+    ctx.lineTo(x, s * 0.65 + Math.sin(x * 0.04) * s * 0.04);
+  }
+  ctx.lineTo(s, s);
+  ctx.lineTo(0, s);
+  ctx.fill();
+
+  // Sand
+  ctx.fillStyle = '#F4E8C1';
+  ctx.fillRect(0, s * 0.78, s, s * 0.22);
+
+  // Dumbbell emoji text
+  ctx.font = `bold ${s * 0.35}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🏋️', s * 0.5, s * 0.4);
+
+  // Palm tree emoji
+  ctx.font = `${s * 0.18}px serif`;
+  ctx.fillText('🌴', s * 0.15, s * 0.25);
+  ctx.fillText('🌴', s * 0.85, s * 0.25);
+}
+
+drawIcon(document.getElementById('c192'));
+drawIcon(document.getElementById('c512'));
+</script>
+</body>
+</html>
