@@ -728,13 +728,13 @@ const App = {
     const prefilledMsg = data.prefill || '';
 
     return `
-      <div class="chat-container">
+      <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
         <div class="header">
           <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
           <span class="header-title">Coach Chat</span>
           <button class="header-action" id="btn-chat-menu">${this.Icons.settings}</button>
         </div>
-        <div class="chat-messages" id="chat-messages">
+        <div class="chat-messages" id="chat-messages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;">
           <div class="chat-bubble ai">
             Hey there! I'm your Florida Keys fitness coach. Tap any stat on the home screen to ask me about it, or ask me anything about training, nutrition, or recovery!
           </div>
@@ -745,7 +745,7 @@ const App = {
             </div>
           `).join('') : ''}
         </div>
-        <div class="chat-input-bar">
+        <div class="chat-input-bar" style="flex-shrink:0;">
           <button class="btn btn-small btn-ghost" id="btn-chat-upload" style="padding: 10px;">${this.Icons.plus}</button>
           <input type="text" class="chat-input" placeholder="Ask Coach anything..."
                  id="chat-input" value="${this.escapeHtml(prefilledMsg)}">
