@@ -1,10 +1,13 @@
-const CACHE_NAME = 'tropical-fit-v19';
+const CACHE_NAME = 'tropical-fit-v20';
 const ASSETS = [
   '/workoutlog/',
   '/workoutlog/index.html',
   '/workoutlog/style.css',
   '/workoutlog/app.js',
   '/workoutlog/db.js',
+  '/workoutlog/shader.js',
+  '/workoutlog/palm.js',
+  '/workoutlog/transition.js',
   '/workoutlog/timer.js',
   '/workoutlog/ai.js',
   '/workoutlog/export.js',
