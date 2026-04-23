@@ -51,7 +51,8 @@ const App = {
     defaultWeightUnit: 'lbs',
     geminiApiKey: '',
     customFieldTemplates: [],
-    aiSystemPrompt: ''
+    aiSystemPrompt: '',
+    theme: 'auto'
   },
 
   DEFAULT_PROFILE: {
@@ -87,6 +88,14 @@ const App = {
       const saved = await DB.getSetting(key);
       this.settings[key] = saved !== null ? saved : defaultVal;
     }
+    this.applyTheme();
+  },
+
+  applyTheme() {
+    const theme = this.settings.theme || 'auto';
+    document.body.classList.remove('theme-light', 'theme-dark');
+    if (theme === 'light') document.body.classList.add('theme-light');
+    if (theme === 'dark') document.body.classList.add('theme-dark');
   },
 
   registerSW() {
@@ -736,6 +745,21 @@ const App = {
         <span class="header-title">Settings ⚓️</span>
       </div>
       <div class="fade-in">
+        <!-- Appearance -->
+        <div class="section-header">
+          <span class="section-title">Appearance</span>
+        </div>
+        <div class="card">
+          <div class="input-group">
+            <label class="input-label">Color Scheme</label>
+            <select class="input" id="setting-theme">
+              <option value="auto" ${s.theme === 'auto' ? 'selected' : ''}>🌴 Auto (System Default)</option>
+              <option value="light" ${s.theme === 'light' ? 'selected' : ''}>☀️ Island Light (Florida Keys)</option>
+              <option value="dark" ${s.theme === 'dark' ? 'selected' : ''}>🌑 Deep Ocean (Original)</option>
+            </select>
+          </div>
+        </div>
+
         <!-- Workout Defaults -->
         <div class="section-header">
           <span class="section-title">Workout Defaults</span>
@@ -2036,6 +2060,7 @@ const App = {
 
     this.bindClick('btn-save-settings', async () => {
       this.settings.defaultWeightUnit = document.getElementById('setting-weight-unit')?.value || 'lbs';
+      this.settings.theme = document.getElementById('setting-theme')?.value || 'auto';
       const newKey = document.getElementById('setting-api-key')?.value.trim() || '';
       this.settings.geminiApiKey = newKey;
       
@@ -2044,6 +2069,7 @@ const App = {
         await DB.saveSetting(key, value);
       }
       
+      this.applyTheme();
       this.showToast('Settings Saved to the Keys! ⚓️');
     });
 

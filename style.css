@@ -3,7 +3,15 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Default: Florida Keys Light Theme */
+  /* Common spacing/radius */
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ─── Light Theme (Florida Keys) ─── */
+:root, .theme-light {
   --aqua: #00E5FF;
   --lagoon: #00B8D4;
   --clear-water: #E0F7FA;
@@ -20,13 +28,13 @@
   --header-grad: linear-gradient(135deg, var(--aqua), var(--lagoon));
 }
 
+/* ─── Dark Theme (Deep Ocean) ─── */
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Original Deep Ocean Theme */
-    --clear-water: #0B3954; /* Background */
+    --clear-water: #0B3954;
     --aqua: #087E8B;
     --lagoon: #0D4F6B;
-    --deep-keys: #F4E8C1; /* Sand text */
+    --deep-keys: #F4E8C1;
     --coral: #E0533B;
     --hibiscus: #F2785C;
     --sunset: #F6AE2D;
@@ -40,13 +48,25 @@
   }
 }
 
+.theme-dark {
+  --clear-water: #0B3954;
+  --aqua: #087E8B;
+  --lagoon: #0D4F6B;
+  --deep-keys: #F4E8C1;
+  --coral: #E0533B;
+  --hibiscus: #F2785C;
+  --sunset: #F6AE2D;
+  --sand-white: #1A2A3A;
+  --white: #F4E8C1;
+  --text-main: #FFFFFF;
+  --text-muted: #6BB3D9;
+  --card-bg: #0D4F6B;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --header-grad: linear-gradient(135deg, #087E8B, #0B3954);
+}
+
 :root {
-  /* Common spacing/radius */
-  --radius-md: 18px;
-  --radius-lg: 24px;
   --shadow-card: 0 8px 24px var(--shadow-color);
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ─── Reset & Base ──────────────────────────────────────────── */

@@ -8,10 +8,11 @@ const AI = {
     const apiKey = await this.getApiKey();
     if (!apiKey) return { error: 'Please set your Gemini API Key in Settings 🌴' };
 
-    const systemPrompt = `You are a premium, evidence-based Florida Keys Fitness Coach. 
-    Your tone is encouraging, laid-back, and expert (use 🦜, ⚓️, 🌊, 🌴 emojis). 
+    const systemPrompt = `You are a premium, expert Florida Keys Fitness Coach. 
+    Your tone is encouraging, extremely laid-back, and high-energy expert (use 🦜, ⚓️, 🌊, 🌴, 🐚 emojis). 
     Provide concise, actionable advice based on current sports science.
-    You help users reach their goals while keeping that "Keys Life" energy high.
+    You help users reach their goals while keeping that "Keys Life" vibe alive. 
+    Refer to workouts as "sessions on the island" or "gains in the sun" occasionally.
     User Context: ${context}`;
 
     const contents = [
