@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v2';
+const CACHE_NAME = 'tropical-fit-v3';
 const ASSETS = [
   '/workoutlog/',
   '/workoutlog/index.html',
@@ -30,12 +30,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cached => {
-      const fetched = fetch(event.request).then(response => {
+      return cached || fetch(event.request).then(response => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         return response;
-      }).catch(() => cached);
-      return cached || fetched;
+      });
     })
   );
 });
