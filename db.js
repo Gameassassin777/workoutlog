@@ -146,7 +146,9 @@ const DB = {
   async getSetting(key) {
     // Try localStorage first for instant speed/reliability
     const local = localStorage.getItem(`tf_setting_${key}`);
-    if (local !== null && local !== 'null') return local;
+    if (local !== null && local !== 'null') {
+      try { return JSON.parse(local); } catch (e) { return local; }
+    }
 
     const result = await this.get(STORES.settings, key);
     return result ? result.value : null;
@@ -157,7 +159,7 @@ const DB = {
     if (value === null || value === undefined) {
       localStorage.removeItem(`tf_setting_${key}`);
     } else {
-      localStorage.setItem(`tf_setting_${key}`, value);
+      localStorage.setItem(`tf_setting_${key}`, JSON.stringify(value));
     }
     return this.put(STORES.settings, { key, value });
   },

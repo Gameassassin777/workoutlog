@@ -96,7 +96,13 @@ const App = {
     this.settings = {};
     for (const [key, defaultVal] of Object.entries(this.DEFAULT_SETTINGS)) {
       const saved = await DB.getSetting(key);
-      this.settings[key] = saved !== null ? saved : defaultVal;
+      let val = saved !== null ? saved : defaultVal;
+      // Ensure array fields are always arrays
+      if (Array.isArray(defaultVal) && !Array.isArray(val)) {
+        try { val = JSON.parse(val); } catch(e) { val = defaultVal; }
+        if (!Array.isArray(val)) val = defaultVal;
+      }
+      this.settings[key] = val;
     }
     this.applyTheme();
   },
