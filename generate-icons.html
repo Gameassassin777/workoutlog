@@ -10,40 +10,55 @@ function drawIcon(canvas) {
   const ctx = canvas.getContext('2d');
   const s = canvas.width;
 
-  // Background
+  // 1. Background Gradient (Deep Ocean)
   const grad = ctx.createLinearGradient(0, 0, s, s);
-  grad.addColorStop(0, '#087E8B');
-  grad.addColorStop(1, '#0B3954');
+  grad.addColorStop(0, '#087E8B'); // Teal
+  grad.addColorStop(1, '#0B3954'); // Deep Ocean
   ctx.fillStyle = grad;
+  
+  // Robust Rounded Rect
+  const r = s * 0.22;
   ctx.beginPath();
-  ctx.roundRect(0, 0, s, s, s * 0.2);
+  ctx.moveTo(r, 0);
+  ctx.lineTo(s - r, 0);
+  ctx.quadraticCurveTo(s, 0, s, r);
+  ctx.lineTo(s, s - r);
+  ctx.quadraticCurveTo(s, s, s - r, s);
+  ctx.lineTo(r, s);
+  ctx.quadraticCurveTo(0, s, 0, s - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
   ctx.fill();
 
-  // Wave
-  ctx.fillStyle = '#0AADBE';
+  // 2. Tropical Wave (Bottom)
+  ctx.fillStyle = 'rgba(26, 160, 152, 0.5)';
   ctx.beginPath();
-  ctx.moveTo(0, s * 0.65);
-  for (let x = 0; x <= s; x += 4) {
-    ctx.lineTo(x, s * 0.65 + Math.sin(x * 0.04) * s * 0.04);
+  ctx.moveTo(0, s * 0.7);
+  for (let x = 0; x <= s; x += 10) {
+    ctx.lineTo(x, s * 0.75 + Math.sin(x * 0.05) * (s * 0.03));
   }
   ctx.lineTo(s, s);
   ctx.lineTo(0, s);
   ctx.fill();
 
-  // Sand
-  ctx.fillStyle = '#F4E8C1';
-  ctx.fillRect(0, s * 0.78, s, s * 0.22);
+  // 3. The Main Icon (Centered)
+  // Shadow for depth
+  ctx.shadowColor = 'rgba(0,0,0,0.3)';
+  ctx.shadowBlur = s * 0.05;
+  ctx.shadowOffsetY = s * 0.02;
 
-  // Dumbbell emoji text
-  ctx.font = `bold ${s * 0.35}px serif`;
+  ctx.font = `bold ${s * 0.45}px serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('🏋️', s * 0.5, s * 0.4);
+  ctx.fillText('🏋️', s * 0.5, s * 0.45);
+  
+  // Clean up shadow
+  ctx.shadowColor = 'transparent';
 
-  // Palm tree emoji
-  ctx.font = `${s * 0.18}px serif`;
-  ctx.fillText('🌴', s * 0.15, s * 0.25);
-  ctx.fillText('🌴', s * 0.85, s * 0.25);
+  // 4. Accent Palm
+  ctx.font = `${s * 0.15}px serif`;
+  ctx.fillText('🌴', s * 0.2, s * 0.2);
 }
 
 drawIcon(document.getElementById('c192'));

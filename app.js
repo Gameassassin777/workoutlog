@@ -849,7 +849,9 @@ const App = {
           </div>
         ` : sorted.map(ex => `
           <div class="exercise-item" data-exercise-id="${ex.id}">
-            <div class="exercise-item-icon">🏋️</div>
+            <div class="exercise-item-icon" id="icon-${ex.id}">
+              ${ex.icon ? `<img src="${ex.icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : '🏋️'}
+            </div>
             <div class="exercise-item-info">
               <div class="exercise-item-name">${ex.name}</div>
               <div class="exercise-item-meta">
@@ -1165,6 +1167,7 @@ const App = {
         document.querySelectorAll('[data-exercise-id]').forEach(el => {
           el.addEventListener('click', () => this.showEditExerciseModal(el.dataset.exerciseId));
         });
+        this.triggerMissingIconGeneration();
         break;
 
       case 'workoutDetail':
@@ -2573,6 +2576,26 @@ const App = {
     if (hour < 17) return '☀️ Good afternoon';
     if (hour < 21) return '🌇 Good evening';
     return '🌙 Night owl mode';
+  },
+
+  async triggerMissingIconGeneration() {
+    if (!this.settings.geminiApiKey) return;
+    
+    for (const ex of this.exercises) {
+      if (!ex.icon) {
+        // Slow down requests to respect free tier limits (2 per minute)
+        setTimeout(async () => {
+          const icon = await AI.generateExerciseIcon(ex.name, ex.muscleGroups);
+          if (icon) {
+            ex.icon = icon;
+            await DB.saveExercise(ex);
+            const iconEl = document.getElementById(`icon-${ex.id}`);
+            if (iconEl) iconEl.innerHTML = `<img src="${icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" class="fade-in">`;
+          }
+        }, 1000); // Small initial delay, real throttling would be more complex
+        break; // Only do one per library visit for now to stay safe
+      }
+    }
   }
 };
 
