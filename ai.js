@@ -24,19 +24,27 @@ const AI = {
     ];
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       if (data.error) throw new Error(data.error.message);
       
-      return { text: data.candidates[0].content.parts[0].text };
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error('Invalid response format from Gemini');
+      
+      return { text };
     } catch (err) {
       console.error('AI Chat failed:', err);
-      return { error: 'Failed to reach Gemini. Check your connection or API key.' };
+      return { error: `Failed to reach Gemini: ${err.message}` };
     }
   },
 
@@ -48,16 +56,24 @@ const AI = {
     Workout: ${JSON.stringify(workout)}`;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
-      return { text: data.candidates[0].content.parts[0].text };
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error('Invalid response format');
+      
+      return { text };
     } catch (err) {
-      return { error: 'Analysis failed' };
+      console.error('AI Analysis failed:', err);
+      return { error: 'Analysis failed: ' + err.message };
     }
   },
 
@@ -73,16 +89,24 @@ const AI = {
     ${content}`;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
-      return { text: data.candidates[0].content.parts[0].text };
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error('Invalid response format');
+      
+      return { text };
     } catch (err) {
-      return { error: 'Parsing failed' };
+      console.error('AI Parsing failed:', err);
+      return { error: 'Parsing failed: ' + err.message };
     }
   },
 
@@ -113,7 +137,10 @@ const AI = {
         }
       );
 
-      if (!response.ok) return null;
+      if (!response.ok) {
+        console.warn(`SVG API error: ${response.status}`);
+        return null;
+      }
 
       const data = await response.json();
       let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -126,6 +153,11 @@ const AI = {
       
       if (svgStart !== -1 && svgEnd !== -1) {
         const svgCode = text.substring(svgStart, svgEnd + 6);
+        
+        // Strict basic validation to prevent broken tags or script injection
+        if (!svgCode.includes('xmlns') && !svgCode.includes('viewBox')) return null;
+        if (svgCode.includes('<script')) return null;
+        
         const encodedSvg = encodeURIComponent(svgCode);
         return `data:image/svg+xml;utf8,${encodedSvg}`;
       }

@@ -753,7 +753,6 @@ const App = {
           `).join('') : ''}
         </div>
         <div class="chat-input-bar" style="flex-shrink:0; padding-bottom:calc(12px + var(--safe-bottom));">
-          <button class="btn btn-small btn-ghost" id="btn-chat-upload" style="padding: 10px;">${this.Icons.plus}</button>
           <input type="text" class="chat-input" placeholder="Ask Coach anything..."
                  id="chat-input" value="${this.escapeHtml(prefilledMsg)}">
           <button class="chat-send" id="btn-chat-send">${this.Icons.check}</button>
@@ -881,7 +880,9 @@ const App = {
           <button class="btn btn-ghost w-full mb-8" id="btn-export-csv">Export Workouts (CSV)</button>
           <button class="btn btn-ghost w-full mb-8" id="btn-import-data">Import Data</button>
           <input type="file" id="import-file-input" accept=".json" class="hidden">
-          <button class="btn btn-ghost w-full mb-8" id="btn-upload-workout-file">Upload Workout Log (AI Parse)</button>
+          <button class="btn btn-ghost w-full mb-8" id="btn-upload-workout-file" style="display:flex; justify-content:center; align-items:center; gap:8px;">
+            ${this.Icons.plus} Import images or other files for workout logs
+          </button>
           <input type="file" id="workout-file-input" accept=".txt,.csv,.json,image/*" class="hidden">
           <div class="divider"></div>
           <button class="btn btn-danger btn-small w-full mt-8" id="btn-clear-all-data">Clear All Data</button>
@@ -1211,7 +1212,6 @@ const App = {
 
       case 'chat':
         this.bindClick('btn-chat-send', () => this.sendChatMessage());
-        this.bindClick('btn-chat-upload', () => this.showScreen('fileUpload'));
         this.bindClick('btn-chat-menu', () => this.showChatMenu());
         const chatInput = document.getElementById('chat-input');
         if (chatInput) {
