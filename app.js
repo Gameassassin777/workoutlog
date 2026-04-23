@@ -15,7 +15,7 @@ const App = {
     history: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>`,
     coach: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h6"/></svg>`,
     settings: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
-    add: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    plus: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
     dumbbell: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1.5-1.5"/><path d="m3 3 1.5 1.5"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>`,
     stats: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
     profile: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
@@ -25,7 +25,12 @@ const App = {
     palm: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8c0 2.21 1.79 4 4 4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5 0 2.47-1.96 4.54-4.5 4.93"/><path d="M5.89 12c-.41 1.33-.76 2.87-.72 4.4a16.63 16.63 0 0 0 1.63 7.6"/><path d="M17.15 15.82c-.52 1.33-1.07 2.76-1.55 4.18"/><path d="M12 11c0 2.76-1.34 5-3 5s-3-2.24-3-5"/></svg>`,
     sun: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
     moon: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
-    anchor: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><path d="M9 20 5 12"/><path d="m15 20 4-8"/></svg>`
+    anchor: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><path d="M9 20 5 12"/><path d="m15 20 4-8"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
+    notes: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+    sparkle: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364-.707.707M6.343 17.657l-.707.707m0-12.728.707.707m11.314 11.314.707.707"/></svg>`,
+    up: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`,
+    down: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`
   },
 
   // ─── Level System ──────────────────────────────────────────
@@ -449,14 +454,14 @@ const App = {
       <!-- Add Exercise Button -->
       <div class="p-16">
         <button class="btn btn-primary btn-large" id="btn-add-exercise">
-          ＋ Add Exercise
+          ${this.Icons.plus} Add Exercise
         </button>
       </div>
 
       <!-- Workout Notes -->
       <div class="p-16" style="padding-top: 0;">
         <button class="btn btn-ghost btn-large" id="btn-workout-notes">
-          📝 Workout Notes
+          ${this.Icons.notes} Workout Notes
         </button>
       </div>
 
@@ -470,7 +475,9 @@ const App = {
       <div class="card slide-up" style="animation-delay: ${exIdx * 0.05}s">
         <div class="flex flex-between" style="align-items: center; margin-bottom: 12px;">
           <div class="text-bold text-white" style="font-size: 1.05rem;">${ex.name}</div>
-          <button class="btn btn-small btn-ghost" data-exercise-menu="${exIdx}">⋯</button>
+          <button class="btn btn-small btn-ghost" data-exercise-menu="${exIdx}" style="padding: 4px;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </button>
         </div>
 
         <!-- Set Headers -->
@@ -481,7 +488,7 @@ const App = {
             <span class="flex-1 text-center text-xs text-sea">${this.settings.defaultWeightUnit.toUpperCase()}</span>
             <span class="flex-1 text-center text-xs text-sea">REPS</span>
           </div>
-          <div style="width:44px; text-align:center;" class="text-xs text-sea">✓</div>
+          <div style="width:44px; text-align:center;" class="text-xs text-sea">${this.Icons.check}</div>
         </div>
 
         <!-- Sets -->
@@ -489,7 +496,7 @@ const App = {
 
         <!-- Add Set -->
         <button class="btn btn-ghost btn-small w-full mt-8" data-add-set="${exIdx}">
-          ＋ Add Set
+          ${this.Icons.plus} Add Set
         </button>
       </div>
     `;
@@ -518,7 +525,7 @@ const App = {
         </div>
         <button class="set-check ${isCompleted ? 'done' : (set.weight && set.reps ? 'ready' : '')}"
                 data-complete-set data-ex="${exIdx}" data-set="${setIdx}">
-          ${isCompleted ? '✓' : ''}
+          ${isCompleted ? this.Icons.check : ''}
         </button>
       </div>
     `;
@@ -578,7 +585,7 @@ const App = {
 
     return `
       <div class="fade-in text-center" style="padding-top: 40px;">
-        <div style="font-size: 4rem;" class="celebration-emoji">🎉</div>
+        <div style="font-size: 4rem;">${this.Icons.anchor}</div>
         <div class="text-xl text-extra-bold text-sunset mt-8">Workout Complete!</div>
         <div class="text-sm text-sea mt-4">Great job riding those waves!</div>
 
@@ -608,7 +615,7 @@ const App = {
         <!-- Exercises Summary -->
         ${w.exercises.map(ex => `
           <div class="card" style="text-align: left;">
-            <div class="text-bold text-white">💪 ${ex.name}</div>
+            <div class="text-bold text-white">${ex.name}</div>
             ${ex.sets.map((s, i) => `
               <div class="text-xs text-sea mt-4">
                 Set ${i + 1}: ${s.weight} ${s.weightUnit || this.settings.defaultWeightUnit} × ${s.reps}${s.rpe ? ' @ RPE ' + s.rpe : ''}
@@ -620,10 +627,10 @@ const App = {
         <!-- Post-Workout Actions -->
         <div class="p-16">
           <button class="btn btn-primary btn-large mb-8" id="btn-ai-analyze">
-            🤖 AI Analysis
+            Coach Analysis
           </button>
           <button class="btn btn-ghost btn-large mb-8" id="btn-add-post-notes">
-            📝 Add Notes
+            ${this.Icons.notes} Add Notes
           </button>
           <button class="btn btn-accent btn-large" id="btn-back-home-complete">
             Home
@@ -876,7 +883,7 @@ const App = {
       <div class="header">
         <button class="header-back" id="btn-back-settings">←</button>
         <span class="header-title">Exercise Library</span>
-        <button class="header-action" id="btn-add-exercise-lib">＋</button>
+        <button class="header-action" id="btn-add-exercise-lib">${this.Icons.plus}</button>
       </div>
       <div class="search-bar">
         <span class="search-bar-icon" style="padding-left:12px;">${this.Icons.stats}</span>
@@ -885,7 +892,7 @@ const App = {
       <div id="exercise-list">
         ${sorted.length === 0 ? `
           <div class="empty-state">
-            <div class="empty-state-icon">💪</div>
+            <div class="empty-state-icon">${this.Icons.dumbbell}</div>
             <div class="empty-state-title">No Exercises Yet</div>
             <div class="empty-state-text">Exercises are added automatically when you work out, or add them manually.</div>
           </div>
@@ -923,7 +930,7 @@ const App = {
       <div class="header">
         <button class="header-back" id="btn-back-history">←</button>
         <span class="header-title">${w.title || dateStr}</span>
-        <button class="header-action" id="btn-delete-workout" data-id="${w.id}">🗑</button>
+        <button class="header-action" id="btn-delete-workout" data-id="${w.id}">${this.Icons.trash}</button>
       </div>
       <div class="fade-in">
         <div class="p-16">
@@ -947,7 +954,7 @@ const App = {
 
         ${w.exercises.map(ex => `
           <div class="card card-tappable" data-tap-exercise="${ex.name}">
-            <div class="text-bold text-white mb-8">💪 ${ex.name}</div>
+            <div class="text-bold text-white mb-8">${ex.name}</div>
             ${ex.notes ? `<div class="text-xs text-sea mb-8">${this.escapeHtml(ex.notes)}</div>` : ''}
             ${ex.sets.map((s, i) => `
               <div class="flex gap-8 mb-4" style="align-items: center;">
@@ -962,14 +969,14 @@ const App = {
 
         ${w.aiAnalysis ? `
           <div class="card card-highlight">
-            <div class="card-title">🤖 AI Analysis</div>
+            <div class="card-title">Coach Analysis</div>
             <div class="text-sm text-sand" style="white-space: pre-wrap;">${this.escapeHtml(w.aiAnalysis)}</div>
           </div>
         ` : ''}
 
         <div class="p-16">
           <button class="btn btn-primary btn-large mb-8" id="btn-analyze-detail" data-id="${w.id}">
-            🤖 ${w.aiAnalysis ? 'Re-Analyze' : 'AI Analysis'}
+            ${w.aiAnalysis ? 'Re-Analyze' : 'Coach Analysis'}
           </button>
           <button class="btn btn-ghost btn-large" id="btn-back-history-2">← Back</button>
         </div>
@@ -1297,7 +1304,7 @@ const App = {
           </div>
           <div id="exercise-picker-list" style="max-height: 50vh; overflow-y: auto;">
             <div class="exercise-item" id="btn-add-new-exercise">
-              <div class="exercise-item-icon" style="background: linear-gradient(135deg, var(--sunset), var(--sunrise));">＋</div>
+              <div class="exercise-item-icon" style="background: linear-gradient(135deg, var(--sunset), var(--sunrise));">${this.Icons.plus}</div>
               <div class="exercise-item-info">
                 <div class="exercise-item-name">Add New Exercise</div>
               </div>
@@ -1529,10 +1536,10 @@ const App = {
         <div class="modal-sheet">
           <div class="modal-handle"></div>
           <div class="text-bold text-white text-lg mb-16">${ex.name}</div>
-          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-notes">📝 Add Notes</button>
-          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-reorder-up">⬆ Move Up</button>
-          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-reorder-down">⬇ Move Down</button>
-          <button class="btn btn-danger btn-large" id="btn-ex-remove">🗑 Remove Exercise</button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-notes">${this.Icons.notes} Add Notes</button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-reorder-up">${this.Icons.up} Move Up</button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-reorder-down">${this.Icons.down} Move Down</button>
+          <button class="btn btn-danger btn-large" id="btn-ex-remove">${this.Icons.trash} Remove Exercise</button>
         </div>
       </div>
     `;
@@ -1627,7 +1634,7 @@ const App = {
       // Rest between sets
       this.showScreen('restTimer', {
         seconds: this.settings.defaultRestBetweenSets,
-        label: `Rest — ${exName} Set ${setIdx + 2} next 💪`,
+        label: `Rest — ${exName} Set ${setIdx + 2} next`,
         onComplete: () => this.showScreen('activeWorkout')
       });
     } else {
@@ -1850,8 +1857,8 @@ const App = {
       <div class="modal-overlay" id="chat-menu-overlay">
         <div class="modal-sheet">
           <div class="modal-handle"></div>
-          <button class="btn btn-ghost btn-large mb-8" id="btn-new-chat">🆕 New Chat</button>
-          <button class="btn btn-ghost btn-large mb-8" id="btn-export-chats">📦 Export Chats</button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-new-chat">${this.Icons.sparkle} New Chat</button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-export-chats">Export Chats</button>
         </div>
       </div>
     `;
@@ -1961,7 +1968,7 @@ const App = {
           <div class="card mb-8">
             <div class="text-bold text-white">${w.date || 'Unknown date'} ${w.title || ''}</div>
             ${(w.exercises || []).map(ex => `
-              <div class="text-sm text-sea mt-4">💪 ${ex.name}: ${(ex.sets || []).map(s => `${s.weight}×${s.reps}`).join(', ')}</div>
+              <div class="text-sm text-sea mt-4">${ex.name}: ${(ex.sets || []).map(s => `${s.weight}×${s.reps}`).join(', ')}</div>
             `).join('')}
           </div>
         `;
@@ -1975,7 +1982,7 @@ const App = {
       });
     }
 
-    html += `<button class="btn btn-accent btn-large mt-16" id="btn-confirm-import">✅ Import These Workouts</button>`;
+    html += `<button class="btn btn-accent btn-large mt-16" id="btn-confirm-import">Import These Workouts</button>`;
 
     resultEl.innerHTML = html;
 
