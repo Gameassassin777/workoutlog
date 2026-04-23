@@ -803,7 +803,7 @@ const App = {
 
         <!-- AI Setup -->
         <div class="section-header">
-          <span class="section-title">🤖 AI Setup</span>
+          <span class="section-title">AI Setup</span>
         </div>
         <div class="card">
           <div class="input-group">
@@ -826,7 +826,7 @@ const App = {
         <!-- Custom Fields -->
         <div class="section-header">
           <span class="section-title">Custom Fields</span>
-          <button class="section-action" id="btn-add-custom-field">＋ Add</button>
+          <button class="section-action" id="btn-add-custom-field">Add Field</button>
         </div>
         <div class="card">
           ${s.customFieldTemplates && s.customFieldTemplates.length > 0 ? `
