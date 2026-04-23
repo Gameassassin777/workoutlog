@@ -3,48 +3,50 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Ocean & Sky */
-  --deep-ocean: #0B3954;
-  --ocean: #0D4F6B;
-  --teal: #087E8B;
-  --sea-foam: #1BA098;
-  --sky-blue: #6BB3D9;
-  --lagoon: #0AADBE;
-
-  /* Tropical Greens */
-  --palm-green: #3B6B35;
-  --palm-light: #5FAD56;
-  --jungle: #2D8B4E;
-
-  /* Warm Tones */
-  --sand: #F4E8C1;
-  --sand-light: #FBF5E3;
-  --coral: #E0533B;
-  --coral-light: #F2785C;
-  --sunset: #F6AE2D;
-  --sunset-light: #F9C74F;
-  --sunrise: #FF7B54;
-
-  /* Neutrals */
+  /* Default: Florida Keys Light Theme */
+  --aqua: #00E5FF;
+  --lagoon: #00B8D4;
+  --clear-water: #E0F7FA;
+  --deep-keys: #006064;
+  --coral: #FF7043;
+  --hibiscus: #FF4081;
+  --sunset: #FFD54F;
+  --sand-white: #F9FBE7;
   --white: #FFFFFF;
-  --text-dark: #1A2A3A;
-  --text-light: #F4E8C1;
-  --overlay: rgba(11, 57, 84, 0.85);
+  --text-main: #263238;
+  --text-muted: #546E7A;
+  --card-bg: #FFFFFF;
+  --shadow-color: rgba(0, 184, 212, 0.12);
+  --header-grad: linear-gradient(135deg, var(--aqua), var(--lagoon));
+}
 
-  /* Spacing */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Original Deep Ocean Theme */
+    --clear-water: #0B3954; /* Background */
+    --aqua: #087E8B;
+    --lagoon: #0D4F6B;
+    --deep-keys: #F4E8C1; /* Sand text */
+    --coral: #E0533B;
+    --hibiscus: #F2785C;
+    --sunset: #F6AE2D;
+    --sand-white: #1A2A3A;
+    --white: #F4E8C1;
+    --text-main: #FFFFFF;
+    --text-muted: #6BB3D9;
+    --card-bg: #0D4F6B;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --header-grad: linear-gradient(135deg, #087E8B, #0B3954);
+  }
+}
+
+:root {
+  /* Common spacing/radius */
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --shadow-card: 0 8px 24px var(--shadow-color);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-
-  /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
-
-  /* Shadows */
-  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.2);
-  --shadow-btn: 0 4px 12px rgba(0, 0, 0, 0.25);
-  --shadow-glow: 0 0 20px rgba(246, 174, 45, 0.3);
 }
 
 /* ─── Reset & Base ──────────────────────────────────────────── */
@@ -62,9 +64,9 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  background: var(--deep-ocean);
-  color: var(--text-light);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--clear-water);
+  color: var(--text-main);
   height: 100%;
   overflow: hidden;
   user-select: none;
@@ -95,7 +97,7 @@ body {
 
 /* ─── Header Bar ────────────────────────────────────────────── */
 .header {
-  background: linear-gradient(135deg, var(--teal), var(--ocean));
+  background: var(--header-grad);
   padding: 16px 20px;
   display: flex;
   align-items: center;
@@ -103,12 +105,13 @@ body {
   flex-shrink: 0;
   position: relative;
   z-index: 10;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
 .header-back {
   background: none;
   border: none;
-  color: var(--sand);
+  color: var(--deep-keys);
   font-size: 1.5rem;
   cursor: pointer;
   padding: 4px;
@@ -122,40 +125,42 @@ body {
 }
 
 .header-back:active {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .header-title {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--white);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--deep-keys);
   flex: 1;
+  letter-spacing: -0.5px;
 }
 
 .header-action {
-  background: none;
+  background: rgba(255, 255, 255, 0.25);
   border: none;
-  color: var(--sunset);
-  font-size: 1.1rem;
-  font-weight: 600;
+  color: var(--deep-keys);
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: var(--radius-sm);
   transition: background 0.2s;
 }
 
 .header-action:active {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 /* ─── Bottom Navigation ─────────────────────────────────────── */
 .bottom-nav {
   display: flex;
-  background: linear-gradient(to top, var(--deep-ocean), var(--ocean));
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--white);
+  border-top: 1px solid rgba(0, 184, 212, 0.1);
   padding: 8px 0;
   padding-bottom: calc(8px + var(--safe-bottom));
   flex-shrink: 0;
+  box-shadow: 0 -4px 20px rgba(0, 184, 212, 0.08);
 }
 
 .nav-item {
@@ -167,16 +172,16 @@ body {
   padding: 6px 0;
   background: none;
   border: none;
-  color: rgba(244, 232, 193, 0.5);
-  font-size: 0.65rem;
-  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
   cursor: pointer;
   transition: color 0.2s, transform 0.15s;
   position: relative;
 }
 
 .nav-item.active {
-  color: var(--sunset);
+  color: var(--coral);
 }
 
 .nav-item.active::before {
@@ -185,9 +190,9 @@ body {
   top: -8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 3px;
-  background: var(--sunset);
+  width: 24px;
+  height: 4px;
+  background: var(--coral);
   border-radius: 2px;
 }
 
@@ -202,12 +207,12 @@ body {
 
 /* ─── Cards ─────────────────────────────────────────────────── */
 .card {
-  background: linear-gradient(145deg, var(--ocean), rgba(13, 79, 107, 0.8));
+  background: var(--card-bg);
   border-radius: var(--radius-md);
-  padding: 16px;
-  margin: 8px 16px;
+  padding: 18px;
+  margin: 12px 16px;
   box-shadow: var(--shadow-card);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(0, 229, 255, 0.08);
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
@@ -217,6 +222,8 @@ body {
 
 .card-tappable {
   cursor: pointer;
+  position: relative;
+  padding-right: 36px;
 }
 
 .card-tappable::after {
@@ -225,39 +232,36 @@ body {
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgba(244, 232, 193, 0.3);
-  font-size: 1.2rem;
-}
-
-.card-tappable {
-  position: relative;
-  padding-right: 36px;
+  color: var(--lagoon);
+  font-size: 1.5rem;
+  font-weight: 300;
 }
 
 .card-highlight {
-  background: linear-gradient(145deg, rgba(246, 174, 45, 0.15), rgba(8, 126, 139, 0.3));
-  border: 1px solid rgba(246, 174, 45, 0.2);
+  background: linear-gradient(145deg, var(--clear-water), var(--white));
+  border: 1px solid var(--aqua);
 }
 
 .card-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--sand);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--lagoon);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   margin-bottom: 8px;
 }
 
 .card-value {
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--white);
-  line-height: 1.1;
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--text-main);
+  line-height: 1;
+  letter-spacing: -1px;
 }
 
 .card-subtitle {
-  font-size: 0.8rem;
-  color: var(--sea-foam);
+  font-size: 0.85rem;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
@@ -266,12 +270,12 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 14px 28px;
+  gap: 10px;
+  padding: 16px 24px;
   border: none;
   border-radius: var(--radius-lg);
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   transition: transform 0.12s, box-shadow 0.12s, background 0.2s;
   box-shadow: var(--shadow-btn);
@@ -280,27 +284,29 @@ body {
 }
 
 .btn:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--teal), var(--sea-foam));
-  color: var(--white);
+  background: linear-gradient(135deg, var(--aqua), var(--lagoon));
+  color: var(--deep-keys);
 }
 
 .btn-accent {
-  background: linear-gradient(135deg, var(--sunset), var(--sunrise));
-  color: var(--text-dark);
+  background: linear-gradient(135deg, var(--coral), var(--hibiscus));
+  color: var(--white);
 }
 
-.btn-success {
-  background: linear-gradient(135deg, var(--palm-green), var(--palm-light));
-  color: var(--white);
+.btn-ghost {
+  background: var(--sand-light);
+  color: var(--text-main);
+  box-shadow: none;
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, var(--coral), var(--coral-light));
-  color: var(--white);
+  background: rgba(255, 64, 129, 0.1);
+  color: var(--hibiscus);
+  box-shadow: none;
 }
 
 .btn-ghost {

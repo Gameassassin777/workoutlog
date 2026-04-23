@@ -9,6 +9,21 @@ const App = {
   exercises: [],
   workouts: [],
 
+  /* ─── ICONS (Florida Keys Style) ────────────────────────── */
+  Icons: {
+    home: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    history: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>`,
+    coach: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h6"/></svg>`,
+    settings: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+    add: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    dumbbell: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1.5-1.5"/><path d="m3 3 1.5 1.5"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>`,
+    stats: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+    profile: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    back: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
+    check: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    chevronRight: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+  },
+
   // ─── Level System ──────────────────────────────────────────
   LEVELS: [
     { title: '🏖️ Beach Bum', xp: 0 },
@@ -129,7 +144,7 @@ const App = {
       restTimer: () => this.renderRestTimer(data),
       workoutComplete: () => this.renderWorkoutComplete(),
       stats: () => this.renderStats(),
-      chat: () => this.renderChat(data),
+      chat: () => this.renderCoachChat(data),
       settings: () => this.renderSettings(),
       exerciseLibrary: () => this.renderExerciseLibrary(),
       workoutDetail: () => this.renderWorkoutDetail(data),
@@ -158,11 +173,15 @@ const App = {
     const todayGreeting = this.getGreeting();
 
     return `
+      <div class="header">
+        <span class="header-title">TropicalFit 🦜</span>
+        <button class="header-back" id="btn-profile" style="margin-left:auto;">${this.Icons.profile}</button>
+        <button class="header-back" id="btn-settings">${this.Icons.settings}</button>
+      </div>
       <div class="fade-in">
-        <!-- Greeting -->
         <div class="p-16" style="padding-bottom: 8px;">
-          <div class="text-sm text-sea">${todayGreeting}</div>
-          <div class="text-xl text-extra-bold text-white mt-4">TropicalFit 🌴</div>
+          <div class="text-sm text-muted">${todayGreeting}</div>
+          <div class="text-xl text-extra-bold text-main mt-4">Keys Life, Gains Life! 🌴</div>
         </div>
 
         <!-- Streak + Level Row -->
@@ -615,7 +634,8 @@ const App = {
 
     return `
       <div class="header">
-        <span class="header-title">📊 Stats Dashboard</span>
+        <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
+        <span class="header-title">Island Stats 📊</span>
       </div>
       <div class="fade-in">
         <!-- Volume Over Time -->
@@ -679,29 +699,28 @@ const App = {
   },
 
   // ─── CHAT SCREEN ──────────────────────────────────────────
-  renderChat(data) {
+  renderCoachChat(data) {
     const prefilledMsg = data.prefill || '';
-    const context = data.context || '';
 
     return `
       <div class="chat-container">
         <div class="header">
-          <span class="header-title">💬 AI Coach</span>
-          <button class="header-action" id="btn-chat-menu">⋯</button>
+          <span class="header-title">Coach Chat 🦜</span>
+          <button class="header-back" id="btn-chat-menu" style="margin-left:auto;">${this.Icons.settings}</button>
         </div>
         <div class="chat-messages" id="chat-messages">
           <div class="chat-bubble ai">
-            Hey there! 🌴 I'm your evidence-based fitness coach. Tap any stat on the home screen to ask me about it, or ask me anything about training, nutrition, or recovery!
+            Hey there! ⚓️ I'm your Florida Keys fitness coach. Tap any stat on the home screen to ask me about it, or ask me anything about training, nutrition, or recovery!
           </div>
           ${this._currentChatMessages ? this._currentChatMessages.map(m => `
             <div class="chat-bubble ${m.role}">${this.escapeHtml(m.content)}</div>
           `).join('') : ''}
         </div>
         <div class="chat-input-bar">
-          <button class="btn btn-small btn-ghost" id="btn-chat-upload" style="padding: 10px;">📎</button>
-          <input type="text" class="chat-input" placeholder="Ask me anything..."
+          <button class="btn btn-small btn-ghost" id="btn-chat-upload" style="padding: 10px;">${this.Icons.add}</button>
+          <input type="text" class="chat-input" placeholder="Ask Coach anything..."
                  id="chat-input" value="${this.escapeHtml(prefilledMsg)}">
-          <button class="chat-send" id="btn-chat-send">↑</button>
+          <button class="chat-send" id="btn-chat-send">${this.Icons.check}</button>
         </div>
       </div>
     `;
@@ -713,8 +732,8 @@ const App = {
 
     return `
       <div class="header">
-        <button class="header-back" id="btn-back-home">←</button>
-        <span class="header-title">⚙️ Settings</span>
+        <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
+        <span class="header-title">Settings ⚓️</span>
       </div>
       <div class="fade-in">
         <!-- Workout Defaults -->
@@ -2017,11 +2036,15 @@ const App = {
 
     this.bindClick('btn-save-settings', async () => {
       this.settings.defaultWeightUnit = document.getElementById('setting-weight-unit')?.value || 'lbs';
-      this.settings.geminiApiKey = document.getElementById('setting-api-key')?.value.trim() || '';
+      const newKey = document.getElementById('setting-api-key')?.value.trim() || '';
+      this.settings.geminiApiKey = newKey;
+      
+      // Force immediate save to DB for each key
       for (const [key, value] of Object.entries(this.settings)) {
         await DB.saveSetting(key, value);
       }
-      this.showToast('Settings saved! 🌴');
+      
+      this.showToast('Settings Saved to the Keys! ⚓️');
     });
 
     this.bindClick('btn-manage-exercises', () => this.showScreen('exerciseLibrary'));
