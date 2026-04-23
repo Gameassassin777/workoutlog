@@ -8,26 +8,22 @@ const AI = {
     const apiKey = await this.getApiKey();
     if (!apiKey) return { error: 'Please set your Gemini API Key in Settings' };
 
-    const systemPrompt = `You are a premium, expert Florida Keys Fitness Coach. 
-    Your tone is encouraging, extremely laid-back, and high-energy expert. 
-    Provide concise, actionable advice based on current sports science.
-    You help users reach their goals while keeping that "Keys Life" vibe alive. 
-    Refer to workouts as "sessions on the island" or "gains in the sun" occasionally.
-    User Context: ${context}`;
+    const systemInstruction = {
+      parts: [{
+        text: `You are a premium, expert Florida Keys Fitness Coach. Your tone is encouraging, laid-back, and high-energy. Provide concise, actionable advice based on current sports science. Keep that "Keys Life" vibe alive.${context ? '\n\nUser Context:\n' + context : ''}`
+      }]
+    };
 
-    const contents = [
-      { role: 'user', parts: [{ text: systemPrompt }] },
-      ...messages.map(m => ({
-        role: m.role === 'ai' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }))
-    ];
+    const contents = messages.map(m => ({
+      role: m.role === 'ai' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }));
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents })
+        body: JSON.stringify({ systemInstruction, contents })
       });
 
       const data = await response.json();
@@ -36,7 +32,7 @@ const AI = {
       return { text: data.candidates[0].content.parts[0].text };
     } catch (err) {
       console.error('AI Chat failed:', err);
-      return { error: 'Failed to reach Gemini. Check your connection or API key.' };
+      return { error: 'Failed to reach Gemini: ' + err.message };
     }
   },
 
@@ -48,16 +44,17 @@ const AI = {
     Workout: ${JSON.stringify(workout)}`;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
 
       const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
       return { text: data.candidates[0].content.parts[0].text };
     } catch (err) {
-      return { error: 'Analysis failed' };
+      return { error: 'Analysis failed: ' + err.message };
     }
   },
 
@@ -83,7 +80,7 @@ const AI = {
     }
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts }] })
