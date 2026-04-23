@@ -2121,10 +2121,29 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     if (statusEl) statusEl.classList.remove('hidden');
     if (resultEl) resultEl.classList.add('hidden');
 
+    let progressInterval = null;
+    let progress = 0;
+    const statusTextEl = statusEl ? statusEl.querySelector('.text-sand') : null;
+    
+    if (statusTextEl) {
+      statusTextEl.textContent = 'Analyzing data... 0%';
+      progressInterval = setInterval(() => {
+        if (progress < 95 && !statusTextEl.textContent.includes('Retrying')) {
+          progress += Math.floor(Math.random() * 5) + 1;
+          if (progress > 95) progress = 95;
+          statusTextEl.textContent = `Analyzing data... ${progress}%`;
+        }
+      }, 500);
+    }
+
     try {
       const fileData = await ExportImport.readFileForAI(file);
-      const result = await AI.parseFileContent(fileData.content, file.type);
+      const result = await AI.parseFileContent(fileData.content, file.type, (msg) => {
+        if (statusTextEl) statusTextEl.textContent = msg;
+      });
 
+      if (progressInterval) clearInterval(progressInterval);
+      if (statusTextEl) statusTextEl.textContent = 'AI is reading your file...'; // Reset text
       if (statusEl) statusEl.classList.add('hidden');
 
       if (result.error) {
