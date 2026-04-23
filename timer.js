@@ -31,24 +31,32 @@ const Timer = {
   },
 
   startSilentAudio() {
-    if (this.audioElement) return;
+    if (this.silentCtx) return;
     try {
-      this.audioElement = new Audio('silence.mp3');
-      this.audioElement.loop = true;
-      this.audioElement.volume = 0.01;
-      this.audioElement.play().catch(err => {
-        console.warn('Silent audio failed:', err);
-      });
+      this.silentCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Create a silent buffer (1 second)
+      const buffer = this.silentCtx.createBuffer(1, this.silentCtx.sampleRate, this.silentCtx.sampleRate);
+      
+      this.silentSource = this.silentCtx.createBufferSource();
+      this.silentSource.buffer = buffer;
+      this.silentSource.loop = true;
+      this.silentSource.connect(this.silentCtx.destination);
+      this.silentSource.start();
+      console.log('Programmatic silent audio started');
     } catch (err) {
       console.warn('Silent audio setup failed:', err);
     }
   },
 
   stopSilentAudio() {
-    if (this.audioElement) {
-      this.audioElement.pause();
-      this.audioElement.src = '';
-      this.audioElement = null;
+    if (this.silentSource) {
+      this.silentSource.stop();
+      this.silentSource = null;
+    }
+    if (this.silentCtx) {
+      this.silentCtx.close();
+      this.silentCtx = null;
     }
   },
 

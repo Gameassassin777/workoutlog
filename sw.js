@@ -8,8 +8,7 @@ const ASSETS = [
   '/workoutlog/timer.js',
   '/workoutlog/ai.js',
   '/workoutlog/export.js',
-  '/workoutlog/manifest.json',
-  '/workoutlog/silence.mp3'
+  '/workoutlog/manifest.json'
 ];
 
 self.addEventListener('install', event => {
