@@ -63,26 +63,37 @@ const AI = {
 
   async parseFileContent(content, type) {
     const apiKey = await this.getApiKey();
-    if (!apiKey) return { error: 'API Key missing' };
+    if (!apiKey) return { error: 'API Key missing — add it in Settings' };
 
-    const prompt = `You are a workout log parser. Convert the following text or data into a JSON format with a "workouts" array. 
-    Each workout should have: "date" (ISO), "title", and "exercises" (array with "name" and "sets" array of {weight, reps}).
-    If anything is unclear, add it to an "uncertain" array with a "field" description.
-    
-    Data to parse:
-    ${content}`;
+    const isImage = type && type.startsWith('image/');
+    let parts;
+
+    if (isImage) {
+      // Strip the data URL prefix to get raw base64
+      const base64 = content.split(',')[1];
+      const mimeType = type;
+      parts = [
+        { text: `You are a workout log parser. Parse this image of a workout log into JSON with a "workouts" array. Each workout has: "date" (ISO string), "title" (string), and "exercises" (array of {name, sets: [{weight, reps}]}). Respond ONLY with valid JSON, no markdown, no explanation.` },
+        { inlineData: { mimeType, data: base64 } }
+      ];
+    } else {
+      parts = [{
+        text: `You are a workout log parser. Convert the following text into JSON with a "workouts" array. Each workout has: "date" (ISO string), "title" (string), and "exercises" (array of {name, sets: [{weight, reps}]}). Respond ONLY with valid JSON, no markdown, no explanation.\n\nData:\n${content}`
+      }];
+    }
 
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        body: JSON.stringify({ contents: [{ parts }] })
       });
 
       const data = await response.json();
+      if (data.error) return { error: data.error.message };
       return { text: data.candidates[0].content.parts[0].text };
     } catch (err) {
-      return { error: 'Parsing failed' };
+      return { error: 'Parsing failed: ' + err.message };
     }
   },
 

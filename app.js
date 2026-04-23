@@ -1973,22 +1973,26 @@ const App = {
         return;
       }
 
-      // Try to parse JSON from AI response
+      // Try to parse JSON from AI response (handles raw JSON or markdown code blocks)
       try {
-        const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+        let raw = result.text.trim();
+        // Strip markdown code fences if present
+        raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        // Find the outermost JSON object
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           this.showParsedWorkoutConfirmation(parsed);
         } else {
           if (resultEl) {
             resultEl.classList.remove('hidden');
-            resultEl.innerHTML = `<div class="card"><div class="text-sand text-sm">${this.escapeHtml(result.text)}</div></div>`;
+            resultEl.innerHTML = `<div class="card" style="border-color:var(--coral);"><div class="text-coral text-sm">Could not find workout data in the response. Try a different file format.</div><div class="text-xs text-sea mt-8">${this.escapeHtml(result.text.substring(0, 200))}</div></div>`;
           }
         }
       } catch (parseErr) {
         if (resultEl) {
           resultEl.classList.remove('hidden');
-          resultEl.innerHTML = `<div class="card"><div class="text-sand text-sm">${this.escapeHtml(result.text)}</div></div>`;
+          resultEl.innerHTML = `<div class="card" style="border-color:var(--coral);"><div class="text-coral text-sm">Parse error: ${this.escapeHtml(parseErr.message)}</div><div class="text-xs text-sea mt-8">${this.escapeHtml(result.text.substring(0, 300))}</div></div>`;
         }
       }
     } catch (err) {
