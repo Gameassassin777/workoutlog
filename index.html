@@ -1,1 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TropicalFit">
+  <meta name="theme-color" content="#0B3954">
+  <meta name="description" content="Track your gains, island style 🌴">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>🌴 TropicalFit</title>
+</head>
+<body>
+  <div id="app">
+    <div id="screen-container" class="screen"></div>
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="nav-item active" data-screen="home">
+        <span class="nav-icon">🏠</span>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" data-screen="history">
+        <span class="nav-icon">📋</span>
+        <span>History</span>
+      </button>
+      <button class="nav-item" data-screen="workout" id="nav-workout-btn">
+        <span class="nav-icon">🏋️</span>
+        <span>Workout</span>
+      </button>
+      <button class="nav-item" data-screen="stats">
+        <span class="nav-icon">📊</span>
+        <span>Stats</span>
+      </button>
+      <button class="nav-item" data-screen="chat">
+        <span class="nav-icon">💬</span>
+        <span>AI</span>
+      </button>
+    </nav>
+  </div>
 
+  <div id="toast-container"></div>
+  <div id="modal-container"></div>
+  <div id="celebration-container"></div>
+
+  <script src="db.js"></script>
+  <script src="timer.js"></script>
+  <script src="ai.js"></script>
+  <script src="export.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
