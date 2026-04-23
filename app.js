@@ -2852,10 +2852,13 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
   async triggerMissingIconGeneration() {
     if (!this.settings.geminiApiKey) return;
     
-    for (const ex of this.exercises) {
-      if (!ex.icon) {
-        // Slow down requests to respect free tier limits (2 per minute)
-        setTimeout(async () => {
+    // Check if we are already generating to avoid overlapping loops
+    if (this._isGeneratingIcons) return;
+    this._isGeneratingIcons = true;
+
+    try {
+      for (const ex of this.exercises) {
+        if (!ex.icon) {
           const icon = await AI.generateExerciseIcon(ex.name, ex.muscleGroups);
           if (icon) {
             ex.icon = icon;
@@ -2863,9 +2866,12 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
             const iconEl = document.getElementById(`icon-${ex.id}`);
             if (iconEl) iconEl.innerHTML = `<img src="${icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" class="fade-in">`;
           }
-        }, 1000); // Small initial delay, real throttling would be more complex
-        break; // Only do one per library visit for now to stay safe
+          // Delay to respect Gemini Free Tier text limits (15 RPM -> 4 seconds per request)
+          await new Promise(resolve => setTimeout(resolve, 4500));
+        }
       }
+    } finally {
+      this._isGeneratingIcons = false;
     }
   }
 };
