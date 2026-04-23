@@ -1850,6 +1850,93 @@ const App = {
     this.showScreen('chat', { prefill, context });
   },
 
+  buildChatContext() {
+    const p = this.profile;
+    const recentWorkouts = [...this.workouts]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5)
+      .map(w => ({
+        id: w.id,
+        date: w.date,
+        title: w.title,
+        exercises: w.exercises.map((ex, i) => ({
+          index: i,
+          name: ex.name,
+          sets: ex.sets.map((s, j) => ({ index: j, weight: s.weight, reps: s.reps, unit: s.weightUnit }))
+        }))
+      }));
+
+    return `Profile: Level ${p.level} (${p.levelTitle}), ${p.xp} XP, ${p.totalWorkouts} workouts, ${p.currentStreak} day streak.
+Recent workouts (last 5): ${JSON.stringify(recentWorkouts)}
+Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
+  },
+
+  async executeAIAction(action) {
+    if (!action || !action.type) return;
+
+    switch (action.type) {
+      case 'add_exercise': {
+        const { name, muscleGroups = [], equipment = '' } = action.params;
+        if (!name) return;
+        const exists = this.exercises.find(e => e.name.toLowerCase() === name.toLowerCase());
+        if (exists) {
+          this.showToast(`${name} already in library`);
+          return;
+        }
+        const exercise = {
+          id: this.generateId(),
+          name,
+          muscleGroups,
+          equipment,
+          notes: '',
+          isCustom: true,
+          lastUsed: new Date().toISOString(),
+          timesUsed: 0
+        };
+        await DB.saveExercise(exercise);
+        this.exercises.push(exercise);
+        this.showToast(`Added "${name}" to library`);
+        break;
+      }
+
+      case 'edit_workout_set': {
+        const { workoutId, exerciseIndex, setIndex, weight, reps } = action.params;
+        const w = this.workouts.find(w => w.id === workoutId);
+        if (!w) { this.showToast('Workout not found'); return; }
+        const set = w.exercises[exerciseIndex]?.sets[setIndex];
+        if (!set) { this.showToast('Set not found'); return; }
+        if (weight !== undefined) set.weight = weight;
+        if (reps !== undefined) set.reps = reps;
+        await DB.saveWorkout(w);
+        const idx = this.workouts.findIndex(wk => wk.id === workoutId);
+        if (idx >= 0) this.workouts[idx] = w;
+        this.showToast(`Updated ${w.exercises[exerciseIndex].name} set ${setIndex + 1}`);
+        break;
+      }
+
+      case 'add_note_to_workout': {
+        const { workoutId, note } = action.params;
+        const w = this.workouts.find(w => w.id === workoutId);
+        if (!w) { this.showToast('Workout not found'); return; }
+        w.notes = (w.notes ? w.notes + '\n' : '') + note;
+        await DB.saveWorkout(w);
+        const idx = this.workouts.findIndex(wk => wk.id === workoutId);
+        if (idx >= 0) this.workouts[idx] = w;
+        this.showToast('Note added to workout');
+        break;
+      }
+
+      case 'navigate': {
+        const { screen } = action.params;
+        if (screen) {
+          document.getElementById('modal-container').innerHTML = '';
+          this.showScreen(screen);
+        }
+        break;
+      }
+    }
+  },
+
   async sendChatMessage() {
     const input = document.getElementById('chat-input');
     if (!input) return;
@@ -1864,7 +1951,9 @@ const App = {
     msgsContainer.innerHTML += `<div class="chat-bubble ai" id="ai-typing"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>`;
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
-    const result = await AI.chat(this._currentChatMessages, this._currentChatContext);
+    // Build rich context from app data
+    const context = this._currentChatContext || this.buildChatContext();
+    const result = await AI.chat(this._currentChatMessages, context);
 
     const typingEl = document.getElementById('ai-typing');
     if (typingEl) typingEl.remove();
@@ -1874,6 +1963,11 @@ const App = {
     } else {
       this._currentChatMessages.push({ role: 'ai', content: result.text });
       msgsContainer.innerHTML += `<div class="chat-bubble ai">${this.escapeHtml(result.text)}</div>`;
+
+      // Execute any app action the AI requested
+      if (result.action) {
+        await this.executeAIAction(result.action);
+      }
     }
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
