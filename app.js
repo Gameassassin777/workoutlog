@@ -92,6 +92,14 @@ const App = {
     this.workouts = await DB.getAllWorkouts();
     this.chatLogs = await DB.getAllChatLogs();
 
+    // Restore most recent chat session into memory
+    if (this.chatLogs && this.chatLogs.length > 0) {
+      const sorted = [...this.chatLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
+      const latest = sorted[0];
+      this._currentChatId = latest.id;
+      this._currentChatMessages = latest.messages || [];
+    }
+
     // Load settings
     this.settings = {};
     for (const [key, defaultVal] of Object.entries(this.DEFAULT_SETTINGS)) {
@@ -738,10 +746,9 @@ const App = {
           <div class="chat-bubble ai">
             Hey there! I'm your Florida Keys fitness coach. Tap any stat on the home screen to ask me about it, or ask me anything about training, nutrition, or recovery!
           </div>
-          ${this.chatLogs && this.chatLogs.length > 0 ? this.chatLogs.map(m => `
-            <div class="chat-bubble ${m.role}">
-               <div class="chat-content">${this.escapeHtml(m.parts ? m.parts[0].text : m.text)}</div>
-               <div class="chat-time">${new Date(m.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+          ${this._currentChatMessages && this._currentChatMessages.length > 0 ? this._currentChatMessages.map(m => `
+            <div class="chat-bubble ${m.role === 'ai' ? 'ai' : 'user'}">
+              <div class="chat-content">${this.escapeHtml(m.content || '')}</div>
             </div>
           `).join('') : ''}
         </div>
