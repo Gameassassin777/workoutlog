@@ -1208,6 +1208,25 @@ const App = {
 
       case 'settings':
         this.bindSettingsEvents();
+        // Add real-time auto-save for API Key
+        const apiKeyInput = document.getElementById('setting-api-key');
+        if (apiKeyInput) {
+          apiKeyInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            this.settings.geminiApiKey = val;
+            DB.saveSetting('geminiApiKey', val);
+          });
+        }
+        // Add real-time theme preview and save
+        const themeSelect = document.getElementById('setting-theme');
+        if (themeSelect) {
+          themeSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            this.settings.theme = val;
+            DB.saveSetting('theme', val);
+            this.applyTheme();
+          });
+        }
         break;
 
       case 'exerciseLibrary':

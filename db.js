@@ -213,7 +213,7 @@ const DB = {
         await this.saveSetting(key, value);
       }
     }
-  }
+  },
   async clearAllData() {
     const db = await openDB();
     const stores = Object.values(STORES);
