@@ -277,7 +277,7 @@ const App = {
                   <div class="text-bold text-white">${pr.exercise}</div>
                   <div class="text-xs text-sea mt-4">${pr.weight} ${pr.unit} × ${pr.reps} reps</div>
                 </div>
-                <div class="text-coral text-bold text-sm">NEW PR 🏆</div>
+                <div class="text-coral text-bold text-sm">NEW PR</div>
               </div>
             </div>
           `).join('')}
