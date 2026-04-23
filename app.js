@@ -272,7 +272,12 @@ const App = {
           </div>
           ${recentPRs.map(pr => `
             <div class="card card-tappable card-highlight" data-pr-exercise="${pr.exercise}">
-                <div class="text-coral text-bold">NEW PR</div>
+              <div class="flex flex-between" style="align-items: center;">
+                <div>
+                  <div class="text-bold text-white">${pr.exercise}</div>
+                  <div class="text-xs text-sea mt-4">${pr.weight} ${pr.unit} × ${pr.reps} reps</div>
+                </div>
+                <div class="text-coral text-bold text-sm">NEW PR 🏆</div>
               </div>
             </div>
           `).join('')}
@@ -1021,7 +1026,8 @@ const App = {
           </div>
           <div class="stat-chip">
             <div class="stat-chip-label">Streak</div>
-            <div class="stat-chip-value">STREAK: ${p.currentStreak}</div>
+            <div class="stat-chip-value">${p.currentStreak}</div>
+            <div class="stat-chip-sub">days</div>
           </div>
           <div class="stat-chip">
             <div class="stat-chip-label">Best Streak</div>
