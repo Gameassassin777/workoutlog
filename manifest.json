@@ -1,7 +1,7 @@
 {
   "name": "Tropical Workout Tracker",
   "short_name": "TropicalFit",
-  "description": "Track your gains, island style 🌴",
+  "description": "Track your gains, island style",
   "start_url": "/workoutlog/",
   "scope": "/workoutlog/",
   "display": "standalone",

@@ -63,7 +63,7 @@ const App = {
     key: 'main',
     xp: 0,
     level: 0,
-    levelTitle: '🏖️ Beach Bum',
+    levelTitle: 'Beach Bum',
     currentStreak: 0,
     longestStreak: 0,
     lastWorkoutDate: null,
@@ -115,11 +115,14 @@ const App = {
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => {
         const screen = btn.dataset.screen;
-        if (screen === 'workout') {
+        // Navigation Fail-safe
+        if (screen === 'settings') {
+          this.showScreen('settings');
+        } else if (screen === 'workout') {
           if (this.activeWorkout) {
             this.showScreen('activeWorkout');
           } else {
-            this.showScreen('startWorkout');
+            this.showScreen('home'); // Redirect to Shore to start workout
           }
         } else {
           this.showScreen(screen);
@@ -401,7 +404,7 @@ const App = {
         ` : ''}
 
         <button class="btn btn-accent btn-large mt-16" id="btn-begin-workout">
-          🌊 Let's Go!
+          Lets Go!
         </button>
       </div>
     `;
@@ -577,7 +580,7 @@ const App = {
       <div class="fade-in text-center" style="padding-top: 40px;">
         <div style="font-size: 4rem;" class="celebration-emoji">🎉</div>
         <div class="text-xl text-extra-bold text-sunset mt-8">Workout Complete!</div>
-        <div class="text-sm text-sea mt-4">Great job riding those waves! 🌊</div>
+        <div class="text-sm text-sea mt-4">Great job riding those waves!</div>
 
         ${w.xpEarned ? `
           <div class="card card-highlight mx-16 mt-16">
@@ -623,7 +626,7 @@ const App = {
             📝 Add Notes
           </button>
           <button class="btn btn-accent btn-large" id="btn-back-home-complete">
-            🏠 Home
+            Home
           </button>
         </div>
 
@@ -640,7 +643,7 @@ const App = {
     return `
       <div class="header">
         <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
-        <span class="header-title">Island Stats 📊</span>
+        <span class="header-title">Island Stats</span>
       </div>
       <div class="fade-in">
         <!-- Volume Over Time -->
@@ -677,7 +680,7 @@ const App = {
 
         <!-- Exercise PRs -->
         <div class="section-header">
-          <span class="section-title">🏆 Personal Records</span>
+          <span class="section-title">Personal Records</span>
         </div>
         ${Object.entries(p.personalRecords || {}).map(([name, pr]) => `
           <div class="card card-tappable" data-pr-exercise="${name}">
@@ -686,14 +689,14 @@ const App = {
                 <div class="text-bold text-white">${name}</div>
                 <div class="text-xs text-sea">${pr.maxWeight ? pr.maxWeight.value + ' ' + (pr.maxWeight.unit || this.settings.defaultWeightUnit) : ''}</div>
               </div>
-              <div class="text-sunset text-bold">🏆</div>
+              <div class="text-sunset text-bold">${this.Icons.anchor}</div>
             </div>
           </div>
         `).join('')}
 
         ${Object.keys(p.personalRecords || {}).length === 0 ? `
           <div class="empty-state" style="padding: 30px;">
-            <div class="empty-state-icon">🏆</div>
+            <div class="empty-state-icon">${this.Icons.anchor}</div>
             <div class="empty-state-text">Complete workouts to set PRs!</div>
           </div>
         ` : ''}
@@ -738,7 +741,7 @@ const App = {
     return `
       <div class="header">
         <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
-        <span class="header-title">Settings ⚓️</span>
+        <span class="header-title">Settings Configuration</span>
       </div>
       <div class="fade-in">
         <!-- Appearance -->
@@ -749,9 +752,9 @@ const App = {
           <div class="input-group">
             <label class="input-label">Color Scheme</label>
             <select class="input" id="setting-theme">
-              <option value="auto" ${s.theme === 'auto' ? 'selected' : ''}>🌴 Auto (System Default)</option>
-              <option value="light" ${s.theme === 'light' ? 'selected' : ''}>☀️ Island Light (Florida Keys)</option>
-              <option value="dark" ${s.theme === 'dark' ? 'selected' : ''}>🌑 Deep Ocean (Original)</option>
+              <option value="auto" ${s.theme === 'auto' ? 'selected' : ''}>Auto (System Default)</option>
+              <option value="light" ${s.theme === 'light' ? 'selected' : ''}>Island Light (Florida Keys)</option>
+              <option value="dark" ${s.theme === 'dark' ? 'selected' : ''}>Deep Ocean (Original)</option>
             </select>
           </div>
         </div>
@@ -846,18 +849,18 @@ const App = {
           <span class="section-title">Data</span>
         </div>
         <div class="card">
-          <button class="btn btn-ghost w-full mb-8" id="btn-export-json">📦 Export All Data (JSON)</button>
-          <button class="btn btn-ghost w-full mb-8" id="btn-export-csv">📊 Export Workouts (CSV)</button>
-          <button class="btn btn-ghost w-full mb-8" id="btn-import-data">📥 Import Data</button>
+          <button class="btn btn-ghost w-full mb-8" id="btn-export-json">Export All Data (JSON)</button>
+          <button class="btn btn-ghost w-full mb-8" id="btn-export-csv">Export Workouts (CSV)</button>
+          <button class="btn btn-ghost w-full mb-8" id="btn-import-data">Import Data</button>
           <input type="file" id="import-file-input" accept=".json" class="hidden">
-          <button class="btn btn-ghost w-full mb-8" id="btn-upload-workout-file">📎 Upload Workout Log (AI Parse)</button>
+          <button class="btn btn-ghost w-full mb-8" id="btn-upload-workout-file">Upload Workout Log (AI Parse)</button>
           <input type="file" id="workout-file-input" accept=".txt,.csv,.json,image/*" class="hidden">
           <div class="divider"></div>
-          <button class="btn btn-danger btn-small w-full mt-8" id="btn-clear-all-data">🗑 Clear All Data</button>
+          <button class="btn btn-danger btn-small w-full mt-8" id="btn-clear-all-data">Clear All Data</button>
         </div>
 
         <button class="btn btn-ghost w-full mx-16 mt-16 mb-16" id="btn-save-settings">
-          💾 Save Settings
+          Save Settings
         </button>
 
         <div style="height: 20px;"></div>
@@ -876,7 +879,7 @@ const App = {
         <button class="header-action" id="btn-add-exercise-lib">＋</button>
       </div>
       <div class="search-bar">
-        <span class="search-bar-icon">🔍</span>
+        <span class="search-bar-icon" style="padding-left:12px;">${this.Icons.stats}</span>
         <input type="text" class="input" placeholder="Search exercises..." id="exercise-search">
       </div>
       <div id="exercise-list">
@@ -889,7 +892,7 @@ const App = {
         ` : sorted.map(ex => `
           <div class="exercise-item" data-exercise-id="${ex.id}">
             <div class="exercise-item-icon" id="icon-${ex.id}">
-              ${ex.icon ? `<img src="${ex.icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : '🏋️'}
+              ${ex.icon ? `<img src="${ex.icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : this.Icons.palm}
             </div>
             <div class="exercise-item-info">
               <div class="exercise-item-name">${ex.name}</div>
@@ -983,8 +986,8 @@ const App = {
 
     return `
       <div class="header">
-        <button class="header-back" id="btn-back-home">←</button>
-        <span class="header-title">👤 Profile</span>
+        <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
+        <span class="header-title">Island Profile</span>
       </div>
       <div class="fade-in text-center">
         <div style="font-size: 4rem; margin-top: 30px;">${levelInfo.title.split(' ')[0]}</div>
@@ -1008,7 +1011,7 @@ const App = {
           </div>
           <div class="stat-chip">
             <div class="stat-chip-label">Streak</div>
-            <div class="stat-chip-value">🔥 ${p.currentStreak}</div>
+            <div class="stat-chip-value">STREAK: ${p.currentStreak}</div>
           </div>
           <div class="stat-chip">
             <div class="stat-chip-label">Best Streak</div>
@@ -1041,12 +1044,12 @@ const App = {
   renderFileUpload() {
     return `
       <div class="header">
-        <button class="header-back" id="btn-back-chat">←</button>
-        <span class="header-title">📎 Upload Workout Log</span>
+        <button class="header-back" id="btn-back-chat">${this.Icons.back}</button>
+        <span class="header-title">Upload Workout Log</span>
       </div>
       <div class="fade-in p-16">
         <div class="text-center mb-16">
-          <div style="font-size: 3rem;">📄</div>
+          <div style="font-size: 3rem;">Logs</div>
           <div class="text-bold text-white mt-8">Upload a Workout Log</div>
           <div class="text-sm text-sea mt-4">
             Upload a text file, CSV, JSON, or photo of a handwritten log.
@@ -1055,7 +1058,7 @@ const App = {
         </div>
 
         <button class="btn btn-accent btn-large mb-8" id="btn-select-file-upload">
-          📎 Select File
+          Select File
         </button>
         <input type="file" id="ai-file-input" accept=".txt,.csv,.json,.md,image/*" class="hidden">
 
@@ -1289,7 +1292,7 @@ const App = {
           <div class="modal-handle"></div>
           <div class="text-bold text-white text-lg mb-16">Select Exercise</div>
           <div class="search-bar" style="margin: 0 0 12px 0;">
-            <span class="search-bar-icon">🔍</span>
+            <span class="search-bar-icon" style="padding-left:12px;">${this.Icons.stats}</span>
             <input type="text" class="input" placeholder="Search or type new..." id="exercise-picker-search">
           </div>
           <div id="exercise-picker-list" style="max-height: 50vh; overflow-y: auto;">
@@ -1301,7 +1304,7 @@ const App = {
             </div>
             ${sorted.map(ex => `
               <div class="exercise-item" data-pick-exercise="${ex.id}">
-                <div class="exercise-item-icon">🏋️</div>
+                <div class="exercise-item-icon">${this.Icons.palm}</div>
                 <div class="exercise-item-info">
                   <div class="exercise-item-name">${ex.name}</div>
                   <div class="exercise-item-meta">${ex.muscleGroups ? ex.muscleGroups.join(', ') : ''}</div>
@@ -1599,7 +1602,7 @@ const App = {
     const isPR = this.checkAndUpdatePR(exName, set);
 
     if (isPR) {
-      this.showCelebration('🏆', 'NEW PR!', `${exName}: ${set.weight} ${set.weightUnit} × ${set.reps}`);
+      this.showCelebration(this.Icons.anchor, 'NEW PR!', `${exName}: ${set.weight} ${set.weightUnit} × ${set.reps}`);
     }
 
     // Check if this was the last uncompleted set for this exercise
@@ -1614,7 +1617,7 @@ const App = {
         // Rest between exercises
         this.showScreen('restTimer', {
           seconds: this.settings.defaultRestBetweenExercises,
-          label: `Rest before ${this.activeWorkout.exercises[nextExIdx].name} 🌴`,
+          label: `Rest before ${this.activeWorkout.exercises[nextExIdx].name}`,
           onComplete: () => this.showScreen('activeWorkout')
         });
       } else {
@@ -1966,7 +1969,7 @@ const App = {
     }
 
     if (parsed.uncertain && parsed.uncertain.length > 0) {
-      html += `<div class="text-bold text-sunset mt-16 mb-8">⚠️ Needs Clarification:</div>`;
+      html += `<div class="text-bold text-sunset mt-16 mb-8">Needs Clarification:</div>`;
       parsed.uncertain.forEach(u => {
         html += `<div class="card mb-8" style="border-color: var(--sunset);"><div class="text-sm text-sand">${u.field}</div></div>`;
       });
@@ -2066,7 +2069,7 @@ const App = {
       }
       
       this.applyTheme();
-      this.showToast('Settings Saved to the Keys! ⚓️');
+      this.showToast('Settings Saved to the Keys!');
     });
 
     this.bindClick('btn-manage-exercises', () => this.showScreen('exerciseLibrary'));
