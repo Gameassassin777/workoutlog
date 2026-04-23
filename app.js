@@ -1926,6 +1926,75 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
         break;
       }
 
+      case 'log_workout': {
+        const { date, title, exercises = [] } = action.params;
+        if (!exercises.length) { this.showToast('No exercises found in description'); return; }
+
+        const workout = {
+          id: this.generateId(),
+          date: date ? new Date(date).toISOString() : new Date().toISOString(),
+          title: title || 'Chat Logged Workout',
+          notes: 'Logged via Coach Chat',
+          tags: ['chat-logged'],
+          customFields: {},
+          exercises: exercises.map((ex, i) => ({
+            exerciseId: null,
+            name: ex.name,
+            notes: '',
+            order: i,
+            customFields: {},
+            sets: (ex.sets || []).map((s, j) => ({
+              setNumber: j + 1,
+              weight: s.weight || 0,
+              weightUnit: s.weightUnit || this.settings.defaultWeightUnit,
+              reps: s.reps || 0,
+              rpe: null,
+              restAfter: null,
+              notes: '',
+              customFields: {},
+              timestamp: new Date().toISOString(),
+              completed: true
+            }))
+          })),
+          duration: 0,
+          score: null,
+          xpEarned: 0,
+          aiAnalysis: ''
+        };
+
+        // Calculate XP
+        const totalSets = workout.exercises.reduce((s, e) => s + e.sets.length, 0);
+        const totalVolume = workout.exercises.reduce((sum, ex) =>
+          sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+        workout.xpEarned = Math.round(totalSets * 10 + totalVolume * 0.01 + 50);
+
+        await DB.saveWorkout(workout);
+        this.workouts.push(workout);
+        await this.updateProfileAfterWorkout(workout);
+
+        // Add any new exercises to library
+        for (const ex of workout.exercises) {
+          const exists = this.exercises.find(e => e.name.toLowerCase() === ex.name.toLowerCase());
+          if (!exists) {
+            const newEx = {
+              id: this.generateId(),
+              name: ex.name,
+              muscleGroups: [],
+              equipment: '',
+              notes: '',
+              isCustom: true,
+              lastUsed: new Date().toISOString(),
+              timesUsed: 1
+            };
+            await DB.saveExercise(newEx);
+            this.exercises.push(newEx);
+          }
+        }
+
+        this.showToast(`Logged: ${workout.title} (+${workout.xpEarned} XP)`);
+        break;
+      }
+
       case 'navigate': {
         const { screen } = action.params;
         if (screen) {

@@ -14,10 +14,12 @@ ACTION:{"type":"add_exercise","params":{"name":"Cable Fly","muscleGroups":["Ches
 
 Available actions:
 - add_exercise: params = {name, muscleGroups (array), equipment (optional)}
+- log_workout: params = {date (ISO, default today), title, exercises: [{name, sets: [{weight, reps, weightUnit}]}]}
 - edit_workout_set: params = {workoutId, exerciseIndex, setIndex, weight, reps}
 - add_note_to_workout: params = {workoutId, note}
 - navigate: params = {screen} (screens: home, history, stats, settings)
 
+If the user describes a workout they did, use log_workout to save it. Ask for any missing details (exercises, sets, weights, reps) before logging.
 If no action is needed, just reply in plain text — no JSON, no markdown.
 ${context ? 'User data context:\n' + context : ''}`
       }]
