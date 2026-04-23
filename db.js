@@ -204,4 +204,14 @@ const DB = {
       }
     }
   }
+  async clearAllData() {
+    const db = await openDB();
+    const stores = Object.values(STORES);
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(stores, 'readwrite');
+      stores.forEach(s => tx.objectStore(s).clear());
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
 };

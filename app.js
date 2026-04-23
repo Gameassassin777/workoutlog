@@ -90,6 +90,7 @@ const App = {
     this.profile = await DB.getProfile() || { ...this.DEFAULT_PROFILE };
     this.exercises = await DB.getAllExercises();
     this.workouts = await DB.getAllWorkouts();
+    this.chatLogs = await DB.getAllChatLogs();
 
     // Load settings
     this.settings = {};
@@ -249,15 +250,13 @@ const App = {
 
         <!-- Quick Stats -->
         <div class="stat-row">
-          <div class="stat-chip" id="tap-total-workouts">
+          <div class="stat-chip">
             <div class="stat-chip-label">Workouts</div>
-            <div class="stat-chip-value">${p.totalWorkouts}</div>
-            <div class="stat-chip-sub">all time</div>
+            <div class="stat-chip-value">${this.profile.totalWorkouts || 0}</div>
           </div>
-          <div class="stat-chip" id="tap-total-volume">
+          <div class="stat-chip">
             <div class="stat-chip-label">Volume</div>
-            <div class="stat-chip-value">${this.formatVolume(p.totalVolume)}</div>
-            <div class="stat-chip-sub">total ${this.settings.defaultWeightUnit}</div>
+            <div class="stat-chip-value">${this.formatVolume(this.profile.totalVolume || 0)}</div>
           </div>
           <div class="stat-chip" id="tap-longest-streak">
             <div class="stat-chip-label">Best Streak</div>
@@ -720,19 +719,23 @@ const App = {
     return `
       <div class="chat-container">
         <div class="header">
-          <span class="header-title">Coach Chat 🦜</span>
-          <button class="header-back" id="btn-chat-menu" style="margin-left:auto;">${this.Icons.settings}</button>
+          <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
+          <span class="header-title">Coach Chat</span>
+          <button class="header-action" id="btn-chat-menu">${this.Icons.settings}</button>
         </div>
         <div class="chat-messages" id="chat-messages">
           <div class="chat-bubble ai">
             Hey there! I'm your Florida Keys fitness coach. Tap any stat on the home screen to ask me about it, or ask me anything about training, nutrition, or recovery!
           </div>
-          ${this._currentChatMessages ? this._currentChatMessages.map(m => `
-            <div class="chat-bubble ${m.role}">${this.escapeHtml(m.content)}</div>
+          ${this.chatLogs && this.chatLogs.length > 0 ? this.chatLogs.map(m => `
+            <div class="chat-bubble ${m.role}">
+               <div class="chat-content">${this.escapeHtml(m.parts ? m.parts[0].text : m.text)}</div>
+               <div class="chat-time">${new Date(m.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
           `).join('') : ''}
         </div>
         <div class="chat-input-bar">
-          <button class="btn btn-small btn-ghost" id="btn-chat-upload" style="padding: 10px;">${this.Icons.add}</button>
+          <button class="btn btn-small btn-ghost" id="btn-chat-upload" style="padding: 10px;">${this.Icons.plus}</button>
           <input type="text" class="chat-input" placeholder="Ask Coach anything..."
                  id="chat-input" value="${this.escapeHtml(prefilledMsg)}">
           <button class="chat-send" id="btn-chat-send">${this.Icons.check}</button>
