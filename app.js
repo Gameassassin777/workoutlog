@@ -21,27 +21,31 @@ const App = {
     profile: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
     back: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
     check: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-    chevronRight: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+    chevronRight: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+    palm: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8c0 2.21 1.79 4 4 4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5 0 2.47-1.96 4.54-4.5 4.93"/><path d="M5.89 12c-.41 1.33-.76 2.87-.72 4.4a16.63 16.63 0 0 0 1.63 7.6"/><path d="M17.15 15.82c-.52 1.33-1.07 2.76-1.55 4.18"/><path d="M12 11c0 2.76-1.34 5-3 5s-3-2.24-3-5"/></svg>`,
+    sun: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
+    moon: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+    anchor: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><path d="M9 20 5 12"/><path d="m15 20 4-8"/></svg>`
   },
 
   // ─── Level System ──────────────────────────────────────────
   LEVELS: [
-    { title: '🏖️ Beach Bum', xp: 0 },
-    { title: '🏄 Wave Wader', xp: 100 },
-    { title: '🐚 Shell Collector', xp: 300 },
-    { title: '🚣 Reef Paddler', xp: 600 },
-    { title: '🐠 Reef Diver', xp: 1000 },
-    { title: '🦈 Wave Rider', xp: 1600 },
-    { title: '🐬 Dolphin Trainer', xp: 2400 },
-    { title: '🌊 Tide Turner', xp: 3500 },
-    { title: '🐋 Ocean Beast', xp: 5000 },
-    { title: '🔱 Reef Beast', xp: 7000 },
-    { title: '🌴 Island Warrior', xp: 9500 },
-    { title: '⚡ Storm Surfer', xp: 12500 },
-    { title: '🌋 Volcano Forged', xp: 16000 },
-    { title: '🏝️ Island Legend', xp: 20000 },
-    { title: '👑 Tsunami King', xp: 25000 },
-    { title: '🌺 Island God', xp: 35000 },
+    { title: 'Beach Bum', xp: 0 },
+    { title: 'Wave Wader', xp: 100 },
+    { title: 'Shell Collector', xp: 300 },
+    { title: 'Reef Paddler', xp: 600 },
+    { title: 'Reef Diver', xp: 1000 },
+    { title: 'Wave Rider', xp: 1600 },
+    { title: 'Dolphin Trainer', xp: 2400 },
+    { title: 'Tide Turner', xp: 3500 },
+    { title: 'Ocean Beast', xp: 5000 },
+    { title: 'Reef King', xp: 7000 },
+    { title: 'Island Warrior', xp: 9500 },
+    { title: 'Storm Surfer', xp: 12500 },
+    { title: 'Volcano Forged', xp: 16000 },
+    { title: 'Island Legend', xp: 20000 },
+    { title: 'Tsunami King', xp: 25000 },
+    { title: 'Island Deity', xp: 35000 },
   ],
 
   DEFAULT_SETTINGS: {
@@ -126,10 +130,10 @@ const App = {
 
   setActiveNav(screen) {
     const navMap = {
-      home: 'home', history: 'history', workout: 'workout',
-      startWorkout: 'workout', activeWorkout: 'workout',
-      restTimer: 'workout', workoutComplete: 'workout',
-      stats: 'stats', chat: 'chat', settings: 'home',
+      home: 'home', history: 'history',
+      startWorkout: 'home', activeWorkout: 'home',
+      restTimer: 'home', workoutComplete: 'home',
+      stats: 'stats', chat: 'chat', settings: 'settings',
       exerciseLibrary: 'home', workoutDetail: 'history',
       profile: 'home', fileUpload: 'chat'
     };
@@ -183,20 +187,19 @@ const App = {
 
     return `
       <div class="header">
-        <span class="header-title">TropicalFit 🦜</span>
+        <span class="header-title">Island Hub</span>
         <button class="header-back" id="btn-profile" style="margin-left:auto;">${this.Icons.profile}</button>
-        <button class="header-back" id="btn-settings">${this.Icons.settings}</button>
       </div>
       <div class="fade-in">
         <div class="p-16" style="padding-bottom: 8px;">
           <div class="text-sm text-muted">${todayGreeting}</div>
-          <div class="text-xl text-extra-bold text-main mt-4">Keys Life, Gains Life! 🌴</div>
+          <div class="text-xl text-extra-bold text-main mt-4">Shore Life, Gains Life!</div>
         </div>
 
         <!-- Streak + Level Row -->
         <div class="flex gap-8 mx-16 mb-8">
           <div class="streak-badge" id="tap-streak">
-            🔥 ${p.currentStreak} Day${p.currentStreak !== 1 ? 's' : ''}
+            STREAK: ${p.currentStreak} Day${p.currentStreak !== 1 ? 's' : ''}
           </div>
           <div class="streak-badge" id="tap-level" style="background: linear-gradient(135deg, rgba(8,126,139,0.2), rgba(27,160,152,0.2)); border-color: rgba(8,126,139,0.3); color: var(--sea-foam);">
             Lv.${levelInfo.level}
@@ -255,20 +258,14 @@ const App = {
           </div>
         </div>
 
-        <!-- Recent PRs -->
         ${recentPRs.length > 0 ? `
           <div class="section-header">
-            <span class="section-title">🏆 Recent PRs</span>
-            <button class="section-action" id="tap-all-prs">See All</button>
+            <span class="section-title">New PRs</span>
+            <button class="section-action" id="tap-all-prs">View All</button>
           </div>
           ${recentPRs.map(pr => `
             <div class="card card-tappable card-highlight" data-pr-exercise="${pr.exercise}">
-              <div class="flex flex-between" style="align-items: center;">
-                <div>
-                  <div class="text-bold text-white">${pr.exercise}</div>
-                  <div class="text-sm text-sea">${pr.weight} ${pr.unit} × ${pr.reps}</div>
-                </div>
-                <div class="text-sunset text-bold">🎉 PR</div>
+                <div class="text-coral text-bold">NEW PR</div>
               </div>
             </div>
           `).join('')}
@@ -276,15 +273,14 @@ const App = {
 
         <!-- Start Workout Button -->
         <div class="p-16 mt-8">
-          <button class="btn btn-accent btn-large" id="btn-start-workout">
-            🏋️ Start Workout
+          <button class="btn btn-accent btn-large w-full" id="btn-start-workout">
+            ${this.Icons.dumbbell} Start Session
           </button>
         </div>
 
         <!-- Quick Links -->
         <div class="flex gap-8 mx-16 mb-16">
-          <button class="btn btn-ghost flex-1" id="btn-settings">⚙️ Settings</button>
-          <button class="btn btn-ghost flex-1" id="btn-profile">👤 Profile</button>
+          <button class="btn btn-ghost flex-1" id="btn-profile">${this.Icons.profile} Profile</button>
         </div>
 
         <div style="height: 20px;"></div>
@@ -302,10 +298,10 @@ const App = {
           <span class="header-title">Workout History</span>
         </div>
         <div class="empty-state">
-          <div class="empty-state-icon">🏄</div>
-          <div class="empty-state-title">No Workouts Yet</div>
-          <div class="empty-state-text">Hit the waves and start lifting!<br>Your journey begins with one rep.</div>
-          <button class="btn btn-accent mt-24" id="btn-start-from-history">🏋️ Start First Workout</button>
+          <div class="empty-state-icon" style="background: var(--clear-water); border: 2px solid var(--aqua); color: var(--lagoon);">Logs</div>
+          <div class="empty-state-title">No Logs Yet</div>
+          <div class="empty-state-text">Hit the shore and start lifting!<br>Your journey begins with one rep.</div>
+          <button class="btn btn-accent mt-24" id="btn-start-from-history">${this.Icons.dumbbell} Start First Session</button>
         </div>
       `;
     }
@@ -316,8 +312,8 @@ const App = {
         <button class="header-action" id="btn-export-history">Export</button>
       </div>
       <div class="search-bar">
-        <span class="search-bar-icon">🔍</span>
-        <input type="text" class="input" placeholder="Search exercises, tags..." id="history-search">
+        <span class="search-bar-icon" style="padding-left:12px;">${this.Icons.stats}</span>
+        <input type="text" class="input" placeholder="Search logs, tags..." id="history-search">
       </div>
       <div id="history-list">
         ${sorted.map(w => this.renderWorkoutCard(w)).join('')}
@@ -719,7 +715,7 @@ const App = {
         </div>
         <div class="chat-messages" id="chat-messages">
           <div class="chat-bubble ai">
-            Hey there! ⚓️ I'm your Florida Keys fitness coach. Tap any stat on the home screen to ask me about it, or ask me anything about training, nutrition, or recovery!
+            Hey there! I'm your Florida Keys fitness coach. Tap any stat on the home screen to ask me about it, or ask me anything about training, nutrition, or recovery!
           </div>
           ${this._currentChatMessages ? this._currentChatMessages.map(m => `
             <div class="chat-bubble ${m.role}">${this.escapeHtml(m.content)}</div>
@@ -2620,11 +2616,11 @@ const App = {
 
   getGreeting() {
     const hour = new Date().getHours();
-    if (hour < 6) return '🌙 Late night gains';
-    if (hour < 12) return '🌅 Good morning';
-    if (hour < 17) return '☀️ Good afternoon';
-    if (hour < 21) return '🌇 Good evening';
-    return '🌙 Night owl mode';
+    if (hour < 6) return 'Late night session';
+    if (hour < 12) return 'Morning on the Shore';
+    if (hour < 17) return 'Island Afternoon';
+    if (hour < 21) return 'Sunset Session';
+    return 'Night owl gains';
   },
 
   async triggerMissingIconGeneration() {
