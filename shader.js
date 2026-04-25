@@ -1,136 +1,67 @@
-// shader.js - WebGL Cresting Waves & Splash Engine
+// shader.js – WebGL Underwater Caustics
 
 const vertexShaderSource = `
   attribute vec2 a_position;
-  varying vec2 v_uv;
   void main() {
-    v_uv = a_position * 0.5 + 0.5;
     gl_Position = vec4(a_position, 0.0, 1.0);
   }
 `;
 
 const fragmentShaderSource = `
-  precision highp float;
-  varying vec2 v_uv;
+  precision mediump float;
   uniform float u_time;
-  uniform vec2 u_resolution;
-  uniform int u_isLightMode;
-  uniform float u_splashProgress; // 0.0 to 1.0 for splash transition
+  uniform vec2  u_resolution;
+  uniform int   u_isLightMode;
 
-  // Simplex 2D noise
-  vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
-  float snoise(vec2 v){
-    const vec4 C = vec4(0.211324865405187, 0.366025403784439,
-             -0.577350269189626, 0.024390243902439);
-    vec2 i  = floor(v + dot(v, C.yy) );
-    vec2 x0 = v -   i + dot(i, C.xx);
-    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-    vec4 x12 = x0.xyxy + C.xxzz;
-    x12.xy -= i1;
-    i = mod(i, 289.0);
-    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
-    + i.x + vec3(0.0, i1.x, 1.0 ));
-    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
-      dot(x12.zw,x12.zw)), 0.0);
-    m = m*m ;
-    m = m*m ;
-    vec3 x = 2.0 * fract(p * C.www) - 1.0;
-    vec3 h = abs(x) - 0.5;
-    vec3 ox = floor(x + 0.5);
-    vec3 a0 = x - ox;
-    m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-    vec3 g;
-    g.x  = a0.x  * x0.x  + h.x  * x0.y;
-    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-    return 130.0 * dot(m, g);
-  }
+  // One caustic layer: domain-warped interference of three sine waves
+  float causticLayer(vec2 p, float t, float scale, float speed) {
+    p *= scale;
 
-  // Fractal Brownian Motion
-  float fbm(vec2 st) {
-      float value = 0.0;
-      float amplitude = .5;
-      for (int i = 0; i < 5; i++) {
-          value += amplitude * snoise(st);
-          st *= 2.;
-          amplitude *= .5;
-      }
-      return value;
+    // Slow organic warp so the pattern breathes
+    float wx = sin(p.x * 0.8 + p.y * 0.6 + t * 0.18);
+    float wy = sin(p.y * 0.9 - p.x * 0.5 + t * 0.14);
+    p += vec2(wx, wy) * 0.3;
+
+    // Three sine waves 120 degrees apart
+    float a = sin( p.x * 2.8 + p.y * 1.6 + t * speed);
+    float b = sin(-p.x * 1.4 + p.y * 2.9 - t * speed * 0.85 + 2.1);
+    float c = sin(-p.x * 1.5 - p.y * 2.4 + t * speed * 0.92 + 4.2);
+
+    float v = (a + b + c) / 3.0;  // -1..1
+    v = v * 0.5 + 0.5;             // 0..1
+    return pow(v, 4.0);             // sharpen to bright peaks only
   }
 
   void main() {
-    vec2 st = gl_FragCoord.xy / u_resolution.xy;
-    st.x *= u_resolution.x / u_resolution.y;
-    vec2 uv = v_uv;
+    vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+    vec2 p  = uv * vec2(u_resolution.x / u_resolution.y, 1.0) * 2.0;
+    float t = u_time;
 
-    // Splash Distortion Effect
-    float splashRipple = 0.0;
-    if (u_splashProgress > 0.0 && u_splashProgress < 1.0) {
-      float dist = length(uv - vec2(0.5));
-      // Exploding ripple ring
-      splashRipple = sin(dist * 40.0 - u_splashProgress * 30.0) * exp(-dist * 8.0) * sin(u_splashProgress * 3.1415);
-      st += splashRipple * 0.15;
-    }
+    // Two layers: large slow + smaller faster
+    float c1 = causticLayer(p,                     t, 1.0, 0.30);
+    float c2 = causticLayer(p + vec2(3.7, 1.9),    t, 2.0, 0.42);
+    float caustics = c1 * 0.65 + c2 * 0.35;
 
-    float time = u_time * 0.15;
-    
-    // Wave distortion (Domain Warping)
-    vec2 q = vec2(0.);
-    q.x = fbm( st + 0.0*time);
-    q.y = fbm( st + vec2(1.0));
+    // Depth gradient — darker at bottom, hint of light toward surface
+    float depth = uv.y;
 
-    vec2 r = vec2(0.);
-    r.x = fbm( st + 1.0*q + vec2(1.7,9.2)+ 0.15*time );
-    r.y = fbm( st + 1.0*q + vec2(8.3,2.8)+ 0.126*time);
-
-    float f = fbm(st+r);
-
-    // Calculate Normal for Light Sparkles
-    vec2 eps = vec2(0.02, 0.0);
-    float dx = fbm(st + r + eps.xy) - fbm(st + r - eps.xy);
-    float dy = fbm(st + r + eps.yx) - fbm(st + r - eps.yx);
-    vec3 normal = normalize(vec3(-dx, -dy, 0.6));
-    
-    // Sun / Moon position
-    vec3 lightDir = normalize(vec3(0.5, 0.6, 0.8));
-    if (u_isLightMode == 0) {
-      lightDir = normalize(vec3(0.2, 0.4, 0.6)); // Lower angle for sunset
-    }
-
-    // Specular Highlight (Sparkles!)
-    float spec = pow(max(dot(normal, lightDir), 0.0), 32.0);
-    // Add tiny sharp sparkles
-    float sharpSparkle = pow(max(dot(normal, lightDir), 0.0), 128.0) * 1.5;
-
-    // Color palettes based on theme
-    vec3 deepWater, shallowWater, crestColor, sparkleColor;
-    
+    vec3 col;
     if (u_isLightMode == 1) {
-      // Bright Beach Day
-      deepWater = vec3(0.0, 0.48, 0.6);      // Ocean blue
-      shallowWater = vec3(0.0, 0.8, 0.9);    // Bright cyan
-      crestColor = vec3(0.8, 0.95, 1.0);     // Foam
-      sparkleColor = vec3(1.0, 1.0, 1.0);    // White sun
+      vec3 seaDeep    = vec3(0.0,  0.38, 0.52);
+      vec3 seaShallow = vec3(0.04, 0.65, 0.80);
+      col  = mix(seaDeep, seaShallow, depth * 0.8);
+      col += caustics * vec3(0.7, 1.0, 1.0) * 0.28;
     } else {
-      // Sunset Ocean
-      deepWater = vec3(0.04, 0.11, 0.24);    // Deep twilight blue
-      shallowWater = vec3(0.88, 0.24, 0.21); // Deep red
-      crestColor = vec3(1.0, 0.37, 0.23);    // Orange foam
-      sparkleColor = vec3(1.0, 0.8, 0.4);    // Golden sun
+      vec3 abyss   = vec3(0.008, 0.052, 0.110);
+      vec3 surface = vec3(0.012, 0.085, 0.190);
+      col  = mix(abyss, surface, depth * 0.65);
+      // Aqua/teal caustic shimmer
+      col += caustics * vec3(0.0, 0.82, 1.0) * 0.11;
+      // Faint teal bloom near surface
+      col += smoothstep(0.55, 1.0, depth) * vec3(0.0, 0.04, 0.08);
     }
 
-    vec3 color = mix(deepWater, shallowWater, clamp((f*f)*3.0, 0.0, 1.0));
-    color = mix(color, crestColor, clamp(length(q), 0.0, 1.0));
-    
-    // Mix in sparkles
-    color += spec * sparkleColor * 0.4;
-    color += sharpSparkle * sparkleColor;
-    
-    // Add Splash Brightness
-    if (splashRipple > 0.0) {
-      color += vec3(0.2, 0.4, 0.8) * splashRipple; // Water flash
-    }
-
-    gl_FragColor = vec4((f*f*f+.6*f*f+.5*f)*color + (splashRipple * 0.2), 1.0);
+    gl_FragColor = vec4(col, 1.0);
   }
 `;
 
@@ -138,113 +69,95 @@ class OceanShader {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) return;
-    
     this.gl = this.canvas.getContext('webgl');
     if (!this.gl) return;
 
-    this.program = this.createProgram(this.gl, vertexShaderSource, fragmentShaderSource);
-    this.positionAttributeLocation = this.gl.getAttribLocation(this.program, "a_position");
-    this.timeLocation = this.gl.getUniformLocation(this.program, "u_time");
-    this.resolutionLocation = this.gl.getUniformLocation(this.program, "u_resolution");
-    this.isLightModeLocation = this.gl.getUniformLocation(this.program, "u_isLightMode");
-    this.splashProgressLocation = this.gl.getUniformLocation(this.program, "u_splashProgress");
+    this._prog = this._build(vertexShaderSource, fragmentShaderSource);
+    if (!this._prog) return;
 
-    this.positionBuffer = this.gl.createBuffer();
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
-    const positions = [
-      -1, -1,
-       1, -1,
-      -1,  1,
-      -1,  1,
-       1, -1,
-       1,  1,
-    ];
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.STATIC_DRAW);
+    const gl = this.gl;
+    this._attr  = gl.getAttribLocation(this._prog, 'a_position');
+    this._uTime = gl.getUniformLocation(this._prog, 'u_time');
+    this._uRes  = gl.getUniformLocation(this._prog, 'u_resolution');
+    this._uLite = gl.getUniformLocation(this._prog, 'u_isLightMode');
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER,
+      new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]),
+      gl.STATIC_DRAW);
+    this._buf = buf;
+
+    this.isRunning = false;
+    this._raf = null;
+    this._t0  = performance.now();
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
-
-    this.isRunning = false;
-    this.animationFrameId = null;
-    this.startTime = performance.now();
-    this.splashProgress = 0.0;
   }
 
-  createShader(gl, type, source) {
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-    if (success) return shader;
-    console.log(gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
+  _compile(type, src) {
+    const sh = this.gl.createShader(type);
+    this.gl.shaderSource(sh, src);
+    this.gl.compileShader(sh);
+    if (!this.gl.getShaderParameter(sh, this.gl.COMPILE_STATUS)) {
+      console.error('Shader compile error:', this.gl.getShaderInfoLog(sh));
+      return null;
+    }
+    return sh;
   }
 
-  createProgram(gl, vertexShader, fragmentShader) {
-    const program = gl.createProgram();
-    const vs = this.createShader(gl, gl.VERTEX_SHADER, vertexShader);
-    const fs = this.createShader(gl, gl.FRAGMENT_SHADER, fragmentShader);
-    gl.attachShader(program, vs);
-    gl.attachShader(program, fs);
-    gl.linkProgram(program);
-    return program;
+  _build(vsSrc, fsSrc) {
+    const vs = this._compile(this.gl.VERTEX_SHADER,   vsSrc);
+    const fs = this._compile(this.gl.FRAGMENT_SHADER, fsSrc);
+    if (!vs || !fs) return null;
+    const prog = this.gl.createProgram();
+    this.gl.attachShader(prog, vs);
+    this.gl.attachShader(prog, fs);
+    this.gl.linkProgram(prog);
+    if (!this.gl.getProgramParameter(prog, this.gl.LINK_STATUS)) {
+      console.error('Program link error:', this.gl.getProgramInfoLog(prog));
+      return null;
+    }
+    return prog;
   }
 
   resize() {
     if (!this.canvas) return;
-    this.canvas.width = window.innerWidth;
+    this.canvas.width  = window.innerWidth;
     this.canvas.height = window.innerHeight;
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-  }
-
-  triggerSplash() {
-    this.splashProgress = 0.01;
+    if (this.gl) this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
   }
 
   start() {
     if (this.isRunning) return;
     this.isRunning = true;
     this.canvas.style.display = 'block';
-    const render = (now) => {
+    const tick = (now) => {
       if (!this.isRunning) return;
-      this.draw(now);
-      this.animationFrameId = requestAnimationFrame(render);
+      this._draw(now);
+      this._raf = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(render);
+    requestAnimationFrame(tick);
   }
 
   stop() {
     this.isRunning = false;
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-    }
-    if (this.canvas) {
-      this.canvas.style.display = 'none';
-    }
+    if (this._raf) cancelAnimationFrame(this._raf);
+    if (this.canvas) this.canvas.style.display = 'none';
   }
 
-  draw(now) {
+  _draw(now) {
     const gl = this.gl;
-    const time = (now - this.startTime) * 0.001;
-
-    // Advance splash progress
-    if (this.splashProgress > 0.0 && this.splashProgress < 1.0) {
-      this.splashProgress += 0.03; // ~33 frames to complete, ~0.5s at 60fps
-      if (this.splashProgress >= 1.0) this.splashProgress = 0.0;
-    }
-
-    gl.useProgram(this.program);
-    gl.enableVertexAttribArray(this.positionAttributeLocation);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-    gl.vertexAttribPointer(this.positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-
-    gl.uniform1f(this.timeLocation, time);
-    gl.uniform2f(this.resolutionLocation, gl.canvas.width, gl.canvas.height);
-    gl.uniform1f(this.splashProgressLocation, this.splashProgress);
-    
-    const isLightMode = document.body.classList.contains('theme-light') ? 1 : 0;
-    gl.uniform1i(this.isLightModeLocation, isLightMode);
-
+    if (!this._prog) return;
+    const t = (now - this._t0) * 0.001;
+    gl.useProgram(this._prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._buf);
+    gl.enableVertexAttribArray(this._attr);
+    gl.vertexAttribPointer(this._attr, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform1f(this._uTime, t);
+    gl.uniform2f(this._uRes,  gl.canvas.width, gl.canvas.height);
+    gl.uniform1i(this._uLite, document.body.classList.contains('theme-light') ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 }
