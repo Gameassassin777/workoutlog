@@ -1,103 +1,118 @@
-// transition.js - Fast randomized UI transitions
+// transition.js – ocean wave wipe
 
 class TransitionEngine {
   constructor() {
-    this.createSandOverlay();
-  }
-  
-  createSandOverlay() {
-    this.sandCanvas = document.createElement('canvas');
-    this.sandCanvas.id = 'sand-canvas';
-    this.sandCanvas.style.position = 'fixed';
-    this.sandCanvas.style.top = '0';
-    this.sandCanvas.style.left = '0';
-    this.sandCanvas.style.width = '100vw';
-    this.sandCanvas.style.height = '100vh';
-    this.sandCanvas.style.zIndex = '9999'; 
-    this.sandCanvas.style.pointerEvents = 'none';
-    this.sandCanvas.style.display = 'none';
-    document.body.appendChild(this.sandCanvas);
-    this.ctx = this.sandCanvas.getContext('2d');
-    
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
+    this._canvas = document.createElement('canvas');
+    this._canvas.id = 'transition-canvas';
+    Object.assign(this._canvas.style, {
+      position: 'fixed', top: '0', left: '0',
+      width: '100vw', height: '100vh',
+      zIndex: '9999', pointerEvents: 'none', display: 'none',
+    });
+    document.body.appendChild(this._canvas);
+    this._ctx = this._canvas.getContext('2d');
+    this._resize();
+    window.addEventListener('resize', () => this._resize());
   }
 
-  resize() {
+  _resize() {
     const dpr = window.devicePixelRatio || 1;
-    this.sandCanvas.width = window.innerWidth * dpr;
-    this.sandCanvas.height = window.innerHeight * dpr;
-    this.ctx.scale(dpr, dpr);
+    this._canvas.width  = window.innerWidth  * dpr;
+    this._canvas.height = window.innerHeight * dpr;
+    this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   async runRandomTransition(callback) {
-    if (Math.random() > 0.5 && window.oceanShader && window.oceanShader.isRunning) {
-       await this.runSplashTransition(callback);
-    } else {
-       await this.runSandTransition(callback);
-    }
+    return this._waveWipe(callback);
   }
 
-  runSplashTransition(callback) {
+  _waveWipe(callback) {
     return new Promise(resolve => {
-       window.oceanShader.triggerSplash();
-       // Wait for the ripple to expand (approx 150ms)
-       setTimeout(() => {
-          callback();
-       }, 150); 
-       // Finish
-       setTimeout(() => {
-          resolve();
-       }, 500);
-    });
-  }
+      const W = window.innerWidth, H = window.innerHeight;
+      const ctx = this._ctx;
+      this._canvas.style.display = 'block';
 
-  runSandTransition(callback) {
-    return new Promise(resolve => {
-       this.sandCanvas.style.display = 'block';
-       const ctx = this.ctx;
-       const w = window.innerWidth;
-       const h = window.innerHeight;
-       
-       let progress = 0;
-       let hasSwapped = false;
-       const isLight = document.body.classList.contains('theme-light');
-       
-       // Create a noisy sand block
-       const animate = () => {
-         progress += 0.08; // extremely fast ~12 frames
-         ctx.clearRect(0, 0, w, h);
-         
-         if (progress >= 1.0) {
-           this.sandCanvas.style.display = 'none';
-           resolve();
-           return;
-         }
-         
-         if (progress >= 0.4 && !hasSwapped) {
-            callback();
-            hasSwapped = true;
-         }
+      let swapped = false, start = null;
+      const SWEEP = 320, HOLD = 50, TOTAL = SWEEP * 2 + HOLD;
 
-         // Draw sweeping block of sand
-         const blockX = (progress * w * 2.5) - w;
-         
-         ctx.fillStyle = isLight ? '#E5C494' : '#6B4423';
-         ctx.fillRect(blockX, 0, w * 0.8, h);
-         
-         // Draw trailing/leading particles
-         ctx.fillStyle = isLight ? '#CBA36E' : '#4A2A10';
-         for(let i=0; i<300; i++) {
-            const px = blockX + (Math.random() * w * 1.5) - w*0.2;
-            const py = Math.random() * h;
-            const size = Math.random() * 8 + 2;
-            ctx.fillRect(px, py, size * 2, size * 0.5);
-         }
+      // Three overlapping sine waves make the edge organic
+      const AMPS  = [H * 0.042, H * 0.026, H * 0.016];
+      const FREQS = [2.6, 5.4, 9.1];
+      const SPDS  = [1.3, 2.2, 3.4];
 
-         requestAnimationFrame(animate);
-       };
-       requestAnimationFrame(animate);
+      const edgeX = (y, t, dir) => {
+        let x = 0;
+        for (let i = 0; i < 3; i++)
+          x += AMPS[i] * Math.sin(FREQS[i] * (y / H) * Math.PI * 2 + t * SPDS[i] * dir);
+        return x;
+      };
+
+      const tracePath = (cx, t, dir) => {
+        ctx.beginPath();
+        ctx.moveTo(-W * 0.08, 0);
+        for (let y = 0; y <= H; y += 4) ctx.lineTo(cx + edgeX(y, t, dir), y);
+        ctx.lineTo(-W * 0.08, H);
+        ctx.closePath();
+      };
+
+      const tick = (now) => {
+        if (!start) start = now;
+        const e = now - start;
+        ctx.clearRect(0, 0, W, H);
+
+        let cx, dir;
+        if      (e < SWEEP)              { cx = (e / SWEEP) * (W + W * 0.1) - W * 0.05; dir = 1; }
+        else if (e < SWEEP + HOLD)       { cx = W + W * 0.1; dir = 1;
+                                           if (!swapped) { callback(); swapped = true; } }
+        else                             { const p = (e - SWEEP - HOLD) / SWEEP;
+                                           cx = (1 - p) * (W + W * 0.1) - W * 0.05; dir = -1;
+                                           if (!swapped) { callback(); swapped = true; } }
+
+        if (e >= TOTAL) {
+          ctx.clearRect(0, 0, W, H);
+          this._canvas.style.display = 'none';
+          resolve(); return;
+        }
+
+        const t = e * 0.001;
+
+        // Dark ocean fill
+        tracePath(cx, t, dir);
+        const grad = ctx.createLinearGradient(0, 0, W, 0);
+        grad.addColorStop(0,    'rgba(10, 18, 38,  0.96)');
+        grad.addColorStop(0.5,  'rgba(5,  40, 80,  0.96)');
+        grad.addColorStop(1,    'rgba(0, 160, 210, 0.90)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Glowing wave crest
+        ctx.beginPath();
+        for (let y = 0; y <= H; y += 4) {
+          const x = cx + edgeX(y, t, dir);
+          y === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(0, 232, 255, 0.75)';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = 'rgba(0, 220, 255, 0.95)';
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+
+        // Foam highlight offset
+        ctx.beginPath();
+        for (let y = 0; y <= H; y += 4) {
+          const x = cx + edgeX(y, t, dir) + 9;
+          y === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.20)';
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 0;
+        ctx.stroke();
+
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
     });
   }
 }
+
 window.TransitionEngine = TransitionEngine;

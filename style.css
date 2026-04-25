@@ -2,19 +2,19 @@
 
 /* ─── Design Tokens ─────────────────────────────────────────── */
 :root {
-  /* Glass layers */
-  --glass-deep:      rgba(4, 20, 48, 0.60);
-  --glass-mid:       rgba(8, 35, 75, 0.48);
-  --glass-light:     rgba(20, 60, 110, 0.38);
-  --glass-white:     rgba(255, 255, 255, 0.10);
-  --glass-border:    rgba(100, 200, 255, 0.18);
-  --glass-border-hi: rgba(100, 200, 255, 0.42);
+  /* Glass layers — clear pane style, video shows through */
+  --glass-deep:      rgba(0,   0,   0,   0.38);
+  --glass-mid:       rgba(0,   0,   0,   0.22);
+  --glass-light:     rgba(0,   0,   0,   0.12);
+  --glass-white:     rgba(255, 255, 255, 0.07);
+  --glass-border:    rgba(255, 255, 255, 0.18);
+  --glass-border-hi: rgba(255, 255, 255, 0.42);
 
-  /* Blur depths */
-  --blur-sm:  blur(8px);
-  --blur-md:  blur(18px);
-  --blur-lg:  blur(28px);
-  --blur-xl:  blur(44px);
+  /* Blur depths — minimal so video is legible through cards */
+  --blur-sm:  blur(2px);
+  --blur-md:  blur(5px);
+  --blur-lg:  blur(8px);
+  --blur-xl:  blur(12px);
 
   /* Ocean palette */
   --teal:       #00C2D4;
@@ -33,9 +33,12 @@
   --glow-coral: 0 0 24px rgba(255, 94, 58, 0.30);
   --glow-gold:  0 0 20px rgba(255, 209, 102, 0.25);
 
-  /* Shadows */
-  --shadow-glass: 0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
-  --shadow-deep:  0 20px 60px rgba(0,0,0,0.60);
+  /* Shadows — specular top edge sells the glass-pane look */
+  --shadow-glass: 0 8px 32px rgba(0,0,0,0.40),
+                  inset 0 1px 0 rgba(255,255,255,0.30),
+                  inset 0 -1px 0 rgba(0,0,0,0.20),
+                  inset 1px 0 rgba(255,255,255,0.06);
+  --shadow-deep:  0 20px 60px rgba(0,0,0,0.55);
 
   /* Radii */
   --radius-sm:   8px;
@@ -82,12 +85,12 @@
 
 /* ─── Light Mode ────────────────────────────────────────────── */
 body.theme-light {
-  --glass-deep:      rgba(220, 245, 255, 0.58);
-  --glass-mid:       rgba(200, 235, 255, 0.48);
-  --glass-light:     rgba(180, 225, 255, 0.38);
-  --glass-white:     rgba(255, 255, 255, 0.60);
-  --glass-border:    rgba(0, 160, 220, 0.20);
-  --glass-border-hi: rgba(0, 160, 220, 0.48);
+  --glass-deep:      rgba(255, 255, 255, 0.28);
+  --glass-mid:       rgba(255, 255, 255, 0.18);
+  --glass-light:     rgba(255, 255, 255, 0.10);
+  --glass-white:     rgba(255, 255, 255, 0.50);
+  --glass-border:    rgba(255, 255, 255, 0.55);
+  --glass-border-hi: rgba(255, 255, 255, 0.85);
   --teal:            #007BAA;
   --aqua:            #00AACC;
   --lagoon:          #00C896;
@@ -151,32 +154,36 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ─── Background video ──────────────────────────────────────── */
+#bg-video {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center top;
+  z-index: -3; pointer-events: none;
+}
+body.battery-saver #bg-video { display: none; }
+
 /* ─── Canvases ──────────────────────────────────────────────── */
 #ocean-shader {
   position: fixed; top: 0; left: 0;
   width: 100vw; height: 100vh;
   z-index: -2; pointer-events: none; opacity: 1;
 }
-
 #palm-canvas {
   position: fixed; top: 0; left: 0;
   width: 100vw; height: 100vh;
   pointer-events: none; z-index: -1;
 }
 
-/* ─── Caustic overlay ───────────────────────────────────────── */
+/* ─── Vignette overlay — darkens edges, lifts card readability ─ */
 body::before {
   content: '';
   position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(0,220,255,0.05) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 60% at 80% 85%, rgba(0,180,220,0.04) 0%, transparent 70%);
-  animation: causticShift 14s ease-in-out infinite alternate;
-}
-@keyframes causticShift {
-  0%   { opacity: 0.6; transform: scale(1); }
-  50%  { opacity: 1;   transform: scale(1.04); }
-  100% { opacity: 0.7; transform: scale(0.97); }
+    radial-gradient(ellipse 100% 100% at 50% 50%,
+      transparent 30%,
+      rgba(0,0,0,0.28) 75%,
+      rgba(0,0,0,0.52) 100%);
 }
 
 /* ─── App Shell ─────────────────────────────────────────────── */
