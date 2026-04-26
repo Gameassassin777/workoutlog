@@ -62,7 +62,13 @@ const App = {
     customFieldTemplates: [],
     aiSystemPrompt: '',
     theme: 'auto',
-    batterySaver: false
+    batterySaver: false,
+    username: '',
+    avatarStyle: 'adventurer',
+    avatarSeed: '',
+    notificationsEnabled: false,
+    socialPrivacyVolume: true,
+    socialPrivacyFeed: true
   },
 
   DEFAULT_PROFILE: {
@@ -179,12 +185,13 @@ const App = {
 
   setActiveNav(screen) {
     const navMap = {
-      home: 'home', history: 'history',
+      home: 'home', history: 'logs', logs: 'logs',
       startWorkout: 'home', activeWorkout: 'home',
       restTimer: 'home', workoutComplete: 'home',
-      stats: 'stats', chat: 'chat', settings: 'settings',
-      exerciseLibrary: 'home', workoutDetail: 'history',
-      profile: 'home', fileUpload: 'chat'
+      stats: 'logs', chat: 'chat', settings: 'settings',
+      social: 'social',
+      exerciseLibrary: 'home', workoutDetail: 'logs',
+      profile: 'settings', fileUpload: 'chat'
     };
     const activeKey = navMap[screen] || 'home';
     document.querySelectorAll('.nav-item').forEach(btn => {
@@ -212,6 +219,8 @@ const App = {
       workoutDetail: () => this.renderWorkoutDetail(data),
       profile: () => this.renderProfile(),
       fileUpload: () => this.renderFileUpload(),
+      logs: () => this.renderLogs(),
+      social: () => this.renderSocial(),
     };
 
     const renderer = renderers[name];
@@ -230,123 +239,106 @@ const App = {
     }
   },
 
-  // ─── HOME SCREEN ──────────────────────────────────────────
+  // ─── HOME SCREEN — Hero Dashboard ─────────────────────────
   renderHome() {
     const p = this.profile;
     const levelInfo = this.getLevelInfo(p.xp);
-    const weekData = this.getWeekData();
-    const weekVolume = this.getWeekVolume();
-    const lastWeekVolume = this.getWeekVolume(-1);
-    const volumeChange = lastWeekVolume > 0
-      ? Math.round(((weekVolume - lastWeekVolume) / lastWeekVolume) * 100)
-      : 0;
-    const recentPRs = this.getRecentPRs(3);
-    const todayGreeting = this.getGreeting();
+    const greeting = this.getGreeting();
+    const username = this.settings.username || 'Athlete';
+    const avatarUrl = this._getAvatarUrl();
+    const avatarRingClass = levelInfo.level >= 12 ? 'avatar-ring-4'
+      : levelInfo.level >= 8 ? 'avatar-ring-3'
+      : levelInfo.level >= 4 ? 'avatar-ring-2' : 'avatar-ring-1';
+
+    const mockFeed = this._getMockFeedItems();
 
     return `
       <div class="header">
-        <span class="header-title">Island Hub</span>
-        <button class="header-back" id="btn-profile" style="margin-left:auto;">${this.Icons.profile}</button>
-      </div>
-      <div class="fade-in">
-        <div class="p-16" style="padding-bottom: 8px;">
-          <div class="text-sm text-muted">${todayGreeting}</div>
-          <div class="text-xl text-extra-bold text-main mt-4">Shore Life, Gains Life!</div>
-        </div>
-
-        <!-- Streak + Level Row -->
-        <div class="flex gap-8 mx-16 mb-8">
-          <div class="streak-badge" id="tap-streak">
-            STREAK: ${p.currentStreak} Day${p.currentStreak !== 1 ? 's' : ''}
-          </div>
-          <div class="streak-badge" id="tap-level" style="background: linear-gradient(135deg, rgba(8,126,139,0.2), rgba(27,160,152,0.2)); border-color: rgba(8,126,139,0.3); color: var(--sea-foam);">
-            Lv.${levelInfo.level}
-          </div>
-        </div>
-
-        <!-- XP Bar -->
-        <div class="xp-bar-container" id="tap-xp">
-          <div class="xp-bar-header">
-            <span>${levelInfo.title}</span>
-            <span>${p.xp} / ${levelInfo.nextXp} XP</span>
-          </div>
-          <div class="xp-bar">
-            <div class="xp-bar-fill" style="width: ${levelInfo.progress}%"></div>
-          </div>
-          <div class="level-title">${levelInfo.xpToNext} XP to ${levelInfo.nextTitle}</div>
-        </div>
-
-        <!-- Weekly Activity -->
-        <div class="section-header">
-          <span class="section-title">This Week</span>
-          <span class="text-xs text-sunset">${weekVolume > 0 ? weekVolume.toLocaleString() + ' ' + this.settings.defaultWeightUnit : 'No workouts yet'}</span>
-        </div>
-        <div class="week-chart" id="week-chart">
-          ${weekData.map(d => `
-            <div class="week-bar-container" data-date="${d.date}" data-workout-id="${d.workoutId || ''}">
-              <div class="week-bar ${d.isToday ? 'today' : d.isFuture ? 'future' : d.hasWorkout ? 'done' : 'future'}"
-                   style="height: ${d.hasWorkout ? Math.max(20, d.volumePercent) : 4}%"></div>
-              <span class="week-day ${d.isToday ? 'today' : ''}">${d.label}</span>
-            </div>
-          `).join('')}
-        </div>
-
-        ${volumeChange !== 0 ? `
-          <div class="text-center text-sm mb-8" style="color: ${volumeChange > 0 ? 'var(--palm-light)' : 'var(--coral)'}">
-            ${volumeChange > 0 ? '↑' : '↓'} ${Math.abs(volumeChange)}% vs last week
-          </div>
-        ` : ''}
-
-        <!-- Quick Stats -->
-        <div class="stat-row">
-          <div class="stat-chip">
-            <div class="stat-chip-label">Workouts</div>
-            <div class="stat-chip-value">${this.profile.totalWorkouts || 0}</div>
-          </div>
-          <div class="stat-chip">
-            <div class="stat-chip-label">Volume</div>
-            <div class="stat-chip-value">${this.formatVolume(this.profile.totalVolume || 0)}</div>
-          </div>
-          <div class="stat-chip" id="tap-longest-streak">
-            <div class="stat-chip-label">Best Streak</div>
-            <div class="stat-chip-value">${p.longestStreak}</div>
-            <div class="stat-chip-sub">days</div>
-          </div>
-        </div>
-
-        ${recentPRs.length > 0 ? `
-          <div class="section-header">
-            <span class="section-title">New PRs</span>
-            <button class="section-action" id="tap-all-prs">View All</button>
-          </div>
-          ${recentPRs.map(pr => `
-            <div class="card card-tappable card-highlight" data-pr-exercise="${pr.exercise}">
-              <div class="flex flex-between" style="align-items: center;">
-                <div>
-                  <div class="text-bold text-white">${pr.exercise}</div>
-                  <div class="text-xs text-sea mt-4">${pr.weight} ${pr.unit} × ${pr.reps} reps</div>
-                </div>
-                <div class="text-coral text-bold text-sm">NEW PR</div>
-              </div>
-            </div>
-          `).join('')}
-        ` : ''}
-
-        <!-- Start Workout Button -->
-        <div class="p-16 mt-8">
-          <button class="btn btn-accent btn-large w-full" id="btn-start-workout">
-            ${this.Icons.dumbbell} Start Session
+        <span class="header-title">TropicalFit</span>
+        <div style="display:flex; gap:8px; margin-left:auto;">
+          <button class="header-back notif-bell-wrap" id="btn-notif" style="color:var(--text-sub);">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            ${this._hasUnreadNotifs() ? '<span class="notif-badge"></span>' : ''}
+          </button>
+          <button class="header-back" id="btn-go-profile" style="overflow:hidden; padding:0;">
+            <img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none'">
           </button>
         </div>
-
-        <!-- Quick Links -->
-        <div class="flex gap-8 mx-16 mb-16">
-          <button class="btn btn-ghost flex-1" id="btn-profile">${this.Icons.profile} Profile</button>
+      </div>
+      <div class="fade-in">
+        <div class="hero-greeting">
+          <div class="hero-greeting-sub">${greeting}</div>
+          <div class="hero-greeting-name">${username}</div>
         </div>
 
-        <div style="height: 20px;"></div>
+        <div class="hero-level-pill">
+          <span class="hero-level-text">Lv ${levelInfo.level} · ${levelInfo.title}</span>
+          <div class="hero-xp-bar">
+            <div class="hero-xp-fill" style="width:${levelInfo.progress}%"></div>
+          </div>
+          <span class="hero-xp-label">${p.xp}/${levelInfo.nextXp}</span>
+        </div>
+
+        <div class="character-container">
+          <div class="character-wrap">
+            <img class="character-avatar ${avatarRingClass}" src="${avatarUrl}"
+                 alt="Your character" id="btn-go-profile-char"
+                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏖️</text></svg>'">
+            <div class="character-level-badge">Lv ${levelInfo.level}</div>
+          </div>
+        </div>
+
+        <div class="hero-stat-row">
+          <div class="hero-stat-pill">
+            <div class="hero-stat-pill-icon">🔥</div>
+            <span class="hero-stat-pill-val">${p.currentStreak}</span>
+            <div class="hero-stat-pill-label">Streak</div>
+          </div>
+          <div class="hero-stat-pill">
+            <div class="hero-stat-pill-icon">💪</div>
+            <span class="hero-stat-pill-val">${p.totalWorkouts || 0}</span>
+            <div class="hero-stat-pill-label">Workouts</div>
+          </div>
+          <div class="hero-stat-pill">
+            <div class="hero-stat-pill-icon">📦</div>
+            <span class="hero-stat-pill-val">${this.formatVolume(p.totalVolume || 0)}</span>
+            <div class="hero-stat-pill-label">Volume</div>
+          </div>
+        </div>
+
+        <button class="hero-start-btn" id="btn-start-workout">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1.5-1.5"/><path d="m3 3 1.5 1.5"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>
+          START SESSION
+        </button>
+
+        <div class="hero-feed-teaser" id="btn-go-social">
+          <div class="hero-feed-teaser-label">🌊 Live Community</div>
+          ${mockFeed.slice(0,2).map(f => `<div class="hero-feed-item">${f.emoji} <strong>${f.user}</strong> ${f.text}</div>`).join('')}
+        </div>
+
+        <div style="height: 16px;"></div>
       </div>
     `;
+  },
+
+  _getAvatarUrl() {
+    const seed = this.settings.avatarSeed || this.settings.username || 'tropicalfit';
+    const style = this.settings.avatarStyle || 'adventurer';
+    return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=0a1628,0d2340`;
+  },
+
+  _hasUnreadNotifs() {
+    return false; // Phase 2: check real notifications
+  },
+
+  _getMockFeedItems() {
+    return [
+      { emoji: '🏆', user: 'island_monk', text: 'hit a new Bench PR — 225 lbs', time: '2m ago' },
+      { emoji: '⚡', user: 'storm_surfer', text: 'finished Push Day · 38,400 lbs', time: '8m ago' },
+      { emoji: '🔥', user: 'wave_rider_99', text: 'is on a 45-day streak!', time: '1h ago' },
+      { emoji: '💪', user: 'tidal_beast', text: 'crushed Leg Day · 52,100 lbs', time: '2h ago' },
+      { emoji: '🌴', user: 'reef_paddler', text: 'joined TropicalFit', time: '3h ago' },
+    ];
   },
 
   // ─── HISTORY SCREEN ───────────────────────────────────────
@@ -416,6 +408,91 @@ const App = {
         ` : ''}
       </div>
     `;
+  },
+
+  // ─── LOGS SCREEN — Combined History + Stats ────────────────
+  renderLogs(activeTab = 'history') {
+    return `
+      <div class="header">
+        <span class="header-title">Island Logs</span>
+        <button class="header-action" id="btn-export-history">Export</button>
+      </div>
+      <div class="tab-pill">
+        <button class="tab-pill-item ${activeTab === 'history' ? 'active' : ''}" data-tab="history">History</button>
+        <button class="tab-pill-item ${activeTab === 'stats' ? 'active' : ''}" data-tab="stats">Stats</button>
+      </div>
+      <div id="logs-tab-content">
+        ${activeTab === 'history' ? this._renderLogsHistory() : this._renderLogsStats()}
+      </div>
+    `;
+  },
+
+  _renderLogsHistory() {
+    const sorted = [...this.workouts].sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (sorted.length === 0) {
+      return `
+        <div class="empty-state">
+          <div class="empty-state-icon" style="background:var(--clear-water);border:2px solid var(--aqua);color:var(--lagoon);">📋</div>
+          <div class="empty-state-title">No Logs Yet</div>
+          <div class="empty-state-text">Hit the shore and start lifting!<br>Your journey begins with one rep.</div>
+          <button class="btn btn-accent mt-24" id="btn-start-from-logs">💪 Start First Session</button>
+        </div>`;
+    }
+    return `
+      <div class="search-bar">
+        <input type="text" class="input" placeholder="Search logs, exercises..." id="history-search" style="padding-left:16px;">
+      </div>
+      <div id="history-list">
+        ${sorted.map(w => this.renderWorkoutCard(w)).join('')}
+      </div>
+      <div style="height:20px;"></div>`;
+  },
+
+  _renderLogsStats() {
+    const p = this.profile;
+    const muscleData = this.getMuscleHeatmapData();
+    return `
+      <div class="fade-in">
+        <div class="section-header"><span class="section-title">Weekly Volume</span></div>
+        <div class="card">
+          <div class="text-xs text-sea">Last 4 Weeks</div>
+          <div class="flex gap-4 mt-8" style="align-items:flex-end;height:60px;">
+            ${this.getVolumeHistory(4).map(v => `
+              <div class="flex-1 flex flex-col" style="align-items:center;justify-content:flex-end;height:100%;">
+                <div style="width:100%;background:linear-gradient(to top,var(--teal),var(--sea-foam));border-radius:4px 4px 0 0;min-height:4px;height:${v.percent}%;"></div>
+                <div class="text-xs text-sea mt-4">${v.label}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="section-header"><span class="section-title">Muscle Activity</span></div>
+        <div class="card">
+          <div class="flex flex-wrap gap-8" style="justify-content:center;">
+            ${Object.entries(muscleData).map(([muscle, intensity]) => `
+              <div class="heatmap-region intensity-${Math.min(5, intensity)}"
+                   style="padding:8px 12px;border-radius:var(--radius-sm);">${muscle}</div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="section-header"><span class="section-title">Personal Records</span></div>
+        ${Object.entries(p.personalRecords || {}).length === 0 ? `
+          <div class="empty-state" style="padding:30px;">
+            <div class="empty-state-text">Complete workouts to set PRs!</div>
+          </div>` :
+          Object.entries(p.personalRecords || {}).map(([name, pr]) => `
+            <div class="card card-tappable" data-pr-exercise="${name}">
+              <div class="flex flex-between" style="align-items:center;">
+                <div>
+                  <div class="text-bold text-white">${name}</div>
+                  <div class="text-xs text-sea">${pr.maxWeight ? pr.maxWeight.value + ' ' + (pr.maxWeight.unit || this.settings.defaultWeightUnit) : ''}</div>
+                </div>
+                <div class="text-sunset text-bold">⚓</div>
+              </div>
+            </div>
+          `).join('')
+        }
+        <div style="height:20px;"></div>
+      </div>`;
   },
 
   // ─── START WORKOUT SCREEN ─────────────────────────────────
@@ -766,20 +843,184 @@ const App = {
     `;
   },
 
+  // ─── SOCIAL SCREEN ────────────────────────────────────────
+  renderSocial(activeTab = 'leaderboard') {
+    const hasUsername = !!this.settings.username;
+    if (!hasUsername) {
+      return this._renderSocialSetup();
+    }
+    return `
+      <div class="header">
+        <span class="header-title">🌊 Board</span>
+      </div>
+      <div class="tab-pill">
+        <button class="tab-pill-item ${activeTab === 'leaderboard' ? 'active' : ''}" data-social-tab="leaderboard">Leaderboard</button>
+        <button class="tab-pill-item ${activeTab === 'feed' ? 'active' : ''}" data-social-tab="feed">Feed</button>
+        <button class="tab-pill-item ${activeTab === 'chat' ? 'active' : ''}" data-social-tab="chat">Chat</button>
+      </div>
+      <div id="social-tab-content">
+        ${this._renderSocialTab(activeTab)}
+      </div>
+    `;
+  },
+
+  _renderSocialSetup() {
+    return `
+      <div class="header"><span class="header-title">🌊 Board</span></div>
+      <div class="username-setup-card">
+        <div style="font-size:3rem;margin-bottom:12px;">🏝️</div>
+        <div class="text-lg text-extra-bold text-main">Join the Community</div>
+        <div class="text-sm text-sea mt-8 mb-16">Pick a username to appear on the leaderboard, share your workouts, and chat with other athletes.</div>
+        <div class="input-group">
+          <input type="text" class="input" placeholder="Your username" id="social-username-input" maxlength="20" autocomplete="off">
+        </div>
+        <div class="text-xs text-muted mt-8 mb-16">This is public. No email needed.</div>
+        <button class="btn btn-accent btn-large w-full" id="btn-social-join">Join the Board →</button>
+      </div>
+    `;
+  },
+
+  _renderSocialTab(tab) {
+    if (tab === 'leaderboard') return this._renderLeaderboard();
+    if (tab === 'feed')        return this._renderFeed();
+    if (tab === 'chat')        return this._renderGlobalChat();
+    return '';
+  },
+
+  _renderLeaderboard() {
+    const myUsername = this.settings.username;
+    const myVolume = this.getWeekVolume();
+    const mockUsers = [
+      { rank:1,  username:'island_deity',   level:16, volume:128400, avatarStyle:'adventurer', seed:'deity' },
+      { rank:2,  username:'storm_surfer',   level:12, volume:95000,  avatarStyle:'adventurer', seed:'storm' },
+      { rank:3,  username:'volcano_forge',  level:11, volume:81200,  avatarStyle:'adventurer', seed:'volc' },
+      { rank:4,  username:'wave_rider_99',  level:9,  volume:65300,  avatarStyle:'adventurer', seed:'wave' },
+      { rank:5,  username:'tidal_beast',    level:8,  volume:58100,  avatarStyle:'adventurer', seed:'tidal' },
+      { rank:6,  username:'reef_diver',     level:7,  volume:42000,  avatarStyle:'adventurer', seed:'reef' },
+      { rank:7,  username:'palm_crusher',   level:6,  volume:38700,  avatarStyle:'adventurer', seed:'palm' },
+      { rank:8,  username:'island_monk',    level:5,  volume:31400,  avatarStyle:'adventurer', seed:'monk' },
+    ];
+    // Insert current user
+    const myRank = myVolume > 0 ? mockUsers.filter(u => u.volume > myVolume).length + 1 : '—';
+    const rankClass = (r) => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
+    const fmt = (v) => v >= 1000 ? (v/1000).toFixed(1)+'k' : v;
+    const now = new Date();
+    const daysLeft = 7 - now.getDay();
+    const hoursLeft = 24 - now.getHours();
+    return `
+      <div class="social-reset-timer">Resets in ${daysLeft}d ${hoursLeft}h</div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        ${mockUsers.map(u => {
+          const av = `https://api.dicebear.com/7.x/${u.avatarStyle}/svg?seed=${u.seed}&backgroundColor=0a1628`;
+          return `
+            <div class="leaderboard-row">
+              <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank === 1 ? '🥇' : u.rank === 2 ? '🥈' : u.rank === 3 ? '🥉' : u.rank}</div>
+              <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
+              <div class="leaderboard-info">
+                <div class="leaderboard-name">${u.username}</div>
+                <div class="leaderboard-sub">Lv ${u.level}</div>
+              </div>
+              <div class="leaderboard-volume">${fmt(u.volume)} lbs</div>
+            </div>`;
+        }).join('')}
+      </div>
+      ${myVolume > 0 ? `
+        <div class="card leaderboard-you" style="padding:0;overflow:hidden;margin-top:4px;">
+          <div class="leaderboard-row">
+            <div class="leaderboard-rank you">${myRank}</div>
+            <img class="leaderboard-avatar" src="${this._getAvatarUrl()}" alt="you">
+            <div class="leaderboard-info">
+              <div class="leaderboard-name">${myUsername} <span style="font-size:0.65rem;color:var(--aqua);">(you)</span></div>
+              <div class="leaderboard-sub">Lv ${this.getLevelInfo(this.profile.xp).level}</div>
+            </div>
+            <div class="leaderboard-volume">${fmt(myVolume)} lbs</div>
+          </div>
+        </div>` : ''}
+      <div class="text-center text-xs text-muted" style="padding:12px 0 4px;">
+        Connect to server to see real rankings
+      </div>
+      <div style="height:20px;"></div>`;
+  },
+
+  _renderFeed() {
+    const items = this._getMockFeedItems();
+    const makeAv = (seed) => `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=0a1628`;
+    return `
+      <div class="card" style="padding:0;overflow:hidden;">
+        ${items.map(f => `
+          <div class="feed-item">
+            <div class="feed-emoji">${f.emoji}</div>
+            <img class="feed-avatar" src="${makeAv(f.user)}" alt="${f.user}">
+            <div class="feed-content">
+              <div class="feed-user">${f.user}</div>
+              <div class="feed-text">${f.text}</div>
+              <div class="feed-time">${f.time}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="text-center text-xs text-muted" style="padding:12px 0 4px;">
+        Real-time feed coming in Phase 2
+      </div>
+      <div style="height:20px;"></div>`;
+  },
+
+  _renderGlobalChat() {
+    const myUsername = this.settings.username;
+    const myAv = this._getAvatarUrl();
+    const makeAv = (seed) => `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=0a1628`;
+    const mockMsgs = [
+      { user:'island_deity', seed:'deity', text:'Just hit a new deadlift PR finally!!', time:'3:42pm', mine:false },
+      { user:'storm_surfer', seed:'storm', text:'Lets go!! What weight?', time:'3:43pm', mine:false },
+      { user:'wave_rider_99', seed:'wave', text:'315 lbs? That thing is a beast', time:'3:44pm', mine:false },
+    ];
+    return `
+      <div class="chat-global-wrap">
+        <div class="chat-global-messages" id="global-chat-messages">
+          ${mockMsgs.map(m => `
+            <div class="chat-global-bubble ${m.mine ? 'mine' : ''}">
+              ${!m.mine ? `<img class="bubble-avatar" src="${makeAv(m.seed)}" alt="${m.user}">` : ''}
+              <div class="bubble-body">
+                ${!m.mine ? `<div class="bubble-name">${m.user}</div>` : ''}
+                <div class="bubble-text">${m.text}</div>
+              </div>
+              ${m.mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
+            </div>`).join('')}
+          <div class="text-center text-xs text-muted" style="padding:8px 0;">
+            Real-time chat coming in Phase 2 — messages below are local only
+          </div>
+          ${(this._localChatMessages || []).map(m => `
+            <div class="chat-global-bubble ${m.mine ? 'mine' : ''}">
+              ${!m.mine ? `<img class="bubble-avatar" src="${makeAv(m.seed)}" alt="${m.user}">` : ''}
+              <div class="bubble-body">
+                ${!m.mine ? `<div class="bubble-name">${m.user}</div>` : ''}
+                <div class="bubble-text">${this.escapeHtml(m.text)}</div>
+              </div>
+              ${m.mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
+            </div>`).join('')}
+        </div>
+        <div class="chat-global-input-bar">
+          <input class="chat-global-input" type="text" placeholder="Say something..." id="global-chat-input" autocomplete="off">
+          <button class="chat-global-send" id="btn-global-chat-send">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>`;
+  },
+
   // ─── CHAT SCREEN ──────────────────────────────────────────
   renderCoachChat(data) {
     const prefilledMsg = data.prefill || '';
 
+    const noHistory = !this._currentChatMessages || this._currentChatMessages.length === 0;
     return `
       <div style="position:fixed; top:0; left:0; right:0; bottom:calc(56px + var(--safe-bottom, 0px)); display:flex; flex-direction:column; background:var(--bg); z-index:10;">
         <div class="header" style="flex-shrink:0;">
           <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
-          <span class="header-title">Coach Chat</span>
-          <button class="header-action" id="btn-chat-menu">${this.Icons.settings}</button>
+          <span class="header-title">AI Coach</span>
         </div>
         <div class="chat-messages" id="chat-messages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; -webkit-overflow-scrolling:touch;">
           <div class="chat-bubble ai">
-            Hey there! I'm your Florida Keys fitness coach. Tap any stat on the home screen to ask me about it, or ask me anything about training, nutrition, or recovery!
+            Hey! I'm your tropical fitness coach. Ask me anything about training, nutrition, or recovery — or tap a quick prompt below.
           </div>
           ${this._currentChatMessages && this._currentChatMessages.length > 0 ? this._currentChatMessages.map(m => `
             <div class="chat-bubble ${m.role === 'ai' ? 'ai' : 'user'}">
@@ -787,6 +1028,13 @@ const App = {
             </div>
           `).join('') : ''}
         </div>
+        ${noHistory ? `
+          <div class="ai-chips">
+            <button class="ai-chip" data-chip="Analyze my last workout">📊 Last workout</button>
+            <button class="ai-chip" data-chip="What should I train today?">🎯 What to train</button>
+            <button class="ai-chip" data-chip="Help me hit a new PR">🏆 Hit a PR</button>
+            <button class="ai-chip" data-chip="Give me recovery advice">😴 Recovery</button>
+          </div>` : ''}
         <div class="chat-input-bar" style="flex-shrink:0; padding-bottom:calc(12px + var(--safe-bottom));">
           <input type="text" class="chat-input" placeholder="Ask Coach anything..."
                  id="chat-input" value="${this.escapeHtml(prefilledMsg)}">
@@ -806,6 +1054,42 @@ const App = {
         <span class="header-title">Settings Configuration</span>
       </div>
       <div class="fade-in">
+        <!-- Profile -->
+        <div class="section-header">
+          <span class="section-title">Profile</span>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+            <img src="${this._getAvatarUrl()}" style="width:56px;height:56px;border-radius:50%;border:2px solid var(--glass-border-hi);" alt="avatar">
+            <div style="flex:1;">
+              <div class="text-bold text-white">${this.settings.username || 'No username set'}</div>
+              <div class="text-xs text-sea mt-2">Lv ${this.getLevelInfo(this.profile.xp).level} · ${this.getLevelInfo(this.profile.xp).title}</div>
+            </div>
+          </div>
+          <div class="input-group">
+            <label class="input-label">Username</label>
+            <input type="text" class="input" placeholder="Choose a username" id="setting-username" value="${s.username || ''}" maxlength="20">
+          </div>
+          <div class="input-group" style="margin-top:12px;">
+            <label class="input-label">Avatar Style</label>
+            <select class="input" id="setting-avatar-style">
+              <option value="adventurer" ${s.avatarStyle === 'adventurer' ? 'selected' : ''}>Adventurer</option>
+              <option value="pixel-art" ${s.avatarStyle === 'pixel-art' ? 'selected' : ''}>Pixel Art</option>
+              <option value="lorelei" ${s.avatarStyle === 'lorelei' ? 'selected' : ''}>Lorelei</option>
+              <option value="fun-emoji" ${s.avatarStyle === 'fun-emoji' ? 'selected' : ''}>Fun Emoji</option>
+              <option value="bottts" ${s.avatarStyle === 'bottts' ? 'selected' : ''}>Robot</option>
+              <option value="notionists" ${s.avatarStyle === 'notionists' ? 'selected' : ''}>Notionist</option>
+            </select>
+          </div>
+          <div class="input-group" style="margin-top:12px;">
+            <label class="input-label">Notifications</label>
+            <label style="display:flex;justify-content:space-between;align-items:center;">
+              <span class="text-sm text-sea">Enable push notifications</span>
+              <input type="checkbox" id="setting-notifications" ${s.notificationsEnabled ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            </label>
+          </div>
+        </div>
+
         <!-- Appearance -->
         <div class="section-header">
           <span class="section-title">Appearance</span>
@@ -1161,6 +1445,10 @@ const App = {
         this.bindClick('btn-start-workout', () => this.showScreen('startWorkout'));
         this.bindClick('btn-settings', () => this.showScreen('settings'));
         this.bindClick('btn-profile', () => this.showScreen('profile'));
+        this.bindClick('btn-go-social', () => this.showScreen('social'));
+        this.bindClick('btn-go-profile-char', () => this.showScreen('settings'));
+        this.bindClick('btn-go-profile', () => this.showScreen('settings'));
+        this.bindClick('btn-notif', () => {});
 
         // Tappable stats → AI chat
         this.bindClick('tap-streak', () => this.openAIChat(`I have a ${this.profile.currentStreak} day workout streak. Give me motivation and evidence-based recovery tips to keep going!`));
@@ -1264,6 +1552,12 @@ const App = {
         // Scroll to bottom
         const msgs = document.getElementById('chat-messages');
         if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        document.querySelectorAll('[data-chip]').forEach(chip => {
+          chip.addEventListener('click', () => {
+            const input = document.getElementById('chat-input');
+            if (input) { input.value = chip.dataset.chip; input.focus(); }
+          });
+        });
         break;
 
       case 'settings':
@@ -1295,6 +1589,36 @@ const App = {
             this.settings.batterySaver = val;
             DB.saveSetting('batterySaver', val);
             this.applyTheme();
+          });
+        }
+        // Username live save
+        const usernameInput = document.getElementById('setting-username');
+        if (usernameInput) {
+          usernameInput.addEventListener('input', (e) => {
+            this.settings.username = e.target.value.trim();
+            DB.saveSetting('username', this.settings.username);
+          });
+        }
+        const avatarStyleSelect = document.getElementById('setting-avatar-style');
+        if (avatarStyleSelect) {
+          avatarStyleSelect.addEventListener('change', (e) => {
+            this.settings.avatarStyle = e.target.value;
+            DB.saveSetting('avatarStyle', this.settings.avatarStyle);
+          });
+        }
+        const notifToggle = document.getElementById('setting-notifications');
+        if (notifToggle) {
+          notifToggle.addEventListener('change', async (e) => {
+            if (e.target.checked) {
+              const perm = await Notification.requestPermission();
+              const val = perm === 'granted';
+              e.target.checked = val;
+              this.settings.notificationsEnabled = val;
+              DB.saveSetting('notificationsEnabled', val);
+            } else {
+              this.settings.notificationsEnabled = false;
+              DB.saveSetting('notificationsEnabled', false);
+            }
           });
         }
         break;
@@ -1335,6 +1659,77 @@ const App = {
         if (fileInput) {
           fileInput.addEventListener('change', (e) => this.handleFileUpload(e.target.files[0]));
         }
+        break;
+
+      case 'logs':
+        document.querySelectorAll('[data-tab]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const container = document.getElementById('screen-container');
+            container.innerHTML = this.renderLogs(btn.dataset.tab);
+            this.bindScreenEvents('logs');
+          });
+        });
+        this.bindClick('btn-export-history', () => this.exportHistory?.());
+        this.bindClick('btn-start-from-logs', () => this.showScreen('startWorkout'));
+        const histSearch = document.getElementById('history-search');
+        if (histSearch) histSearch.addEventListener('input', (e) => this.filterExercises?.(e.target.value));
+        document.querySelectorAll('[data-workout-id]').forEach(el => {
+          el.addEventListener('click', () => this.showScreen('workoutDetail', { id: el.dataset.workoutId }));
+        });
+        document.querySelectorAll('[data-pr-exercise]').forEach(el => {
+          el.addEventListener('click', () => this.openAIChat?.(`Tell me about my ${el.dataset.prExercise} progress.`));
+        });
+        break;
+
+      case 'social':
+        document.querySelectorAll('[data-social-tab]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const container = document.getElementById('screen-container');
+            container.innerHTML = `<div class="header"><span class="header-title">🌊 Board</span></div>
+              <div class="tab-pill">
+                <button class="tab-pill-item ${btn.dataset.socialTab === 'leaderboard' ? 'active' : ''}" data-social-tab="leaderboard">Leaderboard</button>
+                <button class="tab-pill-item ${btn.dataset.socialTab === 'feed' ? 'active' : ''}" data-social-tab="feed">Feed</button>
+                <button class="tab-pill-item ${btn.dataset.socialTab === 'chat' ? 'active' : ''}" data-social-tab="chat">Chat</button>
+              </div>
+              <div id="social-tab-content">${this._renderSocialTab(btn.dataset.socialTab)}</div>`;
+            this.bindScreenEvents('social');
+          });
+        });
+        // Social join
+        this.bindClick('btn-social-join', () => {
+          const val = document.getElementById('social-username-input')?.value.trim();
+          if (!val) return;
+          this.settings.username = val;
+          this.settings.avatarSeed = val;
+          DB.saveSetting('username', val);
+          DB.saveSetting('avatarSeed', val);
+          this.showScreen('social');
+        });
+        // Global chat send
+        const globalInput = document.getElementById('global-chat-input');
+        const sendGlobal = () => {
+          const text = globalInput?.value.trim();
+          if (!text) return;
+          if (!this._localChatMessages) this._localChatMessages = [];
+          this._localChatMessages.push({ mine: true, text, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) });
+          globalInput.value = '';
+          const msgs = document.getElementById('global-chat-messages');
+          if (msgs) {
+            const myAv = this._getAvatarUrl();
+            const el = document.createElement('div');
+            el.className = 'chat-global-bubble mine';
+            el.innerHTML = `<div class="bubble-body"><div class="bubble-text">${this.escapeHtml(text)}</div></div><img class="bubble-avatar" src="${myAv}" alt="you">`;
+            msgs.appendChild(el);
+            msgs.scrollTop = msgs.scrollHeight;
+          }
+        };
+        this.bindClick('btn-global-chat-send', sendGlobal);
+        if (globalInput) globalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendGlobal(); });
+        // Scroll chat to bottom
+        setTimeout(() => {
+          const msgs = document.getElementById('global-chat-messages');
+          if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        }, 50);
         break;
     }
   },

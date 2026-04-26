@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v23';
+const CACHE_NAME = 'tropical-fit-v24';
 const ASSETS = [
   '/workoutlog/',
   '/workoutlog/index.html',
@@ -32,6 +32,34 @@ self.addEventListener('activate', event => {
     )
   );
   self.clients.claim();
+});
+
+// ─── Push Notifications ────────────────────────────────────
+self.addEventListener('push', event => {
+  let data = { title: 'TropicalFit', body: 'Something happened on the island 🏖️', url: '/workoutlog/' };
+  try { data = { ...data, ...event.data.json() }; } catch(e) {}
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/workoutlog/icons/icon-192.png',
+      badge: '/workoutlog/icons/icon-192.png',
+      tag: data.tag || 'tropicalfit',
+      data: { url: data.url },
+      vibrate: [100, 50, 100],
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/workoutlog/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const existing = list.find(c => c.url.includes('/workoutlog'));
+      if (existing) { existing.focus(); existing.postMessage({ type: 'NOTIF_CLICK', url }); }
+      else clients.openWindow(url);
+    })
+  );
 });
 
 self.addEventListener('fetch', event => {
