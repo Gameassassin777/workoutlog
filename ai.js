@@ -1,7 +1,28 @@
 // ai.js — Gemini 2.5 Flash Integration for Tropical Workout Tracker
 const AI = {
+  BACKEND: 'https://tropicalfit.gameassassin777.workers.dev',
+
   async getApiKey() {
     return await DB.getSetting('geminiApiKey');
+  },
+
+  // Call backend AI proxy (used when user has no personal Gemini key)
+  // Rate-limited on the server side: 15 messages / user / day
+  async backendChat(messages, context = '') {
+    const userId = await DB.getSetting('serverId');
+    if (!userId) return { error: 'Join the community first to use the free AI tier.' };
+    try {
+      const res = await fetch(`${this.BACKEND}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, messages, context }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || 'AI unavailable' };
+      return data;
+    } catch (e) {
+      return { error: 'Could not reach the island server.' };
+    }
   },
 
   async fetchWithRetry(url, options, maxRetries = 3, onProgress = null) {
@@ -23,7 +44,8 @@ const AI = {
 
   async chat(messages, context = '') {
     const apiKey = await this.getApiKey();
-    if (!apiKey) return { error: 'Please set your Gemini API Key in Settings' };
+    // No personal key — use free backend tier (rate limited)
+    if (!apiKey) return this.backendChat(messages, context);
 
     const systemPrompt = `You are a premium, expert Florida Keys Fitness Coach. 
     Your tone is encouraging, extremely laid-back, and high-energy expert. 
@@ -67,7 +89,11 @@ const AI = {
 
   async analyzeWorkout(workout) {
     const apiKey = await this.getApiKey();
-    if (!apiKey) return { error: 'API Key missing' };
+    if (!apiKey) {
+      // Use backend with a single synthetic message
+      const prompt = `Analyze this workout briefly (2-3 sentences). Focus on volume and intensity.\n${JSON.stringify(workout)}`;
+      return this.backendChat([{ role: 'user', content: prompt }], '');
+    }
 
     const prompt = `Analyze this workout and provide a brief (2-3 sentence) evidence-based summary of the effort, focusing on volume and progression.
     Workout: ${JSON.stringify(workout)}`;
@@ -124,6 +150,57 @@ const AI = {
     } catch (err) {
       console.error('AI Parsing failed:', err);
       return { error: 'Parsing failed: ' + err.message };
+    }
+  },
+
+  // Describe a person's appearance from a selfie (Gemini Vision)
+  // Returns a comma-separated feature string for use in Pollinations prompt
+  async describeSelfie(base64Data, mimeType = 'image/jpeg') {
+    const apiKey = await this.getApiKey();
+
+    const prompt = `Describe this person's physical appearance in concise detail for AI image generation. Focus on: gender, approximate age, ethnicity, hair color and style, eye color, skin tone, facial features, facial hair if any, body build if visible. Return ONLY a comma-separated descriptor list — no sentences, no explanation. Example output: "white male, mid 20s, short dark brown hair, blue eyes, light skin, strong jaw, light stubble, athletic build"`;
+
+    const makeParts = (key) => ({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mimeType, data: base64Data } },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 200 }
+    });
+
+    if (apiKey) {
+      // Use local key
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(makeParts(apiKey)) }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (text) return { description: text };
+        throw new Error('Empty response');
+      } catch (e) {
+        return { error: e.message };
+      }
+    } else {
+      // Fall back to backend proxy (sends image data — rate limited 1/day)
+      const userId = await DB.getSetting('serverId');
+      if (!userId) return { error: 'Register first to use selfie portrait without a personal API key.' };
+      try {
+        const res = await fetch(`${this.BACKEND}/api/ai/describe-selfie`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, image_base64: base64Data, mime_type: mimeType })
+        });
+        const data = await res.json();
+        if (!res.ok) return { error: data.error || 'Server error' };
+        return data;
+      } catch (e) {
+        return { error: 'Could not reach server.' };
+      }
     }
   },
 

@@ -3,12 +3,12 @@
 /* ─── Design Tokens ─────────────────────────────────────────── */
 :root {
   /* Glass layers — clear pane style, video shows through */
-  --glass-deep:      rgba(0,   0,   0,   0.38);
-  --glass-mid:       rgba(0,   0,   0,   0.22);
-  --glass-light:     rgba(0,   0,   0,   0.12);
-  --glass-white:     rgba(255, 255, 255, 0.07);
-  --glass-border:    rgba(255, 255, 255, 0.18);
-  --glass-border-hi: rgba(255, 255, 255, 0.42);
+  --glass-deep:      rgba(0,   0,   0,   0.52);
+  --glass-mid:       rgba(0,   0,   0,   0.34);
+  --glass-light:     rgba(0,   0,   0,   0.18);
+  --glass-white:     rgba(255, 255, 255, 0.09);
+  --glass-border:    rgba(255, 255, 255, 0.20);
+  --glass-border-hi: rgba(255, 255, 255, 0.46);
 
   /* Blur depths — minimal so video is legible through cards */
   --blur-sm:  blur(2px);
@@ -53,9 +53,9 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
   /* Text */
-  --text-main:  #F0F8FF;
-  --text-sub:   rgba(180, 220, 255, 0.75);
-  --text-muted: rgba(140, 190, 240, 0.48);
+  --text-main:  #F4FAFF;
+  --text-sub:   rgba(200, 230, 255, 0.90);
+  --text-muted: rgba(170, 215, 255, 0.65);
   --text-dark:  #021628;
 
   /* App.js compat aliases */
@@ -282,8 +282,8 @@ body::before {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; gap: 3px; padding: 8px 0;
   background: none; border: none;
-  color: rgba(140, 200, 255, 0.40);
-  font-size: 0.58rem; font-weight: 700;
+  color: rgba(180, 220, 255, 0.62);
+  font-size: 0.60rem; font-weight: 700;
   cursor: pointer; transition: color 0.25s, transform 0.18s;
   position: relative; letter-spacing: 0.5px; text-transform: uppercase;
   font-family: inherit;
@@ -429,7 +429,7 @@ body::before {
 .input-group { margin-bottom: 14px; }
 
 .input-label {
-  display: block; font-size: 0.68rem; font-weight: 700;
+  display: block; font-size: 0.72rem; font-weight: 700;
   color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;
 }
 
@@ -500,7 +500,7 @@ select.input {
   box-shadow: 0 0 20px rgba(0,180,255,0.18);
 }
 
-.stat-chip-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-sub); font-weight: 700; margin-bottom: 5px; }
+.stat-chip-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-sub); font-weight: 700; margin-bottom: 5px; }
 .stat-chip-value { font-size: 1.3rem; font-weight: 900; color: var(--text-main); line-height: 1; text-shadow: 0 0 16px rgba(0,200,255,0.18); }
 .stat-chip-sub { font-size: 0.62rem; color: var(--gold); font-weight: 600; margin-top: 3px; text-transform: uppercase; text-shadow: 0 0 10px rgba(255,200,80,0.38); }
 
@@ -555,12 +555,12 @@ select.input {
   0%, 100% { box-shadow: 0 0 10px rgba(255,100,60,0.38); }
   50%       { box-shadow: 0 0 22px rgba(255,100,60,0.68); }
 }
-.week-day { font-size: 0.60rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.week-day { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.3px; }
 .week-day.today { color: var(--coral); text-shadow: 0 0 10px rgba(255,100,60,0.48); }
 
 /* ─── Section Headers ───────────────────────────────────────── */
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 6px; }
-.section-title { font-size: 0.68rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; }
+.section-title { font-size: 0.74rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; }
 .section-action { font-size: 0.75rem; font-weight: 700; color: var(--aqua); background: none; border: none; cursor: pointer; padding: 4px 0; font-family: inherit; transition: text-shadow 0.2s; }
 .section-action:hover { text-shadow: 0 0 10px rgba(0,200,255,0.55); }
 
@@ -826,7 +826,7 @@ select.input {
 .tab-pill-item {
   flex: 1; padding: 8px 4px;
   border: none; border-radius: var(--radius-pill);
-  background: transparent; color: var(--text-muted);
+  background: transparent; color: var(--text-sub);
   font-size: 0.75rem; font-weight: 700; letter-spacing: 0.3px;
   cursor: pointer; transition: all 0.2s; font-family: inherit;
   text-align: center;
@@ -871,10 +871,55 @@ select.input {
   white-space: nowrap; letter-spacing: 0.5px;
   box-shadow: 0 2px 8px rgba(0,200,255,0.4);
 }
-.avatar-ring-1 { border-color: rgba(0,200,255,0.6); }
-.avatar-ring-2 { border-color: rgba(46,232,138,0.6); }
-.avatar-ring-3 { border-color: rgba(255,209,102,0.6); }
-.avatar-ring-4 { border-color: rgba(255,94,58,0.6); }
+/* ── Avatar Ring Tiers ───────────────────────────────── */
+/* Tier 1 · Lv 1-3 · Teal */
+.avatar-ring-1 {
+  border-color: rgba(0,200,255,0.75);
+  box-shadow: 0 0 10px rgba(0,200,255,0.35);
+}
+/* Tier 2 · Lv 4-7 · Gold glow */
+.avatar-ring-2 {
+  border-color: rgba(255,209,102,0.9);
+  box-shadow: 0 0 14px rgba(255,209,102,0.55), 0 0 28px rgba(255,209,102,0.2);
+}
+/* Tier 3 · Lv 8-11 · Coral pulse */
+.avatar-ring-3 {
+  border-width: 3px;
+  border-color: rgba(255,94,58,0.95);
+  box-shadow: 0 0 18px rgba(255,94,58,0.65);
+  animation: ring-pulse-coral 2s ease-in-out infinite;
+}
+@keyframes ring-pulse-coral {
+  0%,100% { box-shadow: 0 0 18px rgba(255,94,58,0.65); }
+  50%      { box-shadow: 0 0 32px rgba(255,94,58,0.95), 0 0 52px rgba(255,120,80,0.35); }
+}
+/* Tier 4 · Lv 12-15 · Rainbow cycling */
+.avatar-ring-4 {
+  border-width: 3px;
+  animation: ring-rainbow 5s linear infinite;
+}
+@keyframes ring-rainbow {
+  0%   { border-color: #ff5e3a; box-shadow: 0 0 20px rgba(255,94,58,0.6); }
+  17%  { border-color: #ffd166; box-shadow: 0 0 20px rgba(255,209,102,0.6); }
+  33%  { border-color: #06d6a0; box-shadow: 0 0 20px rgba(6,214,160,0.6); }
+  50%  { border-color: #118ab2; box-shadow: 0 0 20px rgba(17,138,178,0.6); }
+  67%  { border-color: #7b2ff7; box-shadow: 0 0 20px rgba(123,47,247,0.6); }
+  83%  { border-color: #ff006e; box-shadow: 0 0 20px rgba(255,0,110,0.6); }
+  100% { border-color: #ff5e3a; box-shadow: 0 0 20px rgba(255,94,58,0.6); }
+}
+/* Tier 5 · Lv 16+ · Prismatic fast spin */
+.avatar-ring-5 {
+  border-width: 4px;
+  animation: ring-prismatic 2s linear infinite;
+}
+@keyframes ring-prismatic {
+  0%   { border-color: #ff006e; box-shadow: 0 0 28px rgba(255,0,110,0.8),  0 0 50px rgba(255,0,110,0.3); }
+  20%  { border-color: #fb5607; box-shadow: 0 0 28px rgba(251,86,7,0.8),   0 0 50px rgba(251,86,7,0.3); }
+  40%  { border-color: #ffbe0b; box-shadow: 0 0 28px rgba(255,190,11,0.8), 0 0 50px rgba(255,190,11,0.3); }
+  60%  { border-color: #3a86ff; box-shadow: 0 0 28px rgba(58,134,255,0.8), 0 0 50px rgba(58,134,255,0.3); }
+  80%  { border-color: #8338ec; box-shadow: 0 0 28px rgba(131,56,236,0.8), 0 0 50px rgba(131,56,236,0.3); }
+  100% { border-color: #ff006e; box-shadow: 0 0 28px rgba(255,0,110,0.8),  0 0 50px rgba(255,0,110,0.3); }
+}
 
 /* ═══════════════════════════════════════════════════════
    HOME HERO
@@ -933,7 +978,7 @@ select.input {
   display: block; margin-top: 2px;
 }
 .hero-stat-pill-label {
-  font-size: 0.58rem; color: var(--text-muted); text-transform: uppercase;
+  font-size: 0.64rem; color: var(--text-sub); text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 .hero-start-btn {
@@ -1018,7 +1063,7 @@ select.input {
   font-size: 0.88rem; font-weight: 700; color: var(--text-main);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.leaderboard-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+.leaderboard-sub { font-size: 0.72rem; color: var(--text-sub); margin-top: 1px; }
 .leaderboard-volume {
   font-size: 0.85rem; font-weight: 800; color: var(--aqua);
   text-align: right; flex-shrink: 0;
@@ -1067,7 +1112,7 @@ select.input {
 .chat-global-bubble .bubble-body { display: flex; flex-direction: column; gap: 2px; }
 .chat-global-bubble.mine .bubble-body { align-items: flex-end; }
 .bubble-name {
-  font-size: 0.65rem; font-weight: 700; color: var(--text-muted);
+  font-size: 0.70rem; font-weight: 700; color: var(--text-sub);
   padding: 0 6px;
 }
 .bubble-text {
@@ -1085,6 +1130,31 @@ select.input {
   border-color: rgba(0,200,255,0.3);
   border-radius: 16px 16px 4px 16px;
 }
+/* ── Reactions ──────────────────────────────────────────────── */
+.reaction-bar {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;
+}
+.reaction-btn {
+  display: flex; align-items: center; gap: 3px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 3px 8px;
+  font-size: 0.82rem; cursor: pointer; color: var(--text-sub);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.reaction-btn:active { transform: scale(0.93); }
+.reaction-btn span {
+  font-size: 0.72rem; font-weight: 700;
+  color: var(--text-sub); font-family: inherit;
+}
+.reaction-btn.reacted {
+  background: rgba(0, 200, 220, 0.18);
+  border-color: rgba(0, 200, 220, 0.45);
+  color: var(--aqua);
+}
+.reaction-btn.reacted span { color: var(--aqua); }
+
 .chat-global-input-bar {
   display: flex; gap: 8px; padding: 10px 16px;
   padding-bottom: calc(10px + var(--safe-bottom, 0px));

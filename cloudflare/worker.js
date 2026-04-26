@@ -25,6 +25,9 @@ export default {
       if (path.startsWith('/api/user/') && request.method === 'GET') {
         return handleUserGet(path, env);
       }
+      if (path === '/api/user/avatar' && request.method === 'POST') {
+        return handleUserAvatar(request, env);
+      }
 
       // ── Workout ───────────────────────────────────────────
       if (path === '/api/workout/log' && request.method === 'POST') {
@@ -52,6 +55,22 @@ export default {
       // ── Push ──────────────────────────────────────────────
       if (path === '/api/push/subscribe' && request.method === 'POST') {
         return handlePushSubscribe(request, env);
+      }
+
+      // ── AI Proxy ──────────────────────────────────────────
+      if (path === '/api/ai/chat' && request.method === 'POST') {
+        return handleAIChat(request, env);
+      }
+      if (path === '/api/ai/describe-selfie' && request.method === 'POST') {
+        return handleDescribeSelfie(request, env);
+      }
+
+      // ── Reactions ─────────────────────────────────────────
+      if (path === '/api/react' && request.method === 'POST') {
+        return handleReact(request, env);
+      }
+      if (path === '/api/reactions' && request.method === 'GET') {
+        return handleGetReactions(url, env);
       }
 
       return json({ error: 'Not found' }, 404);
@@ -100,6 +119,15 @@ async function handleUserRegister(request, env) {
   ).bind(crypto.randomUUID(), id, username, avatar_url || null, 'join', 'just joined TropicalFit').run();
 
   return json({ id, username, existing: false });
+}
+
+async function handleUserAvatar(request, env) {
+  const { user_id, avatar_url } = await request.json();
+  if (!user_id || !avatar_url) return json({ error: 'Missing fields' }, 400);
+  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(user_id).first();
+  if (!user) return json({ error: 'Not found' }, 404);
+  await env.DB.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').bind(avatar_url, user_id).run();
+  return json({ ok: true });
 }
 
 async function handleUserGet(path, env) {
@@ -251,6 +279,179 @@ async function savePushSub(env, userId, sub) {
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(user_id, endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth
   `).bind(crypto.randomUUID(), userId, sub.endpoint, sub.keys?.p256dh, sub.keys?.auth).run();
+}
+
+// ── Reactions ────────────────────────────────────────────────────
+async function handleReact(request, env) {
+  const body = await request.json();
+  const { item_id, item_type, user_id, emoji, poster_user_id } = body;
+  if (!item_id || !user_id || !emoji) return json({ error: 'Missing fields' }, 400);
+
+  const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(user_id).first();
+  if (!user) return json({ error: 'User not found' }, 404);
+
+  // Toggle: delete if exists, insert if not
+  const existing = await env.DB.prepare(
+    'SELECT id FROM reactions WHERE item_id = ? AND user_id = ? AND emoji = ?'
+  ).bind(item_id, user_id, emoji).first();
+
+  let added = false;
+  if (existing) {
+    await env.DB.prepare('DELETE FROM reactions WHERE id = ?').bind(existing.id).run();
+  } else {
+    await env.DB.prepare(
+      'INSERT INTO reactions (id, item_id, item_type, user_id, emoji) VALUES (?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), item_id, item_type || 'feed', user_id, emoji).run();
+    added = true;
+
+    // Notify the poster (if different user and they have a push sub)
+    if (poster_user_id && poster_user_id !== user_id && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+      const subs = await env.DB.prepare(
+        'SELECT * FROM push_subs WHERE user_id = ?'
+      ).bind(poster_user_id).all();
+      for (const sub of subs.results) {
+        sendWebPush(env, sub, JSON.stringify({
+          title: 'New Reaction',
+          body: `${user.username} reacted ${emoji} to your post`,
+          url: '/workoutlog/',
+          tag: 'reaction',
+        })).catch(() => {});
+      }
+    }
+  }
+
+  // Return updated counts for this item
+  const counts = await env.DB.prepare(
+    'SELECT emoji, COUNT(*) as count FROM reactions WHERE item_id = ? GROUP BY emoji'
+  ).bind(item_id).all();
+
+  return json({ ok: true, added, counts: counts.results });
+}
+
+async function handleGetReactions(url, env) {
+  const itemId = url.searchParams.get('item_id');
+  if (!itemId) return json({ error: 'Missing item_id' }, 400);
+  const rows = await env.DB.prepare(
+    'SELECT emoji, COUNT(*) as count FROM reactions WHERE item_id = ? GROUP BY emoji'
+  ).bind(itemId).all();
+  return json({ counts: rows.results });
+}
+
+// ── AI Selfie Description (vision, 1/day per user) ───────────────
+async function handleDescribeSelfie(request, env) {
+  if (!env.GEMINI_API_KEY) return json({ error: 'AI not configured on server' }, 503);
+
+  const body = await request.json();
+  const { user_id, image_base64, mime_type } = body;
+  if (!user_id || !image_base64) return json({ error: 'Missing fields' }, 400);
+
+  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(user_id).first();
+  if (!user) return json({ error: 'Register first' }, 403);
+
+  // Rate limit: 1 selfie analysis per user per day
+  const today = new Date().toISOString().split('T')[0];
+  const key = `selfie:${user_id}`;
+  const usage = await env.DB.prepare(
+    'SELECT count FROM ai_usage WHERE user_id = ? AND date_str = ?'
+  ).bind(key, today).first().catch(() => null);
+
+  if ((usage?.count || 0) >= 1) {
+    return json({ error: 'Selfie portrait limit: 1/day. Add your Gemini API key in Settings for unlimited.' }, 429);
+  }
+
+  await env.DB.prepare(`
+    INSERT INTO ai_usage (user_id, date_str, count) VALUES (?, ?, 1)
+    ON CONFLICT(user_id, date_str) DO UPDATE SET count = count + 1
+  `).bind(key, today).run().catch(() => {});
+
+  const prompt = `Describe this person's physical appearance in concise detail for AI image generation. Focus on: gender, approximate age, ethnicity, hair color and style, eye color, skin tone, facial features, facial hair if any. Return ONLY a comma-separated descriptor list — no sentences. Example: "white male, mid 20s, short dark brown hair, blue eyes, light skin, strong jaw, light stubble"`;
+
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mime_type || 'image/jpeg', data: image_base64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 200 }
+        })
+      }
+    );
+    if (!resp.ok) return json({ error: `Gemini error ${resp.status}` }, 502);
+    const data = await resp.json();
+    const description = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!description) return json({ error: 'Empty description from AI' }, 502);
+    return json({ description });
+  } catch (e) {
+    return json({ error: 'Failed: ' + e.message }, 502);
+  }
+}
+
+// ── AI Proxy (Gemini, rate-limited) ─────────────────────────────
+async function handleAIChat(request, env) {
+  if (!env.GEMINI_API_KEY) return json({ error: 'AI not configured on server' }, 503);
+
+  const body = await request.json();
+  const { user_id, messages, context } = body;
+  if (!user_id || !messages?.length) return json({ error: 'Missing fields' }, 400);
+
+  // Verify user exists
+  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(user_id).first();
+  if (!user) return json({ error: 'Register first' }, 403);
+
+  // Rate limit: 15 messages / user / day (stored in D1)
+  const today = new Date().toISOString().split('T')[0];
+  const usage = await env.DB.prepare(
+    'SELECT count FROM ai_usage WHERE user_id = ? AND date_str = ?'
+  ).bind(user_id, today).first().catch(() => null);
+
+  const count = usage?.count || 0;
+  if (count >= 15) {
+    return json({ error: 'Daily AI limit reached (15/day). Add your own Gemini key in Settings for unlimited.' }, 429);
+  }
+
+  // Upsert usage counter
+  await env.DB.prepare(`
+    INSERT INTO ai_usage (user_id, date_str, count) VALUES (?, ?, 1)
+    ON CONFLICT(user_id, date_str) DO UPDATE SET count = count + 1
+  `).bind(user_id, today).run().catch(() => {});
+
+  // Build Gemini request
+  const systemPrompt = `You are a premium Florida Keys Fitness Coach. Encouraging, laid-back, expert. Concise answers. User context: ${context || 'none'}`;
+  const contents = [
+    { role: 'user', parts: [{ text: systemPrompt }] },
+    ...messages.map(m => ({
+      role: m.role === 'ai' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }))
+  ];
+
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents }),
+      }
+    );
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      return json({ error: err.error?.message || `Gemini error ${resp.status}` }, 502);
+    }
+    const data = await resp.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) return json({ error: 'Empty response from AI' }, 502);
+    return json({ text, remaining: 15 - count - 1 });
+  } catch (e) {
+    return json({ error: 'Failed to reach Gemini: ' + e.message }, 502);
+  }
 }
 
 // ── Web Push (VAPID) ─────────────────────────────────────────────

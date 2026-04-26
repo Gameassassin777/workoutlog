@@ -30,7 +30,8 @@ const App = {
     notes: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
     sparkle: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364-.707.707M6.343 17.657l-.707.707m0-12.728.707.707m11.314 11.314.707.707"/></svg>`,
     up: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`,
-    down: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`
+    down: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
+    person: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`
   },
 
   // ─── Level System ──────────────────────────────────────────
@@ -64,12 +65,25 @@ const App = {
     theme: 'auto',
     batterySaver: false,
     username: '',
-    avatarStyle: 'adventurer',
+    avatarStyle: 'avataaars',
     avatarSeed: '',
+    avatarSkinColor: 'f5cba7',
+    avatarHairStyle: 'shortHairShortFlat',
+    avatarFacialHair: '',
+    avatarEyeType: 'default',
+    avatarClothes: 'hoodie',
     notificationsEnabled: false,
+    notifDailyReminder: false,
+    notifDailyReminderTime: '08:00',
+    notifStreakAtRisk: true,
+    notifChatMessages: false,
+    notifBoardReset: true,
     socialPrivacyVolume: true,
     socialPrivacyFeed: true,
     pollinationsPortrait: '',
+    selfieDescription: '',
+    portraitCustomText: '',
+    portraitStyle: 'photorealistic',
     serverId: ''
   },
 
@@ -94,6 +108,7 @@ const App = {
     this.showScreen('home');
     this.registerSW();
     this.registerWithServer();
+    if (this.settings.notificationsEnabled) this._scheduleLocalNotifications();
     // Re-apply theme if OS dark/light preference changes while app is open
     window.matchMedia('(prefers-color-scheme: light)')
       .addEventListener('change', () => this.applyTheme());
@@ -234,6 +249,72 @@ const App = {
     return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
   },
 
+  // ─── LOCAL NOTIFICATION SCHEDULING ───────────────────────
+  _scheduleLocalNotifications() {
+    if (!this.settings.notificationsEnabled) return;
+    // Clear any existing timers
+    if (this._notifTimers) this._notifTimers.forEach(t => clearTimeout(t));
+    this._notifTimers = [];
+
+    const now = new Date();
+
+    // Daily reminder
+    if (this.settings.notifDailyReminder && this.settings.notifDailyReminderTime) {
+      const [hh, mm] = (this.settings.notifDailyReminderTime || '08:00').split(':').map(Number);
+      const fire = new Date(now);
+      fire.setHours(hh, mm, 0, 0);
+      if (fire <= now) fire.setDate(fire.getDate() + 1); // if past today, schedule tomorrow
+      const delay = fire - now;
+      this._notifTimers.push(setTimeout(() => {
+        // Only fire if no workout today
+        const todayStr = new Date().toDateString();
+        const workedOutToday = this.workouts.some(w => new Date(w.date).toDateString() === todayStr);
+        if (!workedOutToday) {
+          this._fireLocalNotif('Time to Hit the Shore', 'No session logged yet today. Keep that streak alive.', 'daily-reminder');
+        }
+        // Re-schedule for tomorrow
+        this._scheduleLocalNotifications();
+      }, delay));
+    }
+
+    // Streak at risk — fires at 8pm when you're on day 3 of 4-day grace window
+    if (this.settings.notifStreakAtRisk && (this.profile?.currentStreak || 0) > 0) {
+      const fire = new Date(now);
+      fire.setHours(20, 0, 0, 0);
+      if (fire <= now) fire.setDate(fire.getDate() + 1);
+      const delay = fire - now;
+      this._notifTimers.push(setTimeout(() => {
+        const lastWO = this.profile?.lastWorkoutDate;
+        if (!lastWO) return;
+        const daysSince = (Date.now() - new Date(lastWO).getTime()) / 86400000;
+        // Warn when you have exactly 1 day left (3-4 days since last session)
+        if (daysSince >= 3 && daysSince < 4 && (this.profile?.currentStreak || 0) > 0) {
+          const streak = this.profile.currentStreak;
+          this._fireLocalNotif(
+            'Streak on the Line',
+            `${streak}-session streak expires tomorrow. Get a rep in before it drops.`,
+            'streak-risk'
+          );
+        }
+      }, delay));
+    }
+  },
+
+  async _fireLocalNotif(title, body, tag = 'tf') {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification(title, {
+        body,
+        icon: '/workoutlog/icons/icon-192.png',
+        badge: '/workoutlog/icons/icon-192.png',
+        tag,
+        data: { url: '/workoutlog/' },
+        vibrate: [100, 50, 100],
+      });
+    } catch (e) { /* permission denied or SW not ready */ }
+  },
+
   async _logWorkoutToServer(w) {
     if (!this.settings.serverId || !this.API_BASE.startsWith('http')) return;
     const totalVolume = w.exercises.reduce((sum, ex) =>
@@ -332,23 +413,24 @@ const App = {
 
   // ─── Screen Router ─────────────────────────────────────────
   async showScreen(name, data = {}) {
+    // Kill background timers when navigating away
+    if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
     this.currentScreen = name;
     this.setActiveNav(name);
     const container = document.getElementById('screen-container');
 
     const renderers = {
       home: () => this.renderHome(),
-      history: () => this.renderHistory(),
       startWorkout: () => this.renderStartWorkout(),
       activeWorkout: () => this.renderActiveWorkout(),
       restTimer: () => this.renderRestTimer(data),
       workoutComplete: () => this.renderWorkoutComplete(),
-      stats: () => this.renderStats(),
       chat: () => this.renderCoachChat(data),
       settings: () => this.renderSettings(),
       exerciseLibrary: () => this.renderExerciseLibrary(),
       workoutDetail: () => this.renderWorkoutDetail(data),
       profile: () => this.renderProfile(),
+      userProfile: () => this.renderUserProfile(data),
       fileUpload: () => this.renderFileUpload(),
       logs: () => this.renderLogs(),
       social: () => this.renderSocial(),
@@ -372,11 +454,7 @@ const App = {
     const greeting = this.getGreeting();
     const username = this.settings.username || 'Athlete';
     const avatarUrl = this._getAvatarUrl();
-    const avatarRingClass = levelInfo.level >= 12 ? 'avatar-ring-4'
-      : levelInfo.level >= 8 ? 'avatar-ring-3'
-      : levelInfo.level >= 4 ? 'avatar-ring-2' : 'avatar-ring-1';
-
-    const mockFeed = this._getMockFeedItems();
+    const avatarRingClass = this._getAvatarRingClass(levelInfo.level);
 
     return `
       <div class="header">
@@ -452,7 +530,7 @@ const App = {
 
         <div class="hero-feed-teaser" id="btn-go-social">
           <div class="hero-feed-teaser-label">Live · The Board</div>
-          ${mockFeed.slice(0,2).map(f => `<div class="hero-feed-item"><strong>${f.user}</strong> ${f.text}</div>`).join('')}
+          <div class="hero-feed-item" id="home-feed-preview" style="color:var(--text-muted);">See who's grinding on the island →</div>
         </div>
 
         <div style="height: 16px;"></div>
@@ -461,11 +539,28 @@ const App = {
   },
 
   _getAvatarUrl() {
-    // Prefer cached AI portrait if user generated one
     if (this.settings.pollinationsPortrait) return this.settings.pollinationsPortrait;
     const seed = this.settings.avatarSeed || this.settings.username || 'tropicalfit';
-    const style = this.settings.avatarStyle || 'adventurer';
+    const style = this.settings.avatarStyle || 'avataaars';
+    if (style === 'avataaars') {
+      const skin  = this.settings.avatarSkinColor  || 'f5cba7';
+      const hair  = this.settings.avatarHairStyle  || 'shortHairShortFlat';
+      const fhair = this.settings.avatarFacialHair || '';
+      const eyes  = this.settings.avatarEyeType    || 'default';
+      const top   = hair;
+      const facialHairParam = fhair ? `&facialHair=${fhair}` : '&facialHair=';
+      return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=0a1628,0d2340&skinColor=${skin}&top=${top}${facialHairParam}&eyes=${eyes}&mouth=smile,twinkle&eyebrows=default,defaultNatural`;
+    }
     return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=0a1628,0d2340`;
+  },
+
+  // ─── EXERCISE ICON VIA POLLINATIONS ───────────────────────
+  _getExerciseIconUrl(name) {
+    // Deterministic seed from name so same name = same icon every time
+    const seed = name.toLowerCase().split('').reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0);
+    const safeSeed = Math.abs(seed) % 999983;
+    const prompt = encodeURIComponent(`minimalist flat icon ${name} exercise gym fitness white background simple vector clean`);
+    return `https://image.pollinations.ai/prompt/${prompt}?width=128&height=128&nologo=true&model=flux-schnell&seed=${safeSeed}`;
   },
 
   _buildPollinationsUrl() {
@@ -482,19 +577,175 @@ const App = {
     return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&nologo=true&seed=${seed}&model=flux`;
   },
 
+  // Auto-description string from level + training (shown in UI and used as base prompt)
+  _buildAutoPortraitDesc() {
+    const levelInfo = this.getLevelInfo(this.profile.xp);
+    const muscleData = this.getMuscleHeatmapData();
+    const topMuscle = Object.entries(muscleData)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || 'strength';
+    const streak = this.profile.currentStreak || 0;
+    const streakDesc = streak >= 10 ? 'elite athlete' : streak >= 5 ? 'dedicated athlete' : 'aspiring athlete';
+    return `${streakDesc}, Level ${levelInfo.level} ${levelInfo.title}, specializes in ${topMuscle.toLowerCase()} training, tropical beach warrior`;
+  },
+
+  // Build Pollinations URL from a selfie description (or fallback to level-based)
+  _buildPollinationsUrlFromDescription(description, style = 'photorealistic', customText = '') {
+    const combined = [description, customText].filter(Boolean).join(', ');
+    const seed = Math.abs(combined.split('').reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0)) % 999983;
+    const styleClause = style === 'photorealistic'
+      ? 'photorealistic portrait, cinematic lighting, ultra detailed face'
+      : style === 'anime'
+        ? 'anime art style, vibrant colors, detailed anime face'
+        : style === 'watercolor'
+          ? 'watercolor painting, artistic, soft blended colors'
+          : style === 'oil painting'
+            ? 'oil painting, rich textures, classical portrait style'
+            : 'cartoon style, bold outlines, expressive character art';
+    const prompt = encodeURIComponent(
+      `${combined}, tropical beach warrior athlete portrait, ${styleClause}, vibrant ocean sunset background, confident expression, no text, no watermark`
+    );
+    return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&nologo=true&seed=${seed}&model=flux`;
+  },
+
+  // Full selfie → portrait flow
+  async _generatePortraitFromSelfie(file) {
+    const status = document.getElementById('portrait-status');
+    const setStatus = (msg) => { if (status) { status.style.display = ''; status.textContent = msg; } };
+
+    // Show selfie preview immediately in upload area
+    const uploadArea = document.getElementById('selfie-upload-area');
+    if (uploadArea && file) {
+      const reader2 = new FileReader();
+      reader2.onload = (e) => {
+        uploadArea.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+          <div id="selfie-upload-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;border-radius:50%;">
+            <div class="text-xs text-white" style="text-align:center;"><div style="font-size:1.5rem;">📷</div><div>Change selfie</div></div>
+          </div>`;
+      };
+      reader2.readAsDataURL(file);
+    }
+
+    setStatus('Reading your selfie...');
+
+    try {
+      // Read file as base64
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const mimeType = file.type || 'image/jpeg';
+
+      setStatus('AI is reading your features...');
+      const result = await AI.describeSelfie(base64, mimeType);
+      if (result.error) throw new Error(result.error);
+
+      const description = result.description;
+      // Show description in the auto-desc box
+      const descBox = document.getElementById('portrait-auto-desc');
+      if (descBox) descBox.innerHTML = `🤳 <strong>Selfie:</strong> ${description}`;
+      DB.saveSetting('selfieDescription', description);
+      this.settings.selfieDescription = description;
+
+      setStatus('Features captured — generating portrait...');
+      await this._doGeneratePortrait(description);
+
+    } catch (err) {
+      setStatus(`Could not generate: ${err.message}`);
+    }
+  },
+
+  // Core portrait generation (used by both selfie flow and manual generate button)
+  async _doGeneratePortrait(selfieDesc = null) {
+    const status = document.getElementById('portrait-status');
+    const genBtn = document.getElementById('btn-generate-portrait');
+    const setStatus = (msg) => { if (status) { status.style.display = ''; status.textContent = msg; } };
+
+    const customText = document.getElementById('portrait-custom-text')?.value?.trim() || this.settings.portraitCustomText || '';
+    const style = document.getElementById('portrait-style-select')?.value || this.settings.portraitStyle || 'photorealistic';
+
+    // Save custom text + style
+    this.settings.portraitCustomText = customText;
+    this.settings.portraitStyle = style;
+    DB.saveSetting('portraitCustomText', customText);
+    DB.saveSetting('portraitStyle', style);
+
+    // Base description: selfie desc if available, otherwise auto
+    const baseDesc = selfieDesc || this.settings.selfieDescription || this._buildAutoPortraitDesc();
+
+    if (genBtn) { genBtn.disabled = true; genBtn.textContent = 'Generating…'; }
+
+    try {
+      const url = this._buildPollinationsUrlFromDescription(baseDesc, style, customText);
+      setStatus('Generating your portrait… this takes a moment 🌊');
+
+      // Preload image
+      await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = resolve;
+        img.onerror = resolve; // proceed even if load fails
+        img.src = url;
+      });
+
+      // Save
+      this.settings.pollinationsPortrait = url;
+      DB.saveSetting('pollinationsPortrait', url);
+
+      // Update upload area preview
+      const uploadArea = document.getElementById('selfie-upload-area');
+      if (uploadArea) {
+        const existing = uploadArea.querySelector('#portrait-preview');
+        if (existing) { existing.src = url; }
+        else {
+          uploadArea.innerHTML = `<img id="portrait-preview" src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+            <div id="selfie-upload-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;border-radius:50%;">
+              <div class="text-xs text-white" style="text-align:center;"><div style="font-size:1.5rem;">📷</div><div>Change selfie</div></div>
+            </div>`;
+        }
+      }
+      // Also update the avatar preview in settings header
+      const headerAv = document.getElementById('avatar-preview-img');
+      if (headerAv) headerAv.src = url;
+
+      this._syncAvatarToServer(url);
+      setStatus('Portrait saved — looking sharp 🔥');
+      if (genBtn) { genBtn.disabled = false; genBtn.textContent = 'Regenerate'; }
+
+      // Show clear button if not already there
+      if (!document.getElementById('btn-clear-portrait') && genBtn) {
+        const clearBtn = document.createElement('button');
+        clearBtn.id = 'btn-clear-portrait';
+        clearBtn.className = 'btn btn-ghost';
+        clearBtn.style.cssText = 'font-size:0.82rem;color:var(--coral);';
+        clearBtn.textContent = 'Clear';
+        clearBtn.addEventListener('click', () => {
+          this.settings.pollinationsPortrait = '';
+          DB.saveSetting('pollinationsPortrait', '');
+          this.showScreen('settings');
+        });
+        genBtn.parentElement.appendChild(clearBtn);
+      }
+
+    } catch (err) {
+      setStatus(`Could not generate: ${err.message}`);
+      if (genBtn) { genBtn.disabled = false; genBtn.textContent = 'Retry'; }
+    }
+  },
+
+  async _syncAvatarToServer(avatarUrl) {
+    if (!this.settings.serverId) return;
+    this.apiPost('/api/user/avatar', {
+      user_id: this.settings.serverId,
+      avatar_url: avatarUrl,
+    }).catch(() => {});
+  },
+
   _hasUnreadNotifs() {
     return false; // Phase 2: check real notifications
   },
 
-  _getMockFeedItems() {
-    return [
-      { user: 'tyler_lifts',   text: 'hit a new Bench PR — 315 lbs',   time: '2m ago',  type: 'pr',      seed: 'tyler22' },
-      { user: 'cody_gainz',    text: 'finished Push Day · 42,800 lbs', time: '11m ago', type: 'workout',  seed: 'cody88'  },
-      { user: 'big_jake',      text: 'is on a 38-day streak',          time: '1h ago',  type: 'streak',   seed: 'jake55'  },
-      { user: 'derek_iron',    text: 'crushed Leg Day · 58,100 lbs',   time: '2h ago',  type: 'workout',  seed: 'derek9'  },
-      { user: 'chad_squats',   text: 'just joined TropicalFit',        time: '3h ago',  type: 'join',     seed: 'chad11'  },
-    ];
-  },
 
   _REST_QUOTES: [
     ["The last three or four reps is what makes the muscle grow.", "Arnold Schwarzenegger"],
@@ -517,40 +768,6 @@ const App = {
   _getRestQuoteAuthor() {
     const q = this._REST_QUOTES;
     return q[Math.floor(Date.now() / 60000) % q.length][1];
-  },
-
-  // ─── HISTORY SCREEN ───────────────────────────────────────
-  renderHistory() {
-    const sorted = [...this.workouts].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    if (sorted.length === 0) {
-      return `
-        <div class="header">
-          <span class="header-title">Tide Logs</span>
-        </div>
-        <div class="empty-state">
-          <div class="empty-state-icon" style="background: var(--clear-water); border: 2px solid var(--aqua); color: var(--lagoon);">Logs</div>
-          <div class="empty-state-title">No Logs Yet</div>
-          <div class="empty-state-text">Hit the shore and start lifting!<br>Your journey begins with one rep.</div>
-          <button class="btn btn-accent mt-24" id="btn-start-from-history">${this.Icons.dumbbell} Start First Session</button>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="header">
-        <span class="header-title">Tide Logs</span>
-        <button class="header-action" id="btn-export-history">Export</button>
-      </div>
-      <div class="search-bar">
-        <span class="search-bar-icon" style="padding-left:12px;">${this.Icons.stats}</span>
-        <input type="text" class="input" placeholder="Search logs, tags..." id="history-search">
-      </div>
-      <div id="history-list">
-        ${sorted.map(w => this.renderWorkoutCard(w)).join('')}
-      </div>
-      <div style="height: 20px;"></div>
-    `;
   },
 
   renderWorkoutCard(w) {
@@ -732,7 +949,7 @@ const App = {
   renderStartWorkout() {
     return `
       <div class="header">
-        <button class="header-back" id="btn-back-home">←</button>
+        <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
         <span class="header-title">New Session</span>
       </div>
       <div class="p-16 fade-in">
@@ -834,10 +1051,17 @@ const App = {
 
   renderExerciseBlock(ex, exIdx) {
     const setsTotal = this.settings.defaultSetsPerExercise;
+    const iconUrl = this._getExerciseIconUrl(ex.name);
     return `
       <div class="card slide-up" style="animation-delay: ${exIdx * 0.05}s">
         <div class="flex flex-between" style="align-items: center; margin-bottom: 12px;">
-          <div class="text-bold text-white" style="font-size: 1.05rem;">${ex.name}</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:8px;background:var(--glass-mid);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;position:relative;color:var(--text-muted);">
+              ${this.Icons.person}
+              ${iconUrl ? `<img src="${iconUrl}" alt="${ex.name}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.3s;border-radius:8px;" onload="this.style.opacity=1" onerror="this.remove()">` : ''}
+            </div>
+            <div class="text-bold text-white" style="font-size: 1.05rem;">${ex.name}</div>
+          </div>
           <button class="btn btn-small btn-ghost" data-exercise-menu="${exIdx}" style="padding: 4px;">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
           </button>
@@ -1008,78 +1232,6 @@ const App = {
     `;
   },
 
-  // ─── STATS SCREEN (alias → logs/stats tab) ───────────────
-  renderStats() { return this.renderLogs('stats'); },
-  _renderStats_unused() {
-    const p = this.profile;
-    const muscleData = this.getMuscleHeatmapData();
-
-    return `
-      <div class="header">
-        <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
-        <span class="header-title">Island Stats</span>
-      </div>
-      <div class="fade-in">
-        <!-- Volume Over Time -->
-        <div class="section-header">
-          <span class="section-title">Weekly Volume</span>
-        </div>
-        <div class="card" id="tap-volume-trend">
-          <div class="text-xs text-sea">Last 4 Weeks</div>
-          <div class="flex gap-4 mt-8" style="align-items: flex-end; height: 60px;">
-            ${this.getVolumeHistory(4).map(v => `
-              <div class="flex-1 flex flex-col" style="align-items:center; justify-content: flex-end; height: 100%;">
-                <div style="width:100%; background: linear-gradient(to top, var(--teal), var(--sea-foam)); border-radius: 4px 4px 0 0; min-height: 4px; height: ${v.percent}%;"></div>
-                <div class="text-xs text-sea mt-4">${v.label}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Muscle Heatmap -->
-        <div class="section-header">
-          <span class="section-title">Muscle Activity (This Week)</span>
-        </div>
-        <div class="card">
-          <div class="flex flex-wrap gap-8" style="justify-content: center;">
-            ${Object.entries(muscleData).map(([muscle, intensity]) => `
-              <div class="heatmap-region intensity-${Math.min(5, intensity)}"
-                   data-muscle="${muscle}"
-                   style="position:relative; width: auto; height: auto; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer;">
-                ${muscle}
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Exercise PRs -->
-        <div class="section-header">
-          <span class="section-title">Personal Records</span>
-        </div>
-        ${Object.entries(p.personalRecords || {}).map(([name, pr]) => `
-          <div class="card card-tappable" data-pr-exercise="${name}">
-            <div class="flex flex-between" style="align-items: center;">
-              <div>
-                <div class="text-bold text-white">${name}</div>
-                <div class="text-xs text-sea">${pr.maxWeight ? pr.maxWeight.value + ' ' + (pr.maxWeight.unit || this.settings.defaultWeightUnit) : ''}</div>
-              </div>
-              <div class="text-sunset text-bold">${this.Icons.anchor}</div>
-            </div>
-          </div>
-        `).join('')}
-
-        ${Object.keys(p.personalRecords || {}).length === 0 ? `
-          <div class="empty-state" style="padding: 30px;">
-            <div class="empty-state-icon">${this.Icons.anchor}</div>
-            <div class="empty-state-text">Complete workouts to set PRs!</div>
-          </div>
-        ` : ''}
-
-        <div style="height: 20px;"></div>
-      </div>
-    `;
-  },
-
   // ─── SOCIAL SCREEN ────────────────────────────────────────
   renderSocial(activeTab = 'leaderboard') {
     const hasUsername = !!this.settings.username;
@@ -1125,114 +1277,187 @@ const App = {
   },
 
   _renderLeaderboard() {
-    const myUsername = this.settings.username;
     const myVolume = this.getWeekVolume();
-    const mockUsers = [
-      { rank:1,  username:'tyler_lifts',    level:16, volume:128400, seed:'tyler22' },
-      { rank:2,  username:'cody_gainz',     level:12, volume:95000,  seed:'cody88' },
-      { rank:3,  username:'big_jake',       level:11, volume:81200,  seed:'jake55' },
-      { rank:4,  username:'benchbro_mike',  level:9,  volume:65300,  seed:'mike33' },
-      { rank:5,  username:'derek_iron',     level:8,  volume:58100,  seed:'derek9' },
-      { rank:6,  username:'chad_squats',    level:7,  volume:42000,  seed:'chad11' },
-      { rank:7,  username:'kyle_plates',    level:6,  volume:38700,  seed:'kyle44' },
-      { rank:8,  username:'protein_ryan',   level:5,  volume:31400,  seed:'ryan77' },
-    ];
-    // Insert current user
-    const myRank = myVolume > 0 ? mockUsers.filter(u => u.volume > myVolume).length + 1 : '—';
-    const rankClass = (r) => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
     const fmt = (v) => v >= 1000 ? (v/1000).toFixed(1)+'k' : v;
     const now = new Date();
     const daysLeft = 7 - now.getDay();
     const hoursLeft = 24 - now.getHours();
     return `
       <div class="social-reset-timer">Resets in ${daysLeft}d ${hoursLeft}h</div>
-      <div class="card" style="padding:0;overflow:hidden;">
-        ${mockUsers.map(u => {
-          const av = `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.seed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&eyes=default,happy,winkWacky&eyebrows=default,defaultNatural,flatNatural&top=shortHair,shortHairDreads01,shortHairDreads02,shortHairFrizzle,shortHairShortCurly,shortHairShortFlat,shortHairShortRound,shortHairShortWaved,shortHairSides,hat`;
-          return `
-            <div class="leaderboard-row">
-              <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
-              <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
-              <div class="leaderboard-info">
-                <div class="leaderboard-name">${u.username}</div>
-                <div class="leaderboard-sub">Lv ${u.level}</div>
-              </div>
-              <div class="leaderboard-volume">${fmt(u.volume)} lbs</div>
-            </div>`;
-        }).join('')}
+      <div id="leaderboard-list">
+        <div class="card" style="padding:24px 16px;text-align:center;">
+          <div class="text-sm text-muted">Loading rankings...</div>
+        </div>
       </div>
       ${myVolume > 0 ? `
-        <div class="card leaderboard-you" style="padding:0;overflow:hidden;margin-top:4px;">
+        <div class="card leaderboard-you" style="padding:0;overflow:hidden;margin-top:4px;" id="leaderboard-you-row">
           <div class="leaderboard-row">
-            <div class="leaderboard-rank you">${myRank}</div>
+            <div class="leaderboard-rank you" id="my-rank-badge">—</div>
             <img class="leaderboard-avatar" src="${this._getAvatarUrl()}" alt="you">
             <div class="leaderboard-info">
-              <div class="leaderboard-name">${myUsername} <span style="font-size:0.65rem;color:var(--aqua);">(you)</span></div>
+              <div class="leaderboard-name">${this.settings.username} <span style="font-size:0.65rem;color:var(--aqua);">(you)</span></div>
               <div class="leaderboard-sub">Lv ${this.getLevelInfo(this.profile.xp).level}</div>
             </div>
             <div class="leaderboard-volume">${fmt(myVolume)} lbs</div>
           </div>
         </div>` : ''}
-      <div class="text-center text-xs text-muted" style="padding:12px 0 4px;">
-        Server drops soon — rankings will be live
-      </div>
       <div style="height:20px;"></div>`;
+  },
+
+  _populateLeaderboard(users) {
+    const list = document.getElementById('leaderboard-list');
+    if (!list) return;
+    const myVolume = this.getWeekVolume();
+    const fmt = (v) => v >= 1000 ? (v/1000).toFixed(1)+'k' : v;
+    const rankClass = (r) => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
+    if (!users || !users.length) {
+      list.innerHTML = `<div class="card" style="padding:24px 16px;text-align:center;">
+        <div class="text-sm text-muted">${myVolume > 0 ? "You're first on the board this week! 🏆" : 'No sessions logged this week — log one to rank up!'}</div>
+      </div>`;
+      if (myVolume > 0) {
+        const badge = document.getElementById('my-rank-badge');
+        if (badge) badge.textContent = '1';
+      }
+      return;
+    }
+    const myRank = myVolume > 0 ? users.filter(u => u.volume > myVolume).length + 1 : '—';
+    const badge = document.getElementById('my-rank-badge');
+    if (badge) badge.textContent = myRank;
+    list.innerHTML = `<div class="card" style="padding:0;overflow:hidden;">
+      ${users.map(u => {
+        const av = u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.user_id}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
+        return `
+          <div class="leaderboard-row card-tappable" data-lb-username="${u.username}" data-lb-seed="${u.user_id}" data-lb-level="${u.level || 1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}">
+            <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
+            <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
+            <div class="leaderboard-info">
+              <div class="leaderboard-name">${u.username}</div>
+              <div class="leaderboard-sub">Lv ${u.level || 1}</div>
+            </div>
+            <div class="leaderboard-volume">${fmt(u.volume)} lbs</div>
+          </div>`;
+      }).join('')}
+    </div>`;
+    // Rebind row taps
+    document.querySelectorAll('[data-lb-username]').forEach(el => {
+      el.addEventListener('click', () => {
+        const av = el.dataset.lbSeed
+          ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${el.dataset.lbSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`
+          : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
+        this.showScreen('userProfile', {
+          user: {
+            username: el.dataset.lbUsername, avatarUrl: av,
+            level: parseInt(el.dataset.lbLevel) || 1,
+            volume: parseInt(el.dataset.lbVolume) || 0,
+            rank: parseInt(el.dataset.lbRank) || null,
+            streak: null, sessions: null,
+          }
+        });
+      });
+    });
+  },
+
+  REACTION_EMOJIS: ['🔥', '💪', '👑', '🤙', '😂'],
+
+  _reactionBarHtml(itemId, itemType) {
+    const myReactions = this._localReactions?.[itemId] || {};
+    return `<div class="reaction-bar" data-item-id="${itemId}" data-item-type="${itemType}">
+      ${this.REACTION_EMOJIS.map(e => {
+        const count = this._reactionCounts?.[itemId]?.[e] || 0;
+        const mine  = myReactions[e];
+        return `<button class="reaction-btn ${mine ? 'reacted' : ''}" data-emoji="${e}" data-item-id="${itemId}" data-item-type="${itemType}">${e}${count > 0 ? `<span>${count}</span>` : ''}</button>`;
+      }).join('')}
+    </div>`;
+  },
+
+  async _toggleReaction(itemId, itemType, emoji, posterUserId) {
+    if (!this._localReactions)  this._localReactions  = {};
+    if (!this._reactionCounts)  this._reactionCounts  = {};
+    if (!this._localReactions[itemId])  this._localReactions[itemId]  = {};
+    if (!this._reactionCounts[itemId])  this._reactionCounts[itemId]  = {};
+
+    const already = this._localReactions[itemId][emoji];
+    if (already) {
+      delete this._localReactions[itemId][emoji];
+      this._reactionCounts[itemId][emoji] = Math.max(0, (this._reactionCounts[itemId][emoji] || 1) - 1);
+    } else {
+      this._localReactions[itemId][emoji] = true;
+      this._reactionCounts[itemId][emoji] = (this._reactionCounts[itemId][emoji] || 0) + 1;
+    }
+
+    // Refresh just the reaction bar in the DOM
+    const bar = document.querySelector(`.reaction-bar[data-item-id="${itemId}"]`);
+    if (bar) bar.outerHTML = this._reactionBarHtml(itemId, itemType);
+    // Re-bind the new bar
+    this._bindReactionBars();
+
+    // Fire to server (non-blocking)
+    if (this.settings.serverId && !already) {
+      this.apiPost('/api/react', {
+        item_id: itemId,
+        item_type: itemType,
+        user_id: this.settings.serverId,
+        emoji,
+        poster_user_id: posterUserId || null,
+      }).catch(() => {});
+    }
+  },
+
+  _bindReactionBars() {
+    document.querySelectorAll('.reaction-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const { emoji, itemId, itemType } = btn.dataset;
+        const bar = btn.closest('.reaction-bar');
+        const posterId = bar?.dataset.posterUserId || null;
+        this._toggleReaction(itemId, itemType, emoji, posterId);
+      });
+    });
   },
 
   _renderFeed() {
-    const items = this._getMockFeedItems();
-    const makeAv = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairDreads01,shortHairShortFlat,hat`;
     return `
-      <div class="card" style="padding:0;overflow:hidden;">
-        ${items.map(f => `
-          <div class="feed-item">
-            <img class="feed-avatar" src="${makeAv(f.seed || f.user)}" alt="${f.user}">
-            <div class="feed-content">
-              <div class="feed-user">${f.user}</div>
-              <div class="feed-text">${f.text}</div>
-              <div class="feed-time">${f.time}</div>
-            </div>
-          </div>`).join('')}
-      </div>
-      <div class="text-center text-xs text-muted" style="padding:12px 0 4px;">
-        Live drops coming soon — server in progress
+      <div id="feed-list">
+        <div class="card" style="padding:24px 16px;text-align:center;">
+          <div class="text-sm text-muted">Loading feed...</div>
+        </div>
       </div>
       <div style="height:20px;"></div>`;
   },
 
-  _renderGlobalChat() {
-    const myUsername = this.settings.username;
-    const myAv = this._getAvatarUrl();
-    const makeAv = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairDreads01,shortHairShortFlat,hat`;
-    const mockMsgs = [
-      { user:'tyler_lifts',  seed:'tyler22', text:'finally hit 315 on bench bro',     time:'3:42pm', mine:false },
-      { user:'cody_gainz',   seed:'cody88',  text:'lets gooo what was your last PR',   time:'3:43pm', mine:false },
-      { user:'big_jake',     seed:'jake55',  text:'been stuck at 275 for like 3 weeks', time:'3:44pm', mine:false },
-    ];
-    return `
-      <div class="chat-global-wrap">
-        <div class="chat-global-messages" id="global-chat-messages">
-          ${mockMsgs.map(m => `
-            <div class="chat-global-bubble ${m.mine ? 'mine' : ''}">
-              ${!m.mine ? `<img class="bubble-avatar" src="${makeAv(m.seed)}" alt="${m.user}">` : ''}
-              <div class="bubble-body">
-                ${!m.mine ? `<div class="bubble-name">${m.user}</div>` : ''}
-                <div class="bubble-text">${m.text}</div>
-              </div>
-              ${m.mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
-            </div>`).join('')}
-          <div class="text-center text-xs text-muted" style="padding:8px 0;">
-            Global chat coming soon — local messages only right now
+  _populateFeed(items) {
+    const list = document.getElementById('feed-list');
+    if (!list) return;
+    const makeAv = (url, seed) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'user'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
+    if (!items || !items.length) {
+      list.innerHTML = `<div class="card" style="padding:24px 16px;text-align:center;">
+        <div class="text-sm text-muted" style="margin-bottom:8px;">No sessions shared yet.</div>
+        <div class="text-xs text-muted">Complete a workout to post to the board!</div>
+      </div>`;
+      return;
+    }
+    list.innerHTML = `<div class="card" style="padding:0;overflow:hidden;">
+      ${items.map((f, i) => `
+        <div class="feed-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
+          <div style="display:flex;align-items:center;gap:10px;width:100%;">
+            <img class="feed-avatar" src="${makeAv(f.avatar_url, f.user_id)}" alt="${f.username || 'athlete'}">
+            <div class="feed-content" style="flex:1;">
+              <div class="feed-user">${f.username || 'athlete'}</div>
+              <div class="feed-text">${f.text || f.description || ''}</div>
+              <div class="feed-time">${f.time_ago || ''}</div>
+            </div>
           </div>
-          ${(this._localChatMessages || []).map(m => `
-            <div class="chat-global-bubble ${m.mine ? 'mine' : ''}">
-              ${!m.mine ? `<img class="bubble-avatar" src="${makeAv(m.seed)}" alt="${m.user}">` : ''}
-              <div class="bubble-body">
-                ${!m.mine ? `<div class="bubble-name">${m.user}</div>` : ''}
-                <div class="bubble-text">${this.escapeHtml(m.text)}</div>
-              </div>
-              ${m.mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
-            </div>`).join('')}
+          ${this._reactionBarHtml(f.id || `feed-srv-${i}`, 'feed')}
+        </div>`).join('')}
+    </div>`;
+    this._bindReactionBars();
+  },
+
+  _renderGlobalChat() {
+    return `
+      <div id="chat-fixed-frame" style="position:fixed; left:0; right:0; bottom:calc(56px + var(--safe-bottom,0px)); display:flex; flex-direction:column; z-index:5; top:160px;">
+        <div class="chat-global-messages" id="global-chat-messages">
+          <div class="text-center text-xs text-muted" style="padding:20px 16px;" id="chat-status-hint">Loading messages...</div>
         </div>
         <div class="chat-global-input-bar">
           <input class="chat-global-input" type="text" placeholder="Say something..." id="global-chat-input" autocomplete="off">
@@ -1243,13 +1468,27 @@ const App = {
       </div>`;
   },
 
+  _positionChatFrame() {
+    const frame = document.getElementById('chat-fixed-frame');
+    if (!frame) return;
+    // Measure where the tab content begins so the fixed frame aligns perfectly
+    const tabContent = document.getElementById('social-tab-content');
+    if (tabContent) {
+      const rect = tabContent.getBoundingClientRect();
+      frame.style.top = Math.round(rect.top) + 'px';
+    }
+    // Prevent container from scrolling (which would shift the header/tab pills out of view)
+    const sc = document.getElementById('screen-container');
+    if (sc) sc.style.overflow = 'hidden';
+  },
+
   // ─── CHAT SCREEN ──────────────────────────────────────────
   renderCoachChat(data) {
     const prefilledMsg = data.prefill || '';
 
     const noHistory = !this._currentChatMessages || this._currentChatMessages.length === 0;
     return `
-      <div style="position:fixed; top:0; left:0; right:0; bottom:calc(56px + var(--safe-bottom, 0px)); display:flex; flex-direction:column; background:var(--bg); z-index:10;">
+      <div style="position:fixed; top:0; left:0; right:0; bottom:calc(56px + var(--safe-bottom, 0px)); display:flex; flex-direction:column; z-index:10;">
         <div class="header" style="flex-shrink:0;">
           <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
           <span class="header-title">Coach</span>
@@ -1296,7 +1535,7 @@ const App = {
         </div>
         <div class="card">
           <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
-            <img src="${this._getAvatarUrl()}" style="width:56px;height:56px;border-radius:50%;border:2px solid var(--glass-border-hi);" alt="avatar">
+            <img src="${this._getAvatarUrl()}" id="avatar-preview-img" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--aqua);box-shadow:0 0 16px rgba(0,200,220,0.25);" alt="avatar">
             <div style="flex:1;">
               <div class="text-bold text-white">${this.settings.username || 'No username set'}</div>
               <div class="text-xs text-sea mt-2">Lv ${this.getLevelInfo(this.profile.xp).level} · ${this.getLevelInfo(this.profile.xp).title}</div>
@@ -1309,36 +1548,193 @@ const App = {
           <div class="input-group" style="margin-top:12px;">
             <label class="input-label">Avatar Style</label>
             <select class="input" id="setting-avatar-style">
+              <option value="avataaars"  ${s.avatarStyle === 'avataaars'  ? 'selected' : ''}>Custom Character</option>
               <option value="adventurer" ${s.avatarStyle === 'adventurer' ? 'selected' : ''}>Adventurer</option>
-              <option value="pixel-art" ${s.avatarStyle === 'pixel-art' ? 'selected' : ''}>Pixel Art</option>
-              <option value="lorelei" ${s.avatarStyle === 'lorelei' ? 'selected' : ''}>Lorelei</option>
-              <option value="fun-emoji" ${s.avatarStyle === 'fun-emoji' ? 'selected' : ''}>Fun Emoji</option>
-              <option value="bottts" ${s.avatarStyle === 'bottts' ? 'selected' : ''}>Robot</option>
-              <option value="notionists" ${s.avatarStyle === 'notionists' ? 'selected' : ''}>Notionist</option>
+              <option value="pixel-art"  ${s.avatarStyle === 'pixel-art'  ? 'selected' : ''}>Pixel Art</option>
+              <option value="fun-emoji"  ${s.avatarStyle === 'fun-emoji'  ? 'selected' : ''}>Fun Emoji</option>
+              <option value="bottts"     ${s.avatarStyle === 'bottts'     ? 'selected' : ''}>Robot</option>
+              <option value="lorelei"    ${s.avatarStyle === 'lorelei'    ? 'selected' : ''}>Lorelei</option>
             </select>
+          </div>
+
+          <!-- Character builder (avataaars only) -->
+          <div id="avatar-builder" style="${(s.avatarStyle || 'avataaars') === 'avataaars' ? '' : 'display:none;'}">
+            <div class="input-group" style="margin-top:12px;">
+              <label class="input-label">Skin Tone</label>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;" id="skin-swatches">
+                ${[
+                  { hex:'fde8d0', label:'Porcelain' },
+                  { hex:'f5cba7', label:'Fair'      },
+                  { hex:'e8b48a', label:'Light'     },
+                  { hex:'d4956a', label:'Medium'    },
+                  { hex:'c0784e', label:'Tan'       },
+                ].map(sw => `
+                  <div data-skin="${sw.hex}" style="width:32px;height:32px;border-radius:50%;background:#${sw.hex};cursor:pointer;border:3px solid ${(s.avatarSkinColor || 'f5cba7') === sw.hex ? 'var(--aqua)' : 'transparent'};box-shadow:0 0 0 1px rgba(255,255,255,0.2);" title="${sw.label}"></div>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="input-group" style="margin-top:12px;">
+              <label class="input-label">Hair Style</label>
+              <select class="input" id="setting-hair-style">
+                <option value="shortHairShortFlat"   ${s.avatarHairStyle === 'shortHairShortFlat'   ? 'selected' : ''}>Short Flat</option>
+                <option value="shortHairShortWaved"  ${s.avatarHairStyle === 'shortHairShortWaved'  ? 'selected' : ''}>Short Wavy</option>
+                <option value="shortHairShortCurly"  ${s.avatarHairStyle === 'shortHairShortCurly'  ? 'selected' : ''}>Short Curly</option>
+                <option value="shortHairSides"       ${s.avatarHairStyle === 'shortHairSides'       ? 'selected' : ''}>Sides</option>
+                <option value="shortHairDreads01"    ${s.avatarHairStyle === 'shortHairDreads01'    ? 'selected' : ''}>Dreads</option>
+                <option value="hat"                  ${s.avatarHairStyle === 'hat'                  ? 'selected' : ''}>Cap</option>
+              </select>
+            </div>
+
+            <div class="input-group" style="margin-top:12px;">
+              <label class="input-label">Facial Hair</label>
+              <select class="input" id="setting-facial-hair">
+                <option value=""          ${!s.avatarFacialHair                 ? 'selected' : ''}>None</option>
+                <option value="light"     ${s.avatarFacialHair === 'light'     ? 'selected' : ''}>Stubble</option>
+                <option value="medium"    ${s.avatarFacialHair === 'medium'    ? 'selected' : ''}>Beard</option>
+                <option value="majestic"  ${s.avatarFacialHair === 'majestic'  ? 'selected' : ''}>Majestic Beard</option>
+                <option value="moustache" ${s.avatarFacialHair === 'moustache' ? 'selected' : ''}>Moustache</option>
+              </select>
+            </div>
+
+            <div class="input-group" style="margin-top:12px;">
+              <label class="input-label">Eyes</label>
+              <select class="input" id="setting-eye-type">
+                <option value="default"   ${s.avatarEyeType === 'default'   ? 'selected' : ''}>Default</option>
+                <option value="happy"     ${s.avatarEyeType === 'happy'     ? 'selected' : ''}>Happy</option>
+                <option value="squint"    ${s.avatarEyeType === 'squint'    ? 'selected' : ''}>Squint</option>
+                <option value="wink"      ${s.avatarEyeType === 'wink'      ? 'selected' : ''}>Wink</option>
+                <option value="surprised" ${s.avatarEyeType === 'surprised' ? 'selected' : ''}>Surprised</option>
+                <option value="side"      ${s.avatarEyeType === 'side'      ? 'selected' : ''}>Side Eye</option>
+              </select>
+            </div>
           </div>
           <div class="input-group" style="margin-top:12px;">
             <label class="input-label">AI Portrait</label>
-            <div class="text-xs text-sea mb-8">Generate a custom beach warrior portrait based on your level and training. Free — powered by Pollinations AI.</div>
-            ${s.pollinationsPortrait ? `
-              <img src="${s.pollinationsPortrait}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:10px;border:2px solid var(--glass-border-hi);" id="portrait-preview">
-            ` : ''}
-            <div class="flex gap-8">
-              <button class="btn btn-ghost flex-1" id="btn-generate-portrait" style="font-size:0.82rem;">
+            <div class="text-xs text-sea mb-8">Upload a selfie — AI reads your features and generates a stylized beach warrior portrait. Or auto-generate from your level & training stats.</div>
+
+            <!-- Upload tap area -->
+            <div id="selfie-upload-area" style="
+              position:relative; width:100%; aspect-ratio:1/1; max-width:200px; margin:0 auto 14px;
+              border-radius:50%; overflow:hidden; cursor:pointer;
+              border:2px dashed var(--glass-border-hi);
+              background:var(--glass-mid);
+              display:flex; align-items:center; justify-content:center;
+              transition:border-color 0.2s, box-shadow 0.2s;
+            ">
+              ${s.pollinationsPortrait
+                ? `<img id="portrait-preview" src="${s.pollinationsPortrait}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+                : `<div style="text-align:center;padding:16px;">
+                    <div style="font-size:2rem;margin-bottom:6px;">🏖️</div>
+                    <div class="text-xs text-muted">Tap to upload selfie</div>
+                  </div>`
+              }
+              <div id="selfie-upload-overlay" style="
+                position:absolute;inset:0;background:rgba(0,0,0,0.45);
+                display:flex;align-items:center;justify-content:center;
+                opacity:0;transition:opacity 0.2s;border-radius:50%;
+              ">
+                <div class="text-xs text-white" style="text-align:center;">
+                  <div style="font-size:1.5rem;">📷</div>
+                  <div>Change selfie</div>
+                </div>
+              </div>
+            </div>
+            <input type="file" id="selfie-file-input" accept="image/*" capture="user" style="display:none;">
+
+            <!-- Auto-description -->
+            <div style="margin-bottom:10px;">
+              <div class="text-xs text-muted mb-4" style="font-weight:600;">Auto description (from your stats)</div>
+              <div id="portrait-auto-desc" class="text-xs text-sea" style="
+                background:var(--glass-light); border:1px solid var(--glass-border);
+                border-radius:8px; padding:8px 10px; line-height:1.5; font-style:italic;
+              ">${s.selfieDescription ? `🤳 <strong>Selfie:</strong> ${s.selfieDescription.substring(0,80)}...` : this._buildAutoPortraitDesc()}</div>
+            </div>
+
+            <!-- Custom additions -->
+            <div class="input-group" style="margin-bottom:10px;">
+              <label class="input-label">Custom additions to prompt</label>
+              <input type="text" class="input" id="portrait-custom-text"
+                placeholder="e.g. holding a surfboard, sunset background, tattooed…"
+                value="${this.escapeHtml(s.portraitCustomText || '')}">
+            </div>
+
+            <!-- Style selector -->
+            <div class="input-group" style="margin-bottom:12px;">
+              <label class="input-label">Portrait style</label>
+              <select class="input" id="portrait-style-select">
+                <option value="photorealistic" ${(s.portraitStyle||'photorealistic')==='photorealistic'?'selected':''}>Photorealistic</option>
+                <option value="anime"          ${s.portraitStyle==='anime'?'selected':''}>Anime</option>
+                <option value="watercolor"     ${s.portraitStyle==='watercolor'?'selected':''}>Watercolor</option>
+                <option value="oil painting"   ${s.portraitStyle==='oil painting'?'selected':''}>Oil Painting</option>
+                <option value="cartoon"        ${s.portraitStyle==='cartoon'?'selected':''}>Cartoon</option>
+              </select>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-8 flex-wrap">
+              <button class="btn btn-accent flex-1" id="btn-generate-portrait" style="font-size:0.82rem;">
                 ${s.pollinationsPortrait ? 'Regenerate' : 'Generate Portrait'}
               </button>
               ${s.pollinationsPortrait ? `
                 <button class="btn btn-ghost" id="btn-clear-portrait" style="font-size:0.82rem;color:var(--coral);">Clear</button>
               ` : ''}
             </div>
-            <div id="portrait-status" class="text-xs text-sea mt-6" style="display:none;"></div>
+            <div id="portrait-status" class="text-xs text-sea mt-8" style="display:none;"></div>
           </div>
-          <div class="input-group" style="margin-top:12px;">
-            <label class="input-label">Notifications</label>
-            <label style="display:flex;justify-content:space-between;align-items:center;">
-              <span class="text-sm text-sea">Enable push notifications</span>
-              <input type="checkbox" id="setting-notifications" ${s.notificationsEnabled ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
-            </label>
+        </div>
+
+        <!-- Notifications -->
+        <div class="section-header">
+          <span class="section-title">Notifications</span>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <div>
+              <div class="text-sm text-white text-bold">Push Notifications</div>
+              <div class="text-xs text-sea mt-2">Allow alerts from TropicalFit</div>
+            </div>
+            <input type="checkbox" id="setting-notifications" ${s.notificationsEnabled ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+          </div>
+
+          <div id="notif-detail-rows" style="${s.notificationsEnabled ? '' : 'opacity:0.4;pointer-events:none;'}">
+            <div style="height:1px;background:var(--glass-border);margin:14px 0;"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div>
+                <div class="text-sm text-white">Daily Reminder</div>
+                <div class="text-xs text-sea mt-1">Nudge if you haven't logged yet</div>
+              </div>
+              <input type="checkbox" id="notif-daily" ${s.notifDailyReminder ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            </div>
+            <div id="notif-time-row" style="${s.notifDailyReminder ? '' : 'display:none;'}margin-bottom:12px;">
+              <label class="input-label">Reminder Time</label>
+              <input type="time" class="input" id="notif-time" value="${s.notifDailyReminderTime || '08:00'}" style="width:140px;">
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div>
+                <div class="text-sm text-white">Streak at Risk</div>
+                <div class="text-xs text-sea mt-1">Alert at 8pm if your streak is in danger</div>
+              </div>
+              <input type="checkbox" id="notif-streak" ${s.notifStreakAtRisk ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div>
+                <div class="text-sm text-white">Board Reset</div>
+                <div class="text-xs text-sea mt-1">Alert when weekly rankings reset</div>
+              </div>
+              <input type="checkbox" id="notif-board" ${s.notifBoardReset ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="text-sm text-white">Chat Messages</div>
+                <div class="text-xs text-sea mt-1">Push when someone drops in the chat</div>
+              </div>
+              <input type="checkbox" id="notif-chat" ${s.notifChatMessages ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            </div>
           </div>
         </div>
 
@@ -1480,7 +1876,7 @@ const App = {
 
     return `
       <div class="header">
-        <button class="header-back" id="btn-back-settings">←</button>
+        <button class="header-back" id="btn-back-settings">${this.Icons.back}</button>
         <span class="header-title">Exercise Library</span>
         <button class="header-action" id="btn-add-exercise-lib">${this.Icons.plus}</button>
       </div>
@@ -1498,7 +1894,7 @@ const App = {
         ` : sorted.map(ex => `
           <div class="exercise-item" data-exercise-id="${ex.id}">
             <div class="exercise-item-icon" id="icon-${ex.id}">
-              ${ex.icon ? `<img src="${ex.icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : this.Icons.palm}
+              ${ex.icon ? `<img src="${ex.icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : this.Icons.person}
             </div>
             <div class="exercise-item-info">
               <div class="exercise-item-name">${ex.name}</div>
@@ -1527,7 +1923,7 @@ const App = {
 
     return `
       <div class="header">
-        <button class="header-back" id="btn-back-history">←</button>
+        <button class="header-back" id="btn-back-history">${this.Icons.back}</button>
         <span class="header-title">${w.title || dateStr}</span>
         <button class="header-action" id="btn-delete-workout" data-id="${w.id}">${this.Icons.trash}</button>
       </div>
@@ -1577,7 +1973,7 @@ const App = {
           <button class="btn btn-primary btn-large mb-8" id="btn-analyze-detail" data-id="${w.id}">
             ${w.aiAnalysis ? 'Re-Analyze' : 'Coach Analysis'}
           </button>
-          <button class="btn btn-ghost btn-large" id="btn-back-history-2">← Back</button>
+          <button class="btn btn-ghost btn-large" id="btn-back-history-2">${this.Icons.back} Back</button>
         </div>
 
         <div style="height: 20px;"></div>
@@ -1588,61 +1984,156 @@ const App = {
   // ─── PROFILE SCREEN ───────────────────────────────────────
   renderProfile() {
     const p = this.profile;
+    const s = this.settings;
     const levelInfo = this.getLevelInfo(p.xp);
+    const avatarSrc = s.pollinationsPortrait || this._getAvatarUrl();
+    const weekVol = this.getWeekVolume();
+    const prCount = Object.keys(p.personalRecords || {}).length;
+    const topPRs = Object.entries(p.personalRecords || {})
+      .slice(0, 5)
+      .map(([name, pr]) => ({ name, weight: pr.maxWeight?.value || 0, unit: pr.maxWeight?.unit || s.defaultWeightUnit }));
 
     return `
       <div class="header">
         <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
         <span class="header-title">Island Profile</span>
+        <button class="header-action" id="btn-edit-profile">Edit</button>
       </div>
-      <div class="fade-in text-center">
-        <div style="font-size: 4rem; margin-top: 30px;">${levelInfo.title.split(' ')[0]}</div>
-        <div class="text-xl text-extra-bold text-white mt-8">${levelInfo.title}</div>
-        <div class="text-sm text-sea">Level ${levelInfo.level}</div>
+      <div class="fade-in">
 
-        <div class="xp-bar-container mt-16">
-          <div class="xp-bar-header">
-            <span>${p.xp} XP</span>
-            <span>${levelInfo.nextXp} XP</span>
+        <!-- Hero -->
+        <div style="display:flex;flex-direction:column;align-items:center;padding:28px 16px 20px;gap:12px;">
+          <div class="character-wrap" style="width:96px;height:96px;">
+            <img src="${avatarSrc}" alt="avatar"
+              class="character-avatar ${this._getAvatarRingClass(levelInfo.level)}"
+              style="width:96px;height:96px;object-fit:cover;">
+            <div class="character-level-badge">Lv ${levelInfo.level}</div>
           </div>
-          <div class="xp-bar">
-            <div class="xp-bar-fill" style="width: ${levelInfo.progress}%"></div>
+          <div style="text-align:center;">
+            <div class="text-xl text-extra-bold text-white">${s.username || 'Island Warrior'}</div>
+            <div class="text-sm text-aqua mt-2">${levelInfo.title}</div>
           </div>
         </div>
 
-        <div class="stat-row mt-16">
-          <div class="stat-chip">
-            <div class="stat-chip-label">Workouts</div>
-            <div class="stat-chip-value">${p.totalWorkouts}</div>
-          </div>
-          <div class="stat-chip">
-            <div class="stat-chip-label">Streak</div>
-            <div class="stat-chip-value">${p.currentStreak}</div>
-            <div class="stat-chip-sub">days</div>
-          </div>
-          <div class="stat-chip">
-            <div class="stat-chip-label">Best Streak</div>
-            <div class="stat-chip-value">${p.longestStreak}</div>
+        <!-- XP Bar -->
+        <div style="padding:0 16px 16px;">
+          <div class="xp-bar-container" style="margin:0;">
+            <div class="xp-bar-header">
+              <span class="text-xs text-sea">${p.xp} XP</span>
+              <span class="text-xs text-sea">${levelInfo.nextXp} XP to Lv ${levelInfo.level + 1}</span>
+            </div>
+            <div class="xp-bar">
+              <div class="xp-bar-fill" style="width: ${levelInfo.progress}%"></div>
+            </div>
           </div>
         </div>
 
-        <div class="stat-row">
-          <div class="stat-chip">
-            <div class="stat-chip-label">Total Volume</div>
-            <div class="stat-chip-value">${this.formatVolume(p.totalVolume)}</div>
-            <div class="stat-chip-sub">${this.settings.defaultWeightUnit}</div>
+        <!-- Hero Stats -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px 16px;">
+          <div class="card" style="padding:12px 8px;text-align:center;">
+            <div class="text-xl text-extra-bold text-white">${p.totalWorkouts}</div>
+            <div class="text-xs text-sea mt-2">Sessions</div>
           </div>
-          <div class="stat-chip">
-            <div class="stat-chip-label">PRs</div>
-            <div class="stat-chip-value">${Object.keys(p.personalRecords || {}).length}</div>
+          <div class="card" style="padding:12px 8px;text-align:center;">
+            <div class="text-xl text-extra-bold text-aqua">${p.currentStreak}</div>
+            <div class="text-xs text-sea mt-2">Streak</div>
           </div>
-          <div class="stat-chip">
-            <div class="stat-chip-label">Member Since</div>
-            <div class="stat-chip-value text-sm">${new Date(p.joinDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
+          <div class="card" style="padding:12px 8px;text-align:center;">
+            <div class="text-xl text-extra-bold text-sunset">${prCount}</div>
+            <div class="text-xs text-sea mt-2">PRs Set</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0 16px 16px;">
+          <div class="card" style="padding:12px;text-align:center;">
+            <div class="text-bold text-white">${this.formatVolume(weekVol)}</div>
+            <div class="text-xs text-sea mt-2">${s.defaultWeightUnit} this week</div>
+          </div>
+          <div class="card" style="padding:12px;text-align:center;">
+            <div class="text-bold text-white">${this.formatVolume(p.totalVolume)}</div>
+            <div class="text-xs text-sea mt-2">${s.defaultWeightUnit} all time</div>
           </div>
         </div>
 
-        <div style="height: 40px;"></div>
+        <!-- Personal Records -->
+        ${prCount > 0 ? `
+          <div class="section-header">
+            <span class="section-title">Top PRs</span>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden;">
+            ${topPRs.map(pr => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--glass-border);">
+                <div class="text-sm text-white text-bold">${pr.name}</div>
+                <div class="text-sm text-aqua text-bold">${pr.weight} ${pr.unit}</div>
+              </div>
+            `).join('')}
+            ${prCount > 5 ? `<div class="text-center text-xs text-sea" style="padding:10px;">+${prCount - 5} more in logs</div>` : ''}
+          </div>
+        ` : `
+          <div class="card" style="text-align:center;padding:24px;">
+            <div class="text-sm text-sea">Complete workouts to start setting PRs</div>
+          </div>
+        `}
+
+        <!-- Member Since -->
+        <div class="text-center text-xs text-muted" style="padding:20px 0 8px;">
+          Riding the island since ${new Date(p.joinDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </div>
+        <div style="height:24px;"></div>
+      </div>
+    `;
+  },
+
+  // ─── USER PROFILE VIEWER (other users) ────────────────────
+  renderUserProfile(data = {}) {
+    const u = data.user || {};
+    const av = u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username || 'unknown'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
+    const levelInfo = this.getLevelInfo((u.level || 1) * 500);
+    const weekVol = u.volume || 0;
+    const fmt = (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v);
+    const rankLabel = u.rank ? `#${u.rank} this week` : '';
+
+    return `
+      <div class="header">
+        <button class="header-back" id="btn-back-social">${this.Icons.back}</button>
+        <span class="header-title">${u.username || 'Unknown'}</span>
+      </div>
+      <div class="fade-in">
+
+        <!-- Hero -->
+        <div style="display:flex;flex-direction:column;align-items:center;padding:28px 16px 20px;gap:12px;">
+          <div class="character-wrap" style="width:88px;height:88px;">
+            <img src="${av}" alt="${u.username || 'user'}"
+              class="character-avatar ${this._getAvatarRingClass(u.level || 1)}"
+              style="width:88px;height:88px;object-fit:cover;">
+            <div class="character-level-badge">Lv ${u.level || 1}</div>
+          </div>
+          <div style="text-align:center;">
+            <div class="text-xl text-extra-bold text-white">${u.username || 'Unknown'}</div>
+            <div class="text-sm text-aqua mt-2">${u.levelTitle || levelInfo.title}</div>
+            ${rankLabel ? `<div class="text-xs text-sunset mt-4">${rankLabel}</div>` : ''}
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px 16px;">
+          <div class="card" style="padding:12px 8px;text-align:center;">
+            <div class="text-xl text-extra-bold text-white">${fmt(weekVol)}</div>
+            <div class="text-xs text-sea mt-2">lbs / week</div>
+          </div>
+          <div class="card" style="padding:12px 8px;text-align:center;">
+            <div class="text-xl text-extra-bold text-aqua">${u.sessions || '—'}</div>
+            <div class="text-xs text-sea mt-2">Sessions</div>
+          </div>
+          <div class="card" style="padding:12px 8px;text-align:center;">
+            <div class="text-xl text-extra-bold text-sunset">${u.streak || '—'}</div>
+            <div class="text-xs text-sea mt-2">Streak</div>
+          </div>
+        </div>
+
+        <div class="text-center text-xs text-muted" style="padding:16px 0 8px;">
+          Stats update when they log workouts
+        </div>
+        <div style="height:24px;"></div>
       </div>
     `;
   },
@@ -1691,6 +2182,7 @@ const App = {
     this.bindClick('btn-back-history', () => this.showScreen('logs'));
     this.bindClick('btn-back-history-2', () => this.showScreen('logs'));
     this.bindClick('btn-back-chat', () => this.showScreen('chat'));
+    this.bindClick('btn-back-social', () => this.showScreen('social'));
 
     switch (screen) {
       case 'home':
@@ -1731,23 +2223,6 @@ const App = {
         });
         break;
 
-      case 'history':
-        this.bindClick('btn-start-from-history', () => this.showScreen('startWorkout'));
-        this.bindClick('btn-export-history', () => ExportImport.exportCSV());
-
-        document.querySelectorAll('[data-workout-id]').forEach(el => {
-          el.addEventListener('click', () => {
-            const w = this.workouts.find(w => w.id === el.dataset.workoutId);
-            if (w) this.showScreen('workoutDetail', { workout: w });
-          });
-        });
-
-        const searchInput = document.getElementById('history-search');
-        if (searchInput) {
-          searchInput.addEventListener('input', (e) => this.filterHistory(e.target.value));
-        }
-        break;
-
       case 'startWorkout':
         this.bindClick('btn-begin-workout', () => this.beginWorkout());
         this.setupTagInput();
@@ -1776,21 +2251,6 @@ const App = {
         this.bindClick('btn-back-home-complete', () => this.showScreen('home'));
         this.bindClick('btn-ai-analyze', () => this.analyzeLastWorkout());
         this.bindClick('btn-add-post-notes', () => this.showPostWorkoutNotes());
-        break;
-
-      case 'stats':
-        document.querySelectorAll('[data-muscle]').forEach(el => {
-          el.addEventListener('click', () => {
-            const muscle = el.dataset.muscle;
-            this.openAIChat(`This week I trained ${muscle}. Analyze my ${muscle} training volume and frequency based on my workout history. Am I doing enough?`);
-          });
-        });
-        document.querySelectorAll('[data-pr-exercise]').forEach(el => {
-          el.addEventListener('click', () => {
-            this.openAIChat(`Analyze my ${el.dataset.prExercise} progress over time.`, el.dataset.prExercise);
-          });
-        });
-        this.bindClick('tap-volume-trend', () => this.openAIChat('Analyze my weekly volume trend over the past month. What patterns do you see?'));
         break;
 
       case 'chat':
@@ -1858,67 +2318,108 @@ const App = {
           avatarStyleSelect.addEventListener('change', (e) => {
             this.settings.avatarStyle = e.target.value;
             DB.saveSetting('avatarStyle', this.settings.avatarStyle);
+            const builder = document.getElementById('avatar-builder');
+            if (builder) builder.style.display = e.target.value === 'avataaars' ? '' : 'none';
+            // Update avatar preview
+            const av = document.querySelector('.header + .fade-in img, img[alt="avatar"]');
+            if (av) av.src = this._getAvatarUrl();
           });
         }
-        // Portrait generation
+        // Skin tone swatches
+        document.querySelectorAll('[data-skin]').forEach(sw => {
+          sw.addEventListener('click', () => {
+            const hex = sw.dataset.skin;
+            this.settings.avatarSkinColor = hex;
+            DB.saveSetting('avatarSkinColor', hex);
+            // Highlight selected
+            document.querySelectorAll('[data-skin]').forEach(s => s.style.borderColor = 'transparent');
+            sw.style.borderColor = 'var(--aqua)';
+            const av = document.getElementById('avatar-preview-img');
+            if (av) av.src = this._getAvatarUrl();
+          });
+        });
+        // Hair style
+        const hairSelect = document.getElementById('setting-hair-style');
+        if (hairSelect) {
+          hairSelect.addEventListener('change', (e) => {
+            this.settings.avatarHairStyle = e.target.value;
+            DB.saveSetting('avatarHairStyle', e.target.value);
+            const av = document.getElementById('avatar-preview-img');
+            if (av) av.src = this._getAvatarUrl();
+          });
+        }
+        // Facial hair
+        const facialHairSelect = document.getElementById('setting-facial-hair');
+        if (facialHairSelect) {
+          facialHairSelect.addEventListener('change', (e) => {
+            this.settings.avatarFacialHair = e.target.value;
+            DB.saveSetting('avatarFacialHair', e.target.value);
+            const av = document.getElementById('avatar-preview-img');
+            if (av) av.src = this._getAvatarUrl();
+          });
+        }
+        // Eye type
+        const eyeSelect = document.getElementById('setting-eye-type');
+        if (eyeSelect) {
+          eyeSelect.addEventListener('change', (e) => {
+            this.settings.avatarEyeType = e.target.value;
+            DB.saveSetting('avatarEyeType', e.target.value);
+            const av = document.getElementById('avatar-preview-img');
+            if (av) av.src = this._getAvatarUrl();
+          });
+        }
+        // Portrait: tap upload area to pick selfie
+        const selfieUploadArea = document.getElementById('selfie-upload-area');
+        const selfieInput = document.getElementById('selfie-file-input');
+        if (selfieUploadArea && selfieInput) {
+          // Hover overlay show/hide
+          selfieUploadArea.addEventListener('mouseenter', () => {
+            const ov = selfieUploadArea.querySelector('#selfie-upload-overlay');
+            if (ov) ov.style.opacity = '1';
+          });
+          selfieUploadArea.addEventListener('mouseleave', () => {
+            const ov = selfieUploadArea.querySelector('#selfie-upload-overlay');
+            if (ov) ov.style.opacity = '0';
+          });
+          selfieUploadArea.addEventListener('click', () => selfieInput.click());
+          selfieInput.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (file) this._generatePortraitFromSelfie(file);
+          });
+        }
+
+        // Portrait custom text live-save
+        const customTextInput = document.getElementById('portrait-custom-text');
+        if (customTextInput) {
+          customTextInput.addEventListener('input', (e) => {
+            this.settings.portraitCustomText = e.target.value;
+            DB.saveSetting('portraitCustomText', e.target.value);
+          });
+        }
+
+        // Portrait style live-save
+        const styleSelect = document.getElementById('portrait-style-select');
+        if (styleSelect) {
+          styleSelect.addEventListener('change', (e) => {
+            this.settings.portraitStyle = e.target.value;
+            DB.saveSetting('portraitStyle', e.target.value);
+          });
+        }
+
+        // Generate / Regenerate button
         const btnGenPortrait = document.getElementById('btn-generate-portrait');
         if (btnGenPortrait) {
-          btnGenPortrait.addEventListener('click', async () => {
-            const status = document.getElementById('portrait-status');
-            if (status) { status.style.display = ''; status.textContent = 'Generating your portrait... this takes a moment'; }
-            btnGenPortrait.disabled = true;
-            btnGenPortrait.textContent = 'Generating...';
-            try {
-              const url = this._buildPollinationsUrl();
-              // Preload to confirm the image loads, then cache the URL
-              await new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = resolve;
-                img.onerror = reject;
-                img.src = url;
-              });
-              this.settings.pollinationsPortrait = url;
-              DB.saveSetting('pollinationsPortrait', url);
-              if (status) { status.textContent = 'Portrait saved — see you on the Shore!'; }
-              // Update preview
-              const preview = document.getElementById('portrait-preview');
-              if (preview) { preview.src = url; }
-              else {
-                const row = btnGenPortrait.parentElement;
-                const img = document.createElement('img');
-                img.src = url;
-                img.id = 'portrait-preview';
-                img.style.cssText = 'width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:10px;border:2px solid var(--glass-border-hi);';
-                row.parentElement.insertBefore(img, row);
-              }
-              btnGenPortrait.disabled = false;
-              btnGenPortrait.textContent = 'Regenerate';
-              // Add clear button if not present
-              if (!document.getElementById('btn-clear-portrait')) {
-                const clearBtn = document.createElement('button');
-                clearBtn.id = 'btn-clear-portrait';
-                clearBtn.className = 'btn btn-ghost';
-                clearBtn.style.cssText = 'font-size:0.82rem;color:var(--coral);';
-                clearBtn.textContent = 'Clear';
-                btnGenPortrait.parentElement.appendChild(clearBtn);
-                clearBtn.addEventListener('click', () => {
-                  this.settings.pollinationsPortrait = '';
-                  DB.saveSetting('pollinationsPortrait', '');
-                  this.showScreen('settings');
-                });
-              }
-            } catch (err) {
-              if (status) { status.textContent = 'Could not generate portrait. Try again.'; }
-              btnGenPortrait.disabled = false;
-              btnGenPortrait.textContent = 'Retry';
-            }
-          });
+          btnGenPortrait.addEventListener('click', () => this._doGeneratePortrait(this.settings.selfieDescription || null));
         }
+
+        // Clear button
         const btnClearPortrait = document.getElementById('btn-clear-portrait');
         if (btnClearPortrait) {
           btnClearPortrait.addEventListener('click', () => {
             this.settings.pollinationsPortrait = '';
+            this.settings.selfieDescription = '';
             DB.saveSetting('pollinationsPortrait', '');
+            DB.saveSetting('selfieDescription', '');
             this.showScreen('settings');
           });
         }
@@ -1932,11 +2433,44 @@ const App = {
               e.target.checked = val;
               this.settings.notificationsEnabled = val;
               DB.saveSetting('notificationsEnabled', val);
-              if (val) await this.subscribeToPush();
+              if (val) {
+                await this.subscribeToPush();
+                this._scheduleLocalNotifications();
+              }
+              const rows = document.getElementById('notif-detail-rows');
+              if (rows) rows.style.cssText = val ? '' : 'opacity:0.4;pointer-events:none;';
             } else {
               this.settings.notificationsEnabled = false;
               DB.saveSetting('notificationsEnabled', false);
+              const rows = document.getElementById('notif-detail-rows');
+              if (rows) rows.style.cssText = 'opacity:0.4;pointer-events:none;';
             }
+          });
+        }
+        // Per-type notification toggles
+        const bindNotifToggle = (id, key) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('change', (e) => {
+            this.settings[key] = e.target.checked;
+            DB.saveSetting(key, e.target.checked);
+            if (key === 'notifDailyReminder') {
+              const tr = document.getElementById('notif-time-row');
+              if (tr) tr.style.display = e.target.checked ? '' : 'none';
+            }
+            this._scheduleLocalNotifications();
+          });
+        };
+        bindNotifToggle('notif-daily',  'notifDailyReminder');
+        bindNotifToggle('notif-streak', 'notifStreakAtRisk');
+        bindNotifToggle('notif-board',  'notifBoardReset');
+        bindNotifToggle('notif-chat',   'notifChatMessages');
+        const notifTimeInput = document.getElementById('notif-time');
+        if (notifTimeInput) {
+          notifTimeInput.addEventListener('change', (e) => {
+            this.settings.notifDailyReminderTime = e.target.value;
+            DB.saveSetting('notifDailyReminderTime', e.target.value);
+            this._scheduleLocalNotifications();
           });
         }
         break;
@@ -2002,10 +2536,21 @@ const App = {
         });
         break;
 
+      case 'profile':
+        this.bindClick('btn-edit-profile', () => this.showScreen('settings'));
+        break;
+
+      case 'userProfile':
+        // back handled universally via btn-back-social
+        break;
+
       case 'social':
         document.querySelectorAll('[data-social-tab]').forEach(btn => {
           btn.addEventListener('click', () => {
+            // Kill any active chat poll before switching tabs
+            if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
             const container = document.getElementById('screen-container');
+            container.style.overflow = '';
             container.innerHTML = `<div class="header"><span class="header-title">The Board</span></div>
               <div class="tab-pill">
                 <button class="tab-pill-item ${btn.dataset.socialTab === 'leaderboard' ? 'active' : ''}" data-social-tab="leaderboard">Leaderboard</button>
@@ -2014,6 +2559,27 @@ const App = {
               </div>
               <div id="social-tab-content">${this._renderSocialTab(btn.dataset.socialTab)}</div>`;
             this.bindScreenEvents('social');
+            this._bindReactionBars();
+            if (btn.dataset.socialTab === 'chat') this._positionChatFrame();
+          });
+        });
+        // Reactions
+        this._bindReactionBars();
+        // Leaderboard row taps → user profile (populated by _populateLeaderboard, also bind any already rendered)
+        document.querySelectorAll('[data-lb-username]').forEach(el => {
+          el.addEventListener('click', () => {
+            const av = el.dataset.lbSeed
+              ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${el.dataset.lbSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`
+              : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
+            this.showScreen('userProfile', {
+              user: {
+                username: el.dataset.lbUsername, avatarUrl: av,
+                level: parseInt(el.dataset.lbLevel) || 1,
+                volume: parseInt(el.dataset.lbVolume) || 0,
+                rank: parseInt(el.dataset.lbRank) || null,
+                streak: null, sessions: null,
+              }
+            });
           });
         });
         // Social join
@@ -2027,52 +2593,77 @@ const App = {
           await this.registerWithServer();
           this.showScreen('social');
         });
-        // Global chat send
-        const globalInput = document.getElementById('global-chat-input');
-        const sendGlobal = async () => {
-          const text = globalInput?.value.trim();
-          if (!text) return;
-          globalInput.value = '';
-          // Optimistic UI
-          const msgs = document.getElementById('global-chat-messages');
-          if (msgs) {
-            const myAv = this._getAvatarUrl();
-            const el = document.createElement('div');
-            el.className = 'chat-global-bubble mine';
-            el.innerHTML = `<div class="bubble-body"><div class="bubble-text">${this.escapeHtml(text)}</div></div><img class="bubble-avatar" src="${myAv}" alt="you">`;
-            msgs.appendChild(el);
-            msgs.scrollTop = msgs.scrollHeight;
-          }
-          // Post to server
-          this._postChatMessage(text);
-        };
-        this.bindClick('btn-global-chat-send', sendGlobal);
-        if (globalInput) globalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendGlobal(); });
-        // Load real chat from server, fall back to mock
-        this._fetchChat().then(data => {
-          if (!data?.messages?.length) return;
-          const msgs = document.getElementById('global-chat-messages');
-          if (!msgs) return;
+        // ─── Load real leaderboard ─────────────────────────────
+        if (document.getElementById('leaderboard-list')) {
+          this._fetchLeaderboard().then(d => this._populateLeaderboard(d?.users || d || []));
+        }
+        // ─── Load real feed ────────────────────────────────────
+        if (document.getElementById('feed-list')) {
+          this._fetchFeed().then(d => this._populateFeed(d?.items || d || []));
+        }
+        // ─── Global chat: send handler + live polling ──────────
+        {
+          const globalInput = document.getElementById('global-chat-input');
           const makeAv = (url) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
-          msgs.innerHTML = data.messages.map(m => {
+          const renderMsg = (m, i) => {
             const mine = m.user_id === this.settings.serverId;
             const myAv = this._getAvatarUrl();
             return `<div class="chat-global-bubble ${mine ? 'mine' : ''}">
-              ${!mine ? `<img class="bubble-avatar" src="${makeAv(m.avatar_url)}" alt="${m.username}">` : ''}
+              ${!mine ? `<img class="bubble-avatar" src="${makeAv(m.avatar_url)}" alt="${m.username || 'athlete'}">` : ''}
               <div class="bubble-body">
-                ${!mine ? `<div class="bubble-name">${m.username}</div>` : ''}
+                ${!mine ? `<div class="bubble-name">${m.username || 'athlete'}</div>` : ''}
                 <div class="bubble-text">${this.escapeHtml(m.text)}</div>
+                ${this._reactionBarHtml(m.id || `chat-srv-${i}`, 'chat')}
               </div>
               ${mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
             </div>`;
-          }).join('');
-          msgs.scrollTop = msgs.scrollHeight;
-        });
-        // Scroll to bottom immediately
-        setTimeout(() => {
-          const msgs = document.getElementById('global-chat-messages');
-          if (msgs) msgs.scrollTop = msgs.scrollHeight;
-        }, 50);
+          };
+
+          // Send message
+          const sendGlobal = async () => {
+            const text = globalInput?.value.trim();
+            if (!text) return;
+            globalInput.value = '';
+            const msgs = document.getElementById('global-chat-messages');
+            if (msgs) {
+              // Remove "no messages" hint
+              const hint = document.getElementById('chat-status-hint');
+              if (hint) hint.remove();
+              const myAv = this._getAvatarUrl();
+              const el = document.createElement('div');
+              el.className = 'chat-global-bubble mine';
+              el.innerHTML = `<div class="bubble-body"><div class="bubble-text">${this.escapeHtml(text)}</div></div><img class="bubble-avatar" src="${myAv}" alt="you">`;
+              msgs.appendChild(el);
+              msgs.scrollTop = msgs.scrollHeight;
+            }
+            this._postChatMessage(text);
+          };
+          this.bindClick('btn-global-chat-send', sendGlobal);
+          if (globalInput) globalInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendGlobal(); });
+
+          // Live polling — replace entire list on each tick (simple + correct)
+          if (document.getElementById('global-chat-messages')) {
+            let lastMessageCount = 0;
+            const pollChat = async () => {
+              const msgs = document.getElementById('global-chat-messages');
+              if (!msgs) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; return; }
+              const data = await this._fetchChat();
+              if (!data?.messages) return;
+              const count = data.messages.length;
+              if (count === lastMessageCount) return; // nothing new
+              lastMessageCount = count;
+              const wasAtBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 60;
+              msgs.innerHTML = count === 0
+                ? `<div class="text-center text-xs text-muted" style="padding:20px 16px;" id="chat-status-hint">No messages yet — say something! 🏝️</div>`
+                : data.messages.map((m, i) => renderMsg(m, i)).join('');
+              this._bindReactionBars();
+              if (wasAtBottom || lastMessageCount === count) msgs.scrollTop = msgs.scrollHeight;
+            };
+            if (this._chatPollTimer) clearInterval(this._chatPollTimer);
+            pollChat(); // immediate first load
+            this._chatPollTimer = setInterval(pollChat, 7000);
+          }
+        }
         break;
     }
   },
@@ -2536,14 +3127,16 @@ const App = {
       sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
     p.totalVolume += totalVolume;
 
-    // Update streak
-    const today = new Date().toDateString();
-    const lastDate = p.lastWorkoutDate ? new Date(p.lastWorkoutDate).toDateString() : null;
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    // Update streak — each workout adds 1, up to 4-day grace window
+    const sameDay = p.lastWorkoutDate &&
+      new Date().toDateString() === new Date(p.lastWorkoutDate).toDateString();
+    const daysSinceLast = p.lastWorkoutDate
+      ? (Date.now() - new Date(p.lastWorkoutDate).getTime()) / 86400000
+      : 999;
 
-    if (lastDate === today) {
-      // Already worked out today, no streak change
-    } else if (lastDate === yesterday) {
+    if (sameDay) {
+      // Multiple sessions same day — no extra streak point
+    } else if (daysSinceLast <= 4) {
       p.currentStreak += 1;
     } else {
       p.currentStreak = 1;
@@ -3488,6 +4081,15 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     };
   },
 
+  // Returns CSS class for the avatar ring based on level tier
+  _getAvatarRingClass(level) {
+    if (level >= 16) return 'avatar-ring-5';
+    if (level >= 12) return 'avatar-ring-4';
+    if (level >= 8)  return 'avatar-ring-3';
+    if (level >= 4)  return 'avatar-ring-2';
+    return 'avatar-ring-1';
+  },
+
   // ─── WEEK DATA ─────────────────────────────────────────────
   getWeekData() {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -3661,24 +4263,28 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
   },
 
   async triggerMissingIconGeneration() {
-    if (!this.settings.geminiApiKey) return;
-    
-    // Check if we are already generating to avoid overlapping loops
     if (this._isGeneratingIcons) return;
     this._isGeneratingIcons = true;
-
     try {
       for (const ex of this.exercises) {
         if (!ex.icon) {
-          const icon = await AI.generateExerciseIcon(ex.name, ex.muscleGroups);
+          let icon = null;
+          if (this.settings.geminiApiKey) {
+            // Use Gemini SVG generation if key available
+            icon = await AI.generateExerciseIcon(ex.name, ex.muscleGroups);
+            await new Promise(r => setTimeout(r, 4500)); // respect rate limit
+          } else {
+            // Fall back to Pollinations URL (no key needed, deterministic)
+            icon = this._getExerciseIconUrl(ex.name);
+          }
           if (icon) {
             ex.icon = icon;
             await DB.saveExercise(ex);
             const iconEl = document.getElementById(`icon-${ex.id}`);
-            if (iconEl) iconEl.innerHTML = `<img src="${icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" class="fade-in">`;
+            if (iconEl) {
+              iconEl.innerHTML = `<img src="${icon}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" class="fade-in" loading="lazy">`;
+            }
           }
-          // Delay to respect Gemini Free Tier text limits (15 RPM -> 4 seconds per request)
-          await new Promise(resolve => setTimeout(resolve, 4500));
         }
       }
     } finally {
