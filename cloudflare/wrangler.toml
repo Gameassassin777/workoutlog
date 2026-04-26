@@ -2,16 +2,17 @@ name = "tropicalfit"
 main = "cloudflare/worker.js"
 compatibility_date = "2024-01-01"
 
-# ── 1. Paste the database_id from: wrangler d1 create tropicalfit ──
+# ── Fill these in after running the setup commands ──────────────
+# account_id = "b49222773f8cdb8631ca6d03c6ccef65"
+
 [[d1_databases]]
-binding       = "DB"
+binding     = "DB"
 database_name = "tropicalfit"
-database_id   = "dea81b5a-2b46-4e81-a027-1b13df6ab365"
+database_id = "dea81b5a-2b46-4e81-a027-1b13df6ab365"
 
-# ── 2. Your email (used in push notification headers) ──────────────
 [vars]
-VAPID_SUBJECT = "mailto:chslinde@gmail.com"
+VAPID_SUBJECT = "mailto:gameassassin777@gmail.com"
 
-# ── 3. Run these two commands in terminal (do NOT put keys here) ───
-# wrangler secret put VAPID_PUBLIC_KEY
-# wrangler secret put VAPID_PRIVATE_KEY
+# VAPID keys go in Secrets (never in wrangler.toml):
+# BJva0Gf31FUtQTyufjgqVpApA5D6vJlzvq0a17gKyjjtdPRNkA0mKK4nbL7SsXKlo5-1HrZgbeq9pvgwI0xNdis
+# wrangler secret put uDwQAB9ANMY-qo44X1SBqeUv68GSiLgF-t6ff_ImFz4
