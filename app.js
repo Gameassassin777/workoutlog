@@ -589,10 +589,12 @@ const App = {
     return `${streakDesc}, Level ${levelInfo.level} ${levelInfo.title}, specializes in ${topMuscle.toLowerCase()} training, tropical beach warrior`;
   },
 
-  // Build Pollinations URL from a selfie description (or fallback to level-based)
-  _buildPollinationsUrlFromDescription(description, style = 'photorealistic', customText = '') {
+  // Build Pollinations URL — seed is provided by caller (random per-generation + user-specific)
+  _buildPollinationsUrlFromDescription(description, style = 'photorealistic', customText = '', seed = null) {
     const combined = [description, customText].filter(Boolean).join(', ');
-    const seed = Math.abs(combined.split('').reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0)) % 999983;
+    // If no seed supplied, derive a stable one from content (backwards-compat for saved URLs)
+    const finalSeed = seed !== null ? seed
+      : Math.abs(combined.split('').reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0)) % 999983;
     const styleClause = style === 'photorealistic'
       ? 'photorealistic portrait, cinematic lighting, ultra detailed face'
       : style === 'anime'
@@ -605,7 +607,7 @@ const App = {
     const prompt = encodeURIComponent(
       `${combined}, tropical beach warrior athlete portrait, ${styleClause}, vibrant ocean sunset background, confident expression, no text, no watermark`
     );
-    return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&nologo=true&seed=${seed}&model=flux`;
+    return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&nologo=true&seed=${finalSeed}&model=flux`;
   },
 
   // Full selfie → portrait flow
@@ -675,10 +677,16 @@ const App = {
     // Base description: selfie desc if available, otherwise auto
     const baseDesc = selfieDesc || this.settings.selfieDescription || this._buildAutoPortraitDesc();
 
+    // Each generation gets a fresh seed so regenerate always produces a new image.
+    // Mix username into the seed offset so two users with the same description diverge.
+    const userOffset = Math.abs((this.settings.username || 'warrior').split('')
+      .reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0)) % 100000;
+    const freshSeed = (userOffset + Math.floor(Math.random() * 900000)) % 999983;
+
     if (genBtn) { genBtn.disabled = true; genBtn.textContent = 'Generating…'; }
 
     try {
-      const url = this._buildPollinationsUrlFromDescription(baseDesc, style, customText);
+      const url = this._buildPollinationsUrlFromDescription(baseDesc, style, customText, freshSeed);
       setStatus('Generating your portrait… this takes a moment 🌊');
 
       // Preload image
@@ -710,8 +718,8 @@ const App = {
       if (headerAv) headerAv.src = url;
 
       this._syncAvatarToServer(url);
-      setStatus('Portrait saved — looking sharp 🔥');
-      if (genBtn) { genBtn.disabled = false; genBtn.textContent = 'Regenerate'; }
+      setStatus('Looking sharp! 🔥 Tap Regenerate any time for a fresh look.');
+      if (genBtn) { genBtn.disabled = false; genBtn.textContent = '🔄 Regenerate'; }
 
       // Show clear button if not already there
       if (!document.getElementById('btn-clear-portrait') && genBtn) {
@@ -1611,7 +1619,7 @@ const App = {
           </div>
           <div class="input-group" style="margin-top:12px;">
             <label class="input-label">AI Portrait</label>
-            <div class="text-xs text-sea mb-8">Upload a selfie — AI reads your features and generates a stylized beach warrior portrait. Or auto-generate from your level & training stats.</div>
+            <div class="text-xs text-sea mb-8">Generate your own unique beach warrior portrait — every result is different. Upload a selfie for a personalized look, or auto-generate from your stats. Regenerate as many times as you want.</div>
 
             <!-- Upload tap area -->
             <div id="selfie-upload-area" style="
@@ -1673,8 +1681,8 @@ const App = {
 
             <!-- Actions -->
             <div class="flex gap-8 flex-wrap">
-              <button class="btn btn-accent flex-1" id="btn-generate-portrait" style="font-size:0.82rem;">
-                ${s.pollinationsPortrait ? 'Regenerate' : 'Generate Portrait'}
+              <button class="btn btn-accent flex-1" id="btn-generate-portrait" style="font-size:0.85rem;font-weight:800;">
+                ${s.pollinationsPortrait ? '🔄 Regenerate' : '✨ Generate Portrait'}
               </button>
               ${s.pollinationsPortrait ? `
                 <button class="btn btn-ghost" id="btn-clear-portrait" style="font-size:0.82rem;color:var(--coral);">Clear</button>
