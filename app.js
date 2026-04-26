@@ -283,24 +283,24 @@ const App = {
           <div class="character-wrap">
             <img class="character-avatar ${avatarRingClass}" src="${avatarUrl}"
                  alt="Your character" id="btn-go-profile-char"
-                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏖️</text></svg>'">
+                 onerror="this.style.opacity='0'">
             <div class="character-level-badge">Lv ${levelInfo.level}</div>
           </div>
         </div>
 
         <div class="hero-stat-row">
           <div class="hero-stat-pill">
-            <div class="hero-stat-pill-icon">🔥</div>
+            <div class="hero-stat-pill-icon">${this.Icons.palm}</div>
             <span class="hero-stat-pill-val">${p.currentStreak}</span>
             <div class="hero-stat-pill-label">Streak</div>
           </div>
           <div class="hero-stat-pill">
-            <div class="hero-stat-pill-icon">💪</div>
+            <div class="hero-stat-pill-icon">${this.Icons.dumbbell}</div>
             <span class="hero-stat-pill-val">${p.totalWorkouts || 0}</span>
-            <div class="hero-stat-pill-label">Workouts</div>
+            <div class="hero-stat-pill-label">Sessions</div>
           </div>
           <div class="hero-stat-pill">
-            <div class="hero-stat-pill-icon">📦</div>
+            <div class="hero-stat-pill-icon">${this.Icons.stats}</div>
             <span class="hero-stat-pill-val">${this.formatVolume(p.totalVolume || 0)}</span>
             <div class="hero-stat-pill-label">Volume</div>
           </div>
@@ -312,8 +312,8 @@ const App = {
         </button>
 
         <div class="hero-feed-teaser" id="btn-go-social">
-          <div class="hero-feed-teaser-label">🌊 Live Community</div>
-          ${mockFeed.slice(0,2).map(f => `<div class="hero-feed-item">${f.emoji} <strong>${f.user}</strong> ${f.text}</div>`).join('')}
+          <div class="hero-feed-teaser-label">Live · The Board</div>
+          ${mockFeed.slice(0,2).map(f => `<div class="hero-feed-item"><strong>${f.user}</strong> ${f.text}</div>`).join('')}
         </div>
 
         <div style="height: 16px;"></div>
@@ -333,11 +333,11 @@ const App = {
 
   _getMockFeedItems() {
     return [
-      { emoji: '🏆', user: 'island_monk', text: 'hit a new Bench PR — 225 lbs', time: '2m ago' },
-      { emoji: '⚡', user: 'storm_surfer', text: 'finished Push Day · 38,400 lbs', time: '8m ago' },
-      { emoji: '🔥', user: 'wave_rider_99', text: 'is on a 45-day streak!', time: '1h ago' },
-      { emoji: '💪', user: 'tidal_beast', text: 'crushed Leg Day · 52,100 lbs', time: '2h ago' },
-      { emoji: '🌴', user: 'reef_paddler', text: 'joined TropicalFit', time: '3h ago' },
+      { user: 'island_monk',   text: 'hit a new Bench PR — 225 lbs',    time: '2m ago',  type: 'pr' },
+      { user: 'storm_surfer',  text: 'finished Push Day · 38,400 lbs',  time: '8m ago',  type: 'workout' },
+      { user: 'wave_rider_99', text: 'is on a 45-day streak',           time: '1h ago',  type: 'streak' },
+      { user: 'tidal_beast',   text: 'crushed Leg Day · 52,100 lbs',    time: '2h ago',  type: 'workout' },
+      { user: 'reef_paddler',  text: 'dropped into TropicalFit',        time: '3h ago',  type: 'join' },
     ];
   },
 
@@ -348,7 +348,7 @@ const App = {
     if (sorted.length === 0) {
       return `
         <div class="header">
-          <span class="header-title">Workout History</span>
+          <span class="header-title">Tide Logs</span>
         </div>
         <div class="empty-state">
           <div class="empty-state-icon" style="background: var(--clear-water); border: 2px solid var(--aqua); color: var(--lagoon);">Logs</div>
@@ -361,7 +361,7 @@ const App = {
 
     return `
       <div class="header">
-        <span class="header-title">Workout History</span>
+        <span class="header-title">Tide Logs</span>
         <button class="header-action" id="btn-export-history">Export</button>
       </div>
       <div class="search-bar">
@@ -414,7 +414,7 @@ const App = {
   renderLogs(activeTab = 'history') {
     return `
       <div class="header">
-        <span class="header-title">Island Logs</span>
+        <span class="header-title">Tide Logs</span>
         <button class="header-action" id="btn-export-history">Export</button>
       </div>
       <div class="tab-pill">
@@ -432,10 +432,10 @@ const App = {
     if (sorted.length === 0) {
       return `
         <div class="empty-state">
-          <div class="empty-state-icon" style="background:var(--clear-water);border:2px solid var(--aqua);color:var(--lagoon);">📋</div>
+          <div class="empty-state-icon" style="background:var(--clear-water);border:2px solid var(--aqua);color:var(--lagoon);">${this.Icons.dumbbell}</div>
           <div class="empty-state-title">No Logs Yet</div>
           <div class="empty-state-text">Hit the shore and start lifting!<br>Your journey begins with one rep.</div>
-          <button class="btn btn-accent mt-24" id="btn-start-from-logs">💪 Start First Session</button>
+          <button class="btn btn-accent mt-24" id="btn-start-from-logs">Start First Session</button>
         </div>`;
     }
     return `
@@ -486,7 +486,7 @@ const App = {
                   <div class="text-bold text-white">${name}</div>
                   <div class="text-xs text-sea">${pr.maxWeight ? pr.maxWeight.value + ' ' + (pr.maxWeight.unit || this.settings.defaultWeightUnit) : ''}</div>
                 </div>
-                <div class="text-sunset text-bold">⚓</div>
+                <div class="text-sunset text-bold">${this.Icons.anchor}</div>
               </div>
             </div>
           `).join('')
@@ -500,7 +500,7 @@ const App = {
     return `
       <div class="header">
         <button class="header-back" id="btn-back-home">←</button>
-        <span class="header-title">New Workout</span>
+        <span class="header-title">New Session</span>
       </div>
       <div class="p-16 fade-in">
         <div class="input-group">
@@ -717,7 +717,7 @@ const App = {
       <div class="fade-in text-center" style="padding-top: 40px;">
         <div style="font-size: 4rem;">${this.Icons.anchor}</div>
         <div class="text-xl text-extra-bold text-sunset mt-8">Workout Complete!</div>
-        <div class="text-sm text-sea mt-4">Great job riding those waves!</div>
+        <div class="text-sm text-sea mt-4">Keep riding those waves.</div>
 
         ${w.xpEarned ? `
           <div class="card card-highlight mx-16 mt-16">
@@ -851,7 +851,7 @@ const App = {
     }
     return `
       <div class="header">
-        <span class="header-title">🌊 Board</span>
+        <span class="header-title">The Board</span>
       </div>
       <div class="tab-pill">
         <button class="tab-pill-item ${activeTab === 'leaderboard' ? 'active' : ''}" data-social-tab="leaderboard">Leaderboard</button>
@@ -866,15 +866,15 @@ const App = {
 
   _renderSocialSetup() {
     return `
-      <div class="header"><span class="header-title">🌊 Board</span></div>
+      <div class="header"><span class="header-title">The Board</span></div>
       <div class="username-setup-card">
-        <div style="font-size:3rem;margin-bottom:12px;">🏝️</div>
+        <div style="margin-bottom:12px;">${this.Icons.anchor}</div>
         <div class="text-lg text-extra-bold text-main">Join the Community</div>
-        <div class="text-sm text-sea mt-8 mb-16">Pick a username to appear on the leaderboard, share your workouts, and chat with other athletes.</div>
+        <div class="text-sm text-sea mt-8 mb-16">Pick a handle to ride the leaderboard, share sessions, and talk shop with the tribe.</div>
         <div class="input-group">
           <input type="text" class="input" placeholder="Your username" id="social-username-input" maxlength="20" autocomplete="off">
         </div>
-        <div class="text-xs text-muted mt-8 mb-16">This is public. No email needed.</div>
+        <div class="text-xs text-muted mt-8 mb-16">This is public. Paddle in — no email needed.</div>
         <button class="btn btn-accent btn-large w-full" id="btn-social-join">Join the Board →</button>
       </div>
     `;
@@ -914,7 +914,7 @@ const App = {
           const av = `https://api.dicebear.com/7.x/${u.avatarStyle}/svg?seed=${u.seed}&backgroundColor=0a1628`;
           return `
             <div class="leaderboard-row">
-              <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank === 1 ? '🥇' : u.rank === 2 ? '🥈' : u.rank === 3 ? '🥉' : u.rank}</div>
+              <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
               <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
               <div class="leaderboard-info">
                 <div class="leaderboard-name">${u.username}</div>
@@ -937,7 +937,7 @@ const App = {
           </div>
         </div>` : ''}
       <div class="text-center text-xs text-muted" style="padding:12px 0 4px;">
-        Connect to server to see real rankings
+        Server drops soon — rankings will be live
       </div>
       <div style="height:20px;"></div>`;
   },
@@ -949,7 +949,6 @@ const App = {
       <div class="card" style="padding:0;overflow:hidden;">
         ${items.map(f => `
           <div class="feed-item">
-            <div class="feed-emoji">${f.emoji}</div>
             <img class="feed-avatar" src="${makeAv(f.user)}" alt="${f.user}">
             <div class="feed-content">
               <div class="feed-user">${f.user}</div>
@@ -959,7 +958,7 @@ const App = {
           </div>`).join('')}
       </div>
       <div class="text-center text-xs text-muted" style="padding:12px 0 4px;">
-        Real-time feed coming in Phase 2
+        Live drops coming soon — server in progress
       </div>
       <div style="height:20px;"></div>`;
   },
@@ -986,7 +985,7 @@ const App = {
               ${m.mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
             </div>`).join('')}
           <div class="text-center text-xs text-muted" style="padding:8px 0;">
-            Real-time chat coming in Phase 2 — messages below are local only
+            Global chat coming soon — local messages only right now
           </div>
           ${(this._localChatMessages || []).map(m => `
             <div class="chat-global-bubble ${m.mine ? 'mine' : ''}">
@@ -1016,11 +1015,11 @@ const App = {
       <div style="position:fixed; top:0; left:0; right:0; bottom:calc(56px + var(--safe-bottom, 0px)); display:flex; flex-direction:column; background:var(--bg); z-index:10;">
         <div class="header" style="flex-shrink:0;">
           <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
-          <span class="header-title">AI Coach</span>
+          <span class="header-title">Coach</span>
         </div>
         <div class="chat-messages" id="chat-messages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; -webkit-overflow-scrolling:touch;">
           <div class="chat-bubble ai">
-            Hey! I'm your tropical fitness coach. Ask me anything about training, nutrition, or recovery — or tap a quick prompt below.
+            What's the move today? Ask me anything — training, nutrition, recovery. Or hit a quick prompt.
           </div>
           ${this._currentChatMessages && this._currentChatMessages.length > 0 ? this._currentChatMessages.map(m => `
             <div class="chat-bubble ${m.role === 'ai' ? 'ai' : 'user'}">
@@ -1030,10 +1029,10 @@ const App = {
         </div>
         ${noHistory ? `
           <div class="ai-chips">
-            <button class="ai-chip" data-chip="Analyze my last workout">📊 Last workout</button>
-            <button class="ai-chip" data-chip="What should I train today?">🎯 What to train</button>
-            <button class="ai-chip" data-chip="Help me hit a new PR">🏆 Hit a PR</button>
-            <button class="ai-chip" data-chip="Give me recovery advice">😴 Recovery</button>
+            <button class="ai-chip" data-chip="Analyze my last workout">Last workout</button>
+            <button class="ai-chip" data-chip="What should I train today?">What to train</button>
+            <button class="ai-chip" data-chip="Help me hit a new PR">Hit a PR</button>
+            <button class="ai-chip" data-chip="Give me recovery advice">Recovery</button>
           </div>` : ''}
         <div class="chat-input-bar" style="flex-shrink:0; padding-bottom:calc(12px + var(--safe-bottom));">
           <input type="text" class="chat-input" placeholder="Ask Coach anything..."
@@ -1051,7 +1050,7 @@ const App = {
     return `
       <div class="header">
         <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
-        <span class="header-title">Settings Configuration</span>
+        <span class="header-title">Config</span>
       </div>
       <div class="fade-in">
         <!-- Profile -->
@@ -1685,7 +1684,7 @@ const App = {
         document.querySelectorAll('[data-social-tab]').forEach(btn => {
           btn.addEventListener('click', () => {
             const container = document.getElementById('screen-container');
-            container.innerHTML = `<div class="header"><span class="header-title">🌊 Board</span></div>
+            container.innerHTML = `<div class="header"><span class="header-title">The Board</span></div>
               <div class="tab-pill">
                 <button class="tab-pill-item ${btn.dataset.socialTab === 'leaderboard' ? 'active' : ''}" data-social-tab="leaderboard">Leaderboard</button>
                 <button class="tab-pill-item ${btn.dataset.socialTab === 'feed' ? 'active' : ''}" data-social-tab="feed">Feed</button>
