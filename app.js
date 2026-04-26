@@ -231,12 +231,7 @@ const App = {
         this.bindScreenEvents(name, data);
       };
 
-      if (!this.settings.batterySaver && window.TransitionEngine) {
-        if (!window.transitionEngine) window.transitionEngine = new window.TransitionEngine();
-        await window.transitionEngine.runRandomTransition(renderNext);
-      } else {
-        await renderNext();
-      }
+      await renderNext();
     }
   },
 
@@ -363,11 +358,11 @@ const App = {
 
   _getMockFeedItems() {
     return [
-      { user: 'island_monk',   text: 'hit a new Bench PR — 225 lbs',    time: '2m ago',  type: 'pr' },
-      { user: 'storm_surfer',  text: 'finished Push Day · 38,400 lbs',  time: '8m ago',  type: 'workout' },
-      { user: 'wave_rider_99', text: 'is on a 45-day streak',           time: '1h ago',  type: 'streak' },
-      { user: 'tidal_beast',   text: 'crushed Leg Day · 52,100 lbs',    time: '2h ago',  type: 'workout' },
-      { user: 'reef_paddler',  text: 'dropped into TropicalFit',        time: '3h ago',  type: 'join' },
+      { user: 'tyler_lifts',   text: 'hit a new Bench PR — 315 lbs',   time: '2m ago',  type: 'pr',      seed: 'tyler22' },
+      { user: 'cody_gainz',    text: 'finished Push Day · 42,800 lbs', time: '11m ago', type: 'workout',  seed: 'cody88'  },
+      { user: 'big_jake',      text: 'is on a 38-day streak',          time: '1h ago',  type: 'streak',   seed: 'jake55'  },
+      { user: 'derek_iron',    text: 'crushed Leg Day · 58,100 lbs',   time: '2h ago',  type: 'workout',  seed: 'derek9'  },
+      { user: 'chad_squats',   text: 'just joined TropicalFit',        time: '3h ago',  type: 'join',     seed: 'chad11'  },
     ];
   },
 
@@ -1003,14 +998,14 @@ const App = {
     const myUsername = this.settings.username;
     const myVolume = this.getWeekVolume();
     const mockUsers = [
-      { rank:1,  username:'island_deity',   level:16, volume:128400, avatarStyle:'adventurer', seed:'deity' },
-      { rank:2,  username:'storm_surfer',   level:12, volume:95000,  avatarStyle:'adventurer', seed:'storm' },
-      { rank:3,  username:'volcano_forge',  level:11, volume:81200,  avatarStyle:'adventurer', seed:'volc' },
-      { rank:4,  username:'wave_rider_99',  level:9,  volume:65300,  avatarStyle:'adventurer', seed:'wave' },
-      { rank:5,  username:'tidal_beast',    level:8,  volume:58100,  avatarStyle:'adventurer', seed:'tidal' },
-      { rank:6,  username:'reef_diver',     level:7,  volume:42000,  avatarStyle:'adventurer', seed:'reef' },
-      { rank:7,  username:'palm_crusher',   level:6,  volume:38700,  avatarStyle:'adventurer', seed:'palm' },
-      { rank:8,  username:'island_monk',    level:5,  volume:31400,  avatarStyle:'adventurer', seed:'monk' },
+      { rank:1,  username:'tyler_lifts',    level:16, volume:128400, seed:'tyler22' },
+      { rank:2,  username:'cody_gainz',     level:12, volume:95000,  seed:'cody88' },
+      { rank:3,  username:'big_jake',       level:11, volume:81200,  seed:'jake55' },
+      { rank:4,  username:'benchbro_mike',  level:9,  volume:65300,  seed:'mike33' },
+      { rank:5,  username:'derek_iron',     level:8,  volume:58100,  seed:'derek9' },
+      { rank:6,  username:'chad_squats',    level:7,  volume:42000,  seed:'chad11' },
+      { rank:7,  username:'kyle_plates',    level:6,  volume:38700,  seed:'kyle44' },
+      { rank:8,  username:'protein_ryan',   level:5,  volume:31400,  seed:'ryan77' },
     ];
     // Insert current user
     const myRank = myVolume > 0 ? mockUsers.filter(u => u.volume > myVolume).length + 1 : '—';
@@ -1023,7 +1018,7 @@ const App = {
       <div class="social-reset-timer">Resets in ${daysLeft}d ${hoursLeft}h</div>
       <div class="card" style="padding:0;overflow:hidden;">
         ${mockUsers.map(u => {
-          const av = `https://api.dicebear.com/7.x/${u.avatarStyle}/svg?seed=${u.seed}&backgroundColor=0a1628`;
+          const av = `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.seed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&eyes=default,happy,winkWacky&eyebrows=default,defaultNatural,flatNatural&top=shortHair,shortHairDreads01,shortHairDreads02,shortHairFrizzle,shortHairShortCurly,shortHairShortFlat,shortHairShortRound,shortHairShortWaved,shortHairSides,hat`;
           return `
             <div class="leaderboard-row">
               <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
@@ -1056,12 +1051,12 @@ const App = {
 
   _renderFeed() {
     const items = this._getMockFeedItems();
-    const makeAv = (seed) => `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=0a1628`;
+    const makeAv = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairDreads01,shortHairShortFlat,hat`;
     return `
       <div class="card" style="padding:0;overflow:hidden;">
         ${items.map(f => `
           <div class="feed-item">
-            <img class="feed-avatar" src="${makeAv(f.user)}" alt="${f.user}">
+            <img class="feed-avatar" src="${makeAv(f.seed || f.user)}" alt="${f.user}">
             <div class="feed-content">
               <div class="feed-user">${f.user}</div>
               <div class="feed-text">${f.text}</div>
@@ -1078,11 +1073,11 @@ const App = {
   _renderGlobalChat() {
     const myUsername = this.settings.username;
     const myAv = this._getAvatarUrl();
-    const makeAv = (seed) => `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=0a1628`;
+    const makeAv = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairDreads01,shortHairShortFlat,hat`;
     const mockMsgs = [
-      { user:'island_deity', seed:'deity', text:'Just hit a new deadlift PR finally!!', time:'3:42pm', mine:false },
-      { user:'storm_surfer', seed:'storm', text:'Lets go!! What weight?', time:'3:43pm', mine:false },
-      { user:'wave_rider_99', seed:'wave', text:'315 lbs? That thing is a beast', time:'3:44pm', mine:false },
+      { user:'tyler_lifts',  seed:'tyler22', text:'finally hit 315 on bench bro',     time:'3:42pm', mine:false },
+      { user:'cody_gainz',   seed:'cody88',  text:'lets gooo what was your last PR',   time:'3:43pm', mine:false },
+      { user:'big_jake',     seed:'jake55',  text:'been stuck at 275 for like 3 weeks', time:'3:44pm', mine:false },
     ];
     return `
       <div class="chat-global-wrap">
