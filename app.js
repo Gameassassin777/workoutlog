@@ -69,7 +69,8 @@ const App = {
     notificationsEnabled: false,
     socialPrivacyVolume: true,
     socialPrivacyFeed: true,
-    pollinationsPortrait: ''
+    pollinationsPortrait: '',
+    serverId: ''
   },
 
   DEFAULT_PROFILE: {
@@ -92,6 +93,7 @@ const App = {
     this.setupNavigation();
     this.showScreen('home');
     this.registerSW();
+    this.registerWithServer();
     // Re-apply theme if OS dark/light preference changes while app is open
     window.matchMedia('(prefers-color-scheme: light)')
       .addEventListener('change', () => this.applyTheme());
@@ -161,6 +163,134 @@ const App = {
         console.warn('SW registration failed:', err);
       });
     }
+  },
+
+  // ─── Backend API ───────────────────────────────────────────
+  API_BASE: 'PASTE_WORKER_URL_HERE',
+  VAPID_PUBLIC_KEY: 'BB9IqPlJIV0elVug_WG7r6ZiL1xTsiNDt9hZ23sAmsfLjyrF_Aj8CwYeivMXNNEI0o_JySQDnRRt21uGONinQJ0',
+
+  async apiPost(path, body) {
+    try {
+      const res = await fetch(this.API_BASE + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('API error:', e);
+      return { error: e.message };
+    }
+  },
+
+  async apiGet(path) {
+    try {
+      const res = await fetch(this.API_BASE + path);
+      return await res.json();
+    } catch (e) {
+      console.warn('API error:', e);
+      return { error: e.message };
+    }
+  },
+
+  // Register user on first launch (if username set and no server ID yet)
+  async registerWithServer() {
+    if (!this.settings.username) return;
+    if (this.settings.serverId) return;
+    const result = await this.apiPost('/api/user/register', {
+      username: this.settings.username,
+      avatar_url: this._getAvatarUrl(),
+    });
+    if (result.id) {
+      this.settings.serverId = result.id;
+      DB.saveSetting('serverId', result.id);
+    }
+  },
+
+  // Subscribe to Web Push and send subscription to server
+  async subscribeToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
+      });
+      if (this.settings.serverId) {
+        await this.apiPost('/api/push/subscribe', {
+          user_id: this.settings.serverId,
+          subscription: sub.toJSON(),
+        });
+      }
+    } catch (e) {
+      console.warn('Push subscribe failed:', e);
+    }
+  },
+
+  _urlB64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw     = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  },
+
+  async _logWorkoutToServer(w) {
+    if (!this.settings.serverId || !this.API_BASE.startsWith('http')) return;
+    const totalVolume = w.exercises.reduce((sum, ex) =>
+      sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+    const totalSets = w.exercises.reduce((s, e) => s + e.sets.length, 0);
+
+    // Collect any PRs set during this workout
+    const prs = [];
+    w.exercises.forEach(ex => {
+      const pr = this.profile.personalRecords?.[ex.name];
+      if (pr?.maxWeight) {
+        const latestSet = ex.sets.reduce((best, s) =>
+          (s.weight || 0) > (best.weight || 0) ? s : best, {});
+        // Only report if the PR was set in this workout (within last 5 min)
+        if (pr.maxWeight.date && (Date.now() - new Date(pr.maxWeight.date)) < 300000) {
+          prs.push({ exercise: ex.name, weight: pr.maxWeight.value,
+                     reps: pr.maxWeight.reps, unit: pr.maxWeight.unit || this.settings.defaultWeightUnit });
+        }
+      }
+    });
+
+    await this.apiPost('/api/workout/log', {
+      user_id: this.settings.serverId,
+      title: w.title,
+      volume: totalVolume,
+      sets_completed: totalSets,
+      exercises: w.exercises.map(ex => ({ name: ex.name, sets: ex.sets.length })),
+      prs,
+    });
+  },
+
+  // Fetch real leaderboard from server
+  async _fetchLeaderboard() {
+    if (!this.API_BASE.startsWith('http')) return null;
+    return await this.apiGet('/api/leaderboard');
+  },
+
+  // Fetch real feed from server
+  async _fetchFeed() {
+    if (!this.API_BASE.startsWith('http')) return null;
+    return await this.apiGet('/api/feed');
+  },
+
+  // Fetch chat messages since a timestamp
+  async _fetchChat(since = null) {
+    if (!this.API_BASE.startsWith('http')) return null;
+    const qs = since ? `?since=${encodeURIComponent(since)}` : '';
+    return await this.apiGet(`/api/chat${qs}`);
+  },
+
+  // Post a chat message to server
+  async _postChatMessage(text) {
+    if (!this.settings.serverId || !this.API_BASE.startsWith('http')) return null;
+    return await this.apiPost('/api/chat', {
+      user_id: this.settings.serverId,
+      text,
+    });
   },
 
   // ─── Navigation ────────────────────────────────────────────
@@ -1802,6 +1932,7 @@ const App = {
               e.target.checked = val;
               this.settings.notificationsEnabled = val;
               DB.saveSetting('notificationsEnabled', val);
+              if (val) await this.subscribeToPush();
             } else {
               this.settings.notificationsEnabled = false;
               DB.saveSetting('notificationsEnabled', false);
@@ -1886,23 +2017,23 @@ const App = {
           });
         });
         // Social join
-        this.bindClick('btn-social-join', () => {
+        this.bindClick('btn-social-join', async () => {
           const val = document.getElementById('social-username-input')?.value.trim();
           if (!val) return;
           this.settings.username = val;
           this.settings.avatarSeed = val;
           DB.saveSetting('username', val);
           DB.saveSetting('avatarSeed', val);
+          await this.registerWithServer();
           this.showScreen('social');
         });
         // Global chat send
         const globalInput = document.getElementById('global-chat-input');
-        const sendGlobal = () => {
+        const sendGlobal = async () => {
           const text = globalInput?.value.trim();
           if (!text) return;
-          if (!this._localChatMessages) this._localChatMessages = [];
-          this._localChatMessages.push({ mine: true, text, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) });
           globalInput.value = '';
+          // Optimistic UI
           const msgs = document.getElementById('global-chat-messages');
           if (msgs) {
             const myAv = this._getAvatarUrl();
@@ -1912,10 +2043,32 @@ const App = {
             msgs.appendChild(el);
             msgs.scrollTop = msgs.scrollHeight;
           }
+          // Post to server
+          this._postChatMessage(text);
         };
         this.bindClick('btn-global-chat-send', sendGlobal);
         if (globalInput) globalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendGlobal(); });
-        // Scroll chat to bottom
+        // Load real chat from server, fall back to mock
+        this._fetchChat().then(data => {
+          if (!data?.messages?.length) return;
+          const msgs = document.getElementById('global-chat-messages');
+          if (!msgs) return;
+          const makeAv = (url) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
+          msgs.innerHTML = data.messages.map(m => {
+            const mine = m.user_id === this.settings.serverId;
+            const myAv = this._getAvatarUrl();
+            return `<div class="chat-global-bubble ${mine ? 'mine' : ''}">
+              ${!mine ? `<img class="bubble-avatar" src="${makeAv(m.avatar_url)}" alt="${m.username}">` : ''}
+              <div class="bubble-body">
+                ${!mine ? `<div class="bubble-name">${m.username}</div>` : ''}
+                <div class="bubble-text">${this.escapeHtml(m.text)}</div>
+              </div>
+              ${mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
+            </div>`;
+          }).join('');
+          msgs.scrollTop = msgs.scrollHeight;
+        });
+        // Scroll to bottom immediately
         setTimeout(() => {
           const msgs = document.getElementById('global-chat-messages');
           if (msgs) msgs.scrollTop = msgs.scrollHeight;
@@ -2367,6 +2520,9 @@ const App = {
     Timer.endWorkoutSession();
     this.lastCompletedWorkout = w;
     this.activeWorkout = null;
+
+    // Log to server in background (don't block UI)
+    this._logWorkoutToServer(w);
 
     this.showScreen('workoutComplete');
   },
