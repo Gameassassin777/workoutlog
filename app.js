@@ -68,7 +68,8 @@ const App = {
     avatarSeed: '',
     notificationsEnabled: false,
     socialPrivacyVolume: true,
-    socialPrivacyFeed: true
+    socialPrivacyFeed: true,
+    pollinationsPortrait: ''
   },
 
   DEFAULT_PROFILE: {
@@ -335,9 +336,25 @@ const App = {
   },
 
   _getAvatarUrl() {
+    // Prefer cached AI portrait if user generated one
+    if (this.settings.pollinationsPortrait) return this.settings.pollinationsPortrait;
     const seed = this.settings.avatarSeed || this.settings.username || 'tropicalfit';
     const style = this.settings.avatarStyle || 'adventurer';
     return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=0a1628,0d2340`;
+  },
+
+  _buildPollinationsUrl() {
+    const levelInfo = this.getLevelInfo(this.profile.xp);
+    const muscleData = this.getMuscleHeatmapData();
+    const topMuscle = Object.entries(muscleData)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || 'strength';
+    const handle = this.settings.username || 'warrior';
+    const seed = encodeURIComponent(handle + levelInfo.level);
+    const prompt = encodeURIComponent(
+      `tropical beach warrior, ${levelInfo.title}, muscular ${topMuscle.toLowerCase()} athlete, anime portrait, vibrant ocean sunset background, detailed face, confident pose, no text`
+    );
+    return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&nologo=true&seed=${seed}&model=flux`;
   },
 
   _hasUnreadNotifs() {
@@ -352,29 +369,6 @@ const App = {
       { user: 'tidal_beast',   text: 'crushed Leg Day · 52,100 lbs',    time: '2h ago',  type: 'workout' },
       { user: 'reef_paddler',  text: 'dropped into TropicalFit',        time: '3h ago',  type: 'join' },
     ];
-  },
-
-  _REST_QUOTES: [
-    ["The last three or four reps is what makes the muscle grow.", "Arnold Schwarzenegger"],
-    ["The pain you feel today will be the strength you feel tomorrow.", "Arnold Schwarzenegger"],
-    ["No pain, no gain. Shut up and train.", "Ronnie Coleman"],
-    ["The clock is ticking. Are you becoming the person you want to be?", "Greg Plitt"],
-    ["Rest is not quitting. Rest is repair.", "Unknown"],
-    ["Champions are made in the rest between the reps.", "Unknown"],
-    ["Your body can stand almost anything. It's your mind you have to convince.", "Unknown"],
-    ["One more set. One more rep. That's how legends are made.", "Unknown"],
-    ["The only bad workout is the one that didn't happen.", "Unknown"],
-    ["Iron never lies to you.", "Henry Rollins"],
-    ["There are no shortcuts. The road to anywhere worth going is paved with effort.", "Unknown"],
-    ["Sweat is just fat crying.", "Unknown"],
-  ],
-  _getRestQuote() {
-    const q = this._REST_QUOTES;
-    return q[Math.floor(Date.now() / 60000) % q.length][0];
-  },
-  _getRestQuoteAuthor() {
-    const q = this._REST_QUOTES;
-    return q[Math.floor(Date.now() / 60000) % q.length][1];
   },
 
   _REST_QUOTES: [
@@ -510,6 +504,7 @@ const App = {
   _renderLogsStats() {
     const p = this.profile;
     const muscleData = this.getMuscleHeatmapData();
+    const calCells = this._buildStreakCalendar();
     return `
       <div class="fade-in">
         <div class="section-header"><span class="section-title">Weekly Volume</span></div>
@@ -524,6 +519,32 @@ const App = {
             `).join('')}
           </div>
         </div>
+
+        <div class="section-header"><span class="section-title">Consistency — 90 Days</span></div>
+        <div class="card" style="overflow:hidden;">
+          <div style="display:flex;justify-content:space-around;margin-bottom:5px;">
+            ${['S','M','T','W','T','F','S'].map(d => `<div style="flex:1;text-align:center;font-size:0.6rem;color:var(--text-sea);font-weight:700;">${d}</div>`).join('')}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
+            ${calCells.map(c => {
+              if (c.pad) return `<div style="aspect-ratio:1;"></div>`;
+              const bg = c.isFuture ? 'transparent'
+                : c.worked ? 'var(--lagoon)'
+                : c.isToday ? 'rgba(0,200,255,0.18)'
+                : 'rgba(255,255,255,0.07)';
+              const ring = c.isToday ? 'outline:1.5px solid var(--aqua);outline-offset:-1px;' : '';
+              return `<div style="aspect-ratio:1;border-radius:3px;background:${bg};${ring}" title="${c.date ? c.date.toLocaleDateString() : ''}"></div>`;
+            }).join('')}
+          </div>
+          <div class="flex gap-6 mt-10" style="align-items:center;justify-content:flex-end;">
+            <span class="text-xs text-sea">Less</span>
+            <div style="width:9px;height:9px;border-radius:2px;background:rgba(255,255,255,0.07);"></div>
+            <div style="width:9px;height:9px;border-radius:2px;background:rgba(0,160,140,0.45);"></div>
+            <div style="width:9px;height:9px;border-radius:2px;background:var(--lagoon);"></div>
+            <span class="text-xs text-sea">More</span>
+          </div>
+        </div>
+
         <div class="section-header"><span class="section-title">Muscle Activity</span></div>
         <div class="card">
           <div class="flex flex-wrap gap-8" style="justify-content:center;">
@@ -552,6 +573,34 @@ const App = {
         }
         <div style="height:20px;"></div>
       </div>`;
+  },
+
+  _buildStreakCalendar() {
+    // Build a set of workout date strings
+    const workoutDates = new Set(this.workouts.map(w => new Date(w.date).toDateString()));
+    const today = new Date();
+    // Align start to the beginning of the week (Sunday) 13 weeks ago
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 90);
+    startDate.setDate(startDate.getDate() - startDate.getDay()); // back to Sunday
+
+    const cells = [];
+    const cursor = new Date(startDate);
+    while (cursor <= today) {
+      cells.push({
+        date: new Date(cursor),
+        worked: workoutDates.has(cursor.toDateString()),
+        isToday: cursor.toDateString() === today.toDateString(),
+        isFuture: false,
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    // Pad end to complete the last week row
+    const remaining = 7 - (cells.length % 7 || 7);
+    if (remaining < 7) {
+      for (let i = 0; i < remaining; i++) cells.push({ isFuture: true, pad: true });
+    }
+    return cells;
   },
 
   // ─── START WORKOUT SCREEN ─────────────────────────────────
@@ -1144,6 +1193,22 @@ const App = {
             </select>
           </div>
           <div class="input-group" style="margin-top:12px;">
+            <label class="input-label">AI Portrait</label>
+            <div class="text-xs text-sea mb-8">Generate a custom beach warrior portrait based on your level and training. Free — powered by Pollinations AI.</div>
+            ${s.pollinationsPortrait ? `
+              <img src="${s.pollinationsPortrait}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:10px;border:2px solid var(--glass-border-hi);" id="portrait-preview">
+            ` : ''}
+            <div class="flex gap-8">
+              <button class="btn btn-ghost flex-1" id="btn-generate-portrait" style="font-size:0.82rem;">
+                ${s.pollinationsPortrait ? 'Regenerate' : 'Generate Portrait'}
+              </button>
+              ${s.pollinationsPortrait ? `
+                <button class="btn btn-ghost" id="btn-clear-portrait" style="font-size:0.82rem;color:var(--coral);">Clear</button>
+              ` : ''}
+            </div>
+            <div id="portrait-status" class="text-xs text-sea mt-6" style="display:none;"></div>
+          </div>
+          <div class="input-group" style="margin-top:12px;">
             <label class="input-label">Notifications</label>
             <label style="display:flex;justify-content:space-between;align-items:center;">
               <span class="text-sm text-sea">Enable push notifications</span>
@@ -1327,7 +1392,7 @@ const App = {
   // ─── WORKOUT DETAIL SCREEN ────────────────────────────────
   renderWorkoutDetail(data) {
     const w = data.workout;
-    if (!w) return this.renderHistory();
+    if (!w) return this.renderLogs();
 
     const date = new Date(w.date);
     const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -1498,8 +1563,8 @@ const App = {
     // Universal back buttons
     this.bindClick('btn-back-home', () => this.showScreen('home'));
     this.bindClick('btn-back-settings', () => this.showScreen('settings'));
-    this.bindClick('btn-back-history', () => this.showScreen('history'));
-    this.bindClick('btn-back-history-2', () => this.showScreen('history'));
+    this.bindClick('btn-back-history', () => this.showScreen('logs'));
+    this.bindClick('btn-back-history-2', () => this.showScreen('logs'));
     this.bindClick('btn-back-chat', () => this.showScreen('chat'));
 
     switch (screen) {
@@ -1670,6 +1735,69 @@ const App = {
             DB.saveSetting('avatarStyle', this.settings.avatarStyle);
           });
         }
+        // Portrait generation
+        const btnGenPortrait = document.getElementById('btn-generate-portrait');
+        if (btnGenPortrait) {
+          btnGenPortrait.addEventListener('click', async () => {
+            const status = document.getElementById('portrait-status');
+            if (status) { status.style.display = ''; status.textContent = 'Generating your portrait... this takes a moment'; }
+            btnGenPortrait.disabled = true;
+            btnGenPortrait.textContent = 'Generating...';
+            try {
+              const url = this._buildPollinationsUrl();
+              // Preload to confirm the image loads, then cache the URL
+              await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = url;
+              });
+              this.settings.pollinationsPortrait = url;
+              DB.saveSetting('pollinationsPortrait', url);
+              if (status) { status.textContent = 'Portrait saved — see you on the Shore!'; }
+              // Update preview
+              const preview = document.getElementById('portrait-preview');
+              if (preview) { preview.src = url; }
+              else {
+                const row = btnGenPortrait.parentElement;
+                const img = document.createElement('img');
+                img.src = url;
+                img.id = 'portrait-preview';
+                img.style.cssText = 'width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:10px;border:2px solid var(--glass-border-hi);';
+                row.parentElement.insertBefore(img, row);
+              }
+              btnGenPortrait.disabled = false;
+              btnGenPortrait.textContent = 'Regenerate';
+              // Add clear button if not present
+              if (!document.getElementById('btn-clear-portrait')) {
+                const clearBtn = document.createElement('button');
+                clearBtn.id = 'btn-clear-portrait';
+                clearBtn.className = 'btn btn-ghost';
+                clearBtn.style.cssText = 'font-size:0.82rem;color:var(--coral);';
+                clearBtn.textContent = 'Clear';
+                btnGenPortrait.parentElement.appendChild(clearBtn);
+                clearBtn.addEventListener('click', () => {
+                  this.settings.pollinationsPortrait = '';
+                  DB.saveSetting('pollinationsPortrait', '');
+                  this.showScreen('settings');
+                });
+              }
+            } catch (err) {
+              if (status) { status.textContent = 'Could not generate portrait. Try again.'; }
+              btnGenPortrait.disabled = false;
+              btnGenPortrait.textContent = 'Retry';
+            }
+          });
+        }
+        const btnClearPortrait = document.getElementById('btn-clear-portrait');
+        if (btnClearPortrait) {
+          btnClearPortrait.addEventListener('click', () => {
+            this.settings.pollinationsPortrait = '';
+            DB.saveSetting('pollinationsPortrait', '');
+            this.showScreen('settings');
+          });
+        }
+
         const notifToggle = document.getElementById('setting-notifications');
         if (notifToggle) {
           notifToggle.addEventListener('change', async (e) => {
@@ -1700,8 +1828,8 @@ const App = {
         break;
 
       case 'workoutDetail':
-        this.bindClick('btn-back-history', () => this.showScreen('history'));
-        this.bindClick('btn-back-history-2', () => this.showScreen('history'));
+        this.bindClick('btn-back-history', () => this.showScreen('logs'));
+        this.bindClick('btn-back-history-2', () => this.showScreen('logs'));
         document.querySelectorAll('[data-tap-exercise]').forEach(el => {
           el.addEventListener('click', () => {
             this.openAIChat(`Analyze my ${el.dataset.tapExercise} progress.`, el.dataset.tapExercise);
@@ -1733,12 +1861,15 @@ const App = {
             this.bindScreenEvents('logs');
           });
         });
-        this.bindClick('btn-export-history', () => this.exportHistory?.());
+        this.bindClick('btn-export-history', () => ExportImport.exportCSV());
         this.bindClick('btn-start-from-logs', () => this.showScreen('startWorkout'));
         const histSearch = document.getElementById('history-search');
-        if (histSearch) histSearch.addEventListener('input', (e) => this.filterExercises?.(e.target.value));
+        if (histSearch) histSearch.addEventListener('input', (e) => this.filterHistory(e.target.value));
         document.querySelectorAll('[data-workout-id]').forEach(el => {
-          el.addEventListener('click', () => this.showScreen('workoutDetail', { id: el.dataset.workoutId }));
+          el.addEventListener('click', () => {
+            const w = this.workouts.find(w => w.id === el.dataset.workoutId);
+            if (w) this.showScreen('workoutDetail', { workout: w });
+          });
         });
         document.querySelectorAll('[data-pr-exercise]').forEach(el => {
           el.addEventListener('click', () => this.openAIChat?.(`Tell me about my ${el.dataset.prExercise} progress.`));
@@ -2780,7 +2911,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
           }
         }
         this.showToast(`Imported ${parsed.workouts.length} workout(s)!`);
-        this.showScreen('history');
+        this.showScreen('logs');
       }
     });
   },
@@ -3083,7 +3214,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       await DB.deleteWorkout(id);
       this.workouts = this.workouts.filter(w => w.id !== id);
       this.showToast('Workout deleted');
-      this.showScreen('history');
+      this.showScreen('logs');
     }
   },
 

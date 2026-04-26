@@ -1,4 +1,4 @@
-// transition.js – ocean wave wipe
+// transition.js – water puddle blur
 
 class TransitionEngine {
   constructor() {
@@ -23,96 +23,149 @@ class TransitionEngine {
   }
 
   async runRandomTransition(callback) {
-    return this._waveWipe(callback);
+    return this._puddleBlur(callback);
   }
 
-  _waveWipe(callback) {
+  _puddleBlur(callback) {
     return new Promise(resolve => {
       const W = window.innerWidth, H = window.innerHeight;
       const ctx = this._ctx;
       this._canvas.style.display = 'block';
 
-      let swapped = false, start = null;
-      const SWEEP = 320, HOLD = 50, TOTAL = SWEEP * 2 + HOLD;
+      // ── Timing ──────────────────────────────────────────────
+      const SPREAD  = 260;          // ms: circles burst outward
+      const HOLD    = 55;           // ms: everything covered, hold
+      const FADE    = 200;          // ms: dissolve back out
+      const SWAP_AT = SPREAD * 0.5; // swap content at 50% spread
 
-      // Three overlapping sine waves make the edge organic
-      const AMPS  = [H * 0.042, H * 0.026, H * 0.016];
-      const FREQS = [2.6, 5.4, 9.1];
-      const SPDS  = [1.3, 2.2, 3.4];
+      // ── Drop grid: 4×3 semi-random for guaranteed coverage ──
+      const COLS = 4, ROWS = 3;
+      const diagR = Math.hypot(W, H) * 0.64; // enough radius from any point
+      const drops = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          drops.push({
+            x: W * ((c + 0.5) / COLS) + (Math.random() - 0.5) * (W / COLS) * 0.55,
+            y: H * ((r + 0.5) / ROWS) + (Math.random() - 0.5) * (H / ROWS) * 0.55,
+            delay: (r * COLS + c) * 12 + Math.random() * 18,
+            r: diagR,
+          });
+        }
+      }
 
-      const edgeX = (y, t, dir) => {
-        let x = 0;
-        for (let i = 0; i < 3; i++)
-          x += AMPS[i] * Math.sin(FREQS[i] * (y / H) * Math.PI * 2 + t * SPDS[i] * dir);
-        return x;
-      };
-
-      const tracePath = (cx, t, dir) => {
-        ctx.beginPath();
-        ctx.moveTo(-W * 0.08, 0);
-        for (let y = 0; y <= H; y += 4) ctx.lineTo(cx + edgeX(y, t, dir), y);
-        ctx.lineTo(-W * 0.08, H);
-        ctx.closePath();
-      };
+      let swapped = false, start = null, done = false;
+      const appEl = document.getElementById('app');
+      const cleanup = () => { if (appEl) appEl.style.filter = ''; };
+      // Safety: if anything goes wrong, ensure filter is always cleaned up
+      const safeResolve = () => { if (!done) { done = true; cleanup(); resolve(); } };
 
       const tick = (now) => {
         if (!start) start = now;
-        const e = now - start;
-        ctx.clearRect(0, 0, W, H);
+        const t = now - start;
+        const TOTAL = SPREAD + HOLD + FADE;
 
-        let cx, dir;
-        if      (e < SWEEP)              { cx = (e / SWEEP) * (W + W * 0.1) - W * 0.05; dir = 1; }
-        else if (e < SWEEP + HOLD)       { cx = W + W * 0.1; dir = 1;
-                                           if (!swapped) { callback(); swapped = true; } }
-        else                             { const p = (e - SWEEP - HOLD) / SWEEP;
-                                           cx = (1 - p) * (W + W * 0.1) - W * 0.05; dir = -1;
-                                           if (!swapped) { callback(); swapped = true; } }
-
-        if (e >= TOTAL) {
+        if (t > TOTAL) {
           ctx.clearRect(0, 0, W, H);
           this._canvas.style.display = 'none';
-          resolve(); return;
+          safeResolve();
+          return;
         }
 
-        const t = e * 0.001;
+        ctx.clearRect(0, 0, W, H);
 
-        // Dark ocean fill
-        tracePath(cx, t, dir);
-        const grad = ctx.createLinearGradient(0, 0, W, 0);
-        grad.addColorStop(0,    'rgba(10, 18, 38,  0.96)');
-        grad.addColorStop(0.5,  'rgba(5,  40, 80,  0.96)');
-        grad.addColorStop(1,    'rgba(0, 160, 210, 0.90)');
-        ctx.fillStyle = grad;
-        ctx.fill();
+        // ── Phase 1 + 2: spread and hold ────────────────────
+        if (t <= SPREAD + HOLD) {
+          const rawP = Math.min(1, t / SPREAD);
+          const blurPx = easeOut(rawP) * 10;
+          if (appEl) appEl.style.filter = `blur(${blurPx.toFixed(1)}px)`;
 
-        // Glowing wave crest
-        ctx.beginPath();
-        for (let y = 0; y <= H; y += 4) {
-          const x = cx + edgeX(y, t, dir);
-          y === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          drops.forEach(drop => {
+            const dt = Math.max(0, t - drop.delay);
+            if (dt <= 0) return;
+            const p  = Math.min(1, dt / SPREAD);
+            const ep = easeOut(p);
+            const r  = ep * drop.r;
+
+            // ── Water fill (deep radial gradient) ───────────
+            const a = Math.min(0.80, ep * 1.65);
+            const g = ctx.createRadialGradient(drop.x, drop.y, 0, drop.x, drop.y, r);
+            g.addColorStop(0,    `rgba(2,  13, 34,  ${a * 0.97})`);
+            g.addColorStop(0.5,  `rgba(3,  24, 58,  ${a * 0.85})`);
+            g.addColorStop(0.8,  `rgba(0,  55, 95,  ${a * 0.50})`);
+            g.addColorStop(1,    `rgba(0, 110, 155, ${a * 0.14})`);
+            ctx.beginPath();
+            ctx.arc(drop.x, drop.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = g;
+            ctx.fill();
+
+            // ── Ripple rings (2 concentric) ──────────────────
+            for (let i = 0; i < 2; i++) {
+              const rp = Math.max(0, p - i * 0.20);
+              if (rp <= 0) continue;
+              const ringR = easeOut(rp) * drop.r * (0.90 + i * 0.09);
+              const ringA = Math.max(0, (0.52 - easeOut(rp) * 0.48) - i * 0.12);
+              if (ringA < 0.01) continue;
+              ctx.beginPath();
+              ctx.arc(drop.x, drop.y, ringR, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(0, 215, 248, ${ringA})`;
+              ctx.lineWidth = 1.8 - i * 0.6;
+              ctx.stroke();
+            }
+          });
+
+          // ── Surface gloss (single specular pass across all drops) ──
+          ctx.globalAlpha = Math.min(0.18, rawP * 0.22);
+          drops.forEach(drop => {
+            const dt = Math.max(0, t - drop.delay);
+            if (dt <= 0) return;
+            const r = easeOut(Math.min(1, dt / SPREAD)) * drop.r * 0.38;
+            const sg = ctx.createRadialGradient(
+              drop.x - r * 0.28, drop.y - r * 0.28, 0,
+              drop.x, drop.y, r
+            );
+            sg.addColorStop(0,   'rgba(80, 200, 240, 0.7)');
+            sg.addColorStop(0.4, 'rgba(20, 130, 200, 0.2)');
+            sg.addColorStop(1,   'rgba(0,   0,   0, 0)');
+            ctx.beginPath();
+            ctx.arc(drop.x - r * 0.18, drop.y - r * 0.18, r, 0, Math.PI * 2);
+            ctx.fillStyle = sg;
+            ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+
+          if (!swapped && t >= SWAP_AT) { callback(); swapped = true; }
+
+        // ── Phase 3: dissolve out ────────────────────────────
+        } else {
+          const fp    = (t - SPREAD - HOLD) / FADE;
+          const alpha = 1 - easeIn(fp);
+          if (appEl) appEl.style.filter = `blur(${(alpha * 10).toFixed(1)}px)`;
+
+          ctx.fillStyle = `rgba(2, 11, 30, ${alpha * 0.84})`;
+          ctx.fillRect(0, 0, W, H);
+
+          // Lingering cyan halo rings
+          ctx.globalAlpha = alpha * 0.09;
+          drops.forEach(drop => {
+            ctx.beginPath();
+            ctx.arc(drop.x, drop.y, drop.r * 0.96, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 205, 240, 1)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+          });
+          ctx.globalAlpha = 1;
         }
-        ctx.strokeStyle = 'rgba(0, 232, 255, 0.75)';
-        ctx.lineWidth = 3;
-        ctx.shadowColor = 'rgba(0, 220, 255, 0.95)';
-        ctx.shadowBlur = 20;
-        ctx.stroke();
-
-        // Foam highlight offset
-        ctx.beginPath();
-        for (let y = 0; y <= H; y += 4) {
-          const x = cx + edgeX(y, t, dir) + 9;
-          y === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.20)';
-        ctx.lineWidth = 1.5;
-        ctx.shadowBlur = 0;
-        ctx.stroke();
 
         requestAnimationFrame(tick);
       };
+
       requestAnimationFrame(tick);
     });
   }
 }
+
+// ── Easing helpers ───────────────────────────────────────────
+function easeOut(t) { return 1 - Math.pow(1 - t, 2.8); }
+function easeIn(t)  { return t * t; }
 
 window.TransitionEngine = TransitionEngine;
