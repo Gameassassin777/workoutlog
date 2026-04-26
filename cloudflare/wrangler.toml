@@ -1,5 +1,5 @@
 name = "tropicalfit"
-main = "cloudflare/worker.js"
+main = "worker.js"
 compatibility_date = "2024-01-01"
 
 account_id = "b49222773f8cdb8631ca6d03c6ccef65"
