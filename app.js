@@ -85,6 +85,9 @@ const App = {
     this.setupNavigation();
     this.showScreen('home');
     this.registerSW();
+    // Re-apply theme if OS dark/light preference changes while app is open
+    window.matchMedia('(prefers-color-scheme: light)')
+      .addEventListener('change', () => this.applyTheme());
   },
 
   async loadData() {
@@ -121,6 +124,14 @@ const App = {
     document.body.classList.remove('theme-light', 'theme-dark', 'battery-saver');
     if (theme === 'light') document.body.classList.add('theme-light');
     if (theme === 'dark') document.body.classList.add('theme-dark');
+
+    // Swap background video between night (default) and daytime (light mode)
+    if (window.setBgVideo) {
+      const isLight = theme === 'light' ||
+        (theme === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches);
+      window.setBgVideo(isLight ? 'bg-day.mp4' : 'bg.mp4');
+    }
+
     if (this.settings.batterySaver) {
       document.body.classList.add('battery-saver');
       if (window.oceanShader) window.oceanShader.stop();

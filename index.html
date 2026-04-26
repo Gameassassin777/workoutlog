@@ -14,9 +14,31 @@
   <title>TropicalFit</title>
 </head>
 <body>
-  <video id="bg-video" autoplay loop muted playsinline>
+  <video id="bg-video" autoplay muted playsinline>
     <source src="bg.mp4" type="video/mp4">
   </video>
+  <script>
+    // iOS PWA video loop + visibility resume fix
+    (function () {
+      const v = document.getElementById('bg-video');
+      function play() { v.play().catch(() => {}); }
+      v.addEventListener('ended', () => { v.currentTime = 0; play(); });
+      v.addEventListener('pause',  () => { if (!v.ended) play(); });
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) play(); });
+      window.addEventListener('pageshow', play);
+      play();
+
+      // Exposed so applyTheme() can swap day/night video
+      window.setBgVideo = function (src) {
+        if (v.getAttribute('data-src') === src) return;
+        v.setAttribute('data-src', src);
+        const t = v.currentTime;
+        v.src = src;
+        v.load();
+        play();
+      };
+    })();
+  </script>
   <canvas id="ocean-shader"></canvas>
   <canvas id="palm-canvas" style="position:fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:-1;"></canvas>
   <div id="app">
