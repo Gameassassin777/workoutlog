@@ -306,9 +306,22 @@ const App = {
           </div>
         </div>
 
-        <button class="hero-start-btn" id="btn-start-workout">
+        ${this.activeWorkout ? `
+        <div style="margin:0 16px 8px; padding:12px 16px;
+             background:linear-gradient(135deg,rgba(255,94,58,0.18),rgba(255,150,50,0.12));
+             border:1px solid rgba(255,94,58,0.35); border-radius:var(--radius-md);
+             display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div class="text-bold text-white" style="font-size:0.88rem;">Session in progress</div>
+            <div class="text-xs text-sea mt-2">${this.activeWorkout.title || 'Unnamed session'} · ${this.activeWorkout.exercises.length} exercise${this.activeWorkout.exercises.length !== 1 ? 's' : ''}</div>
+          </div>
+          <button class="btn btn-small" style="background:rgba(255,94,58,0.25);border:1px solid rgba(255,94,58,0.5);color:#ff9060;font-weight:800;" id="btn-resume-workout">
+            Resume
+          </button>
+        </div>` : ''}
+        <button class="hero-start-btn" id="btn-start-workout" ${this.activeWorkout ? 'style="background:var(--glass-mid);color:var(--text-muted);box-shadow:none;animation:none;"' : ''}>
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1.5-1.5"/><path d="m3 3 1.5 1.5"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>
-          START SESSION
+          ${this.activeWorkout ? 'NEW SESSION' : 'START SESSION'}
         </button>
 
         <div class="hero-feed-teaser" id="btn-go-social">
@@ -339,6 +352,52 @@ const App = {
       { user: 'tidal_beast',   text: 'crushed Leg Day · 52,100 lbs',    time: '2h ago',  type: 'workout' },
       { user: 'reef_paddler',  text: 'dropped into TropicalFit',        time: '3h ago',  type: 'join' },
     ];
+  },
+
+  _REST_QUOTES: [
+    ["The last three or four reps is what makes the muscle grow.", "Arnold Schwarzenegger"],
+    ["The pain you feel today will be the strength you feel tomorrow.", "Arnold Schwarzenegger"],
+    ["No pain, no gain. Shut up and train.", "Ronnie Coleman"],
+    ["The clock is ticking. Are you becoming the person you want to be?", "Greg Plitt"],
+    ["Rest is not quitting. Rest is repair.", "Unknown"],
+    ["Champions are made in the rest between the reps.", "Unknown"],
+    ["Your body can stand almost anything. It's your mind you have to convince.", "Unknown"],
+    ["One more set. One more rep. That's how legends are made.", "Unknown"],
+    ["The only bad workout is the one that didn't happen.", "Unknown"],
+    ["Iron never lies to you.", "Henry Rollins"],
+    ["There are no shortcuts. The road to anywhere worth going is paved with effort.", "Unknown"],
+    ["Sweat is just fat crying.", "Unknown"],
+  ],
+  _getRestQuote() {
+    const q = this._REST_QUOTES;
+    return q[Math.floor(Date.now() / 60000) % q.length][0];
+  },
+  _getRestQuoteAuthor() {
+    const q = this._REST_QUOTES;
+    return q[Math.floor(Date.now() / 60000) % q.length][1];
+  },
+
+  _REST_QUOTES: [
+    ["The last three or four reps is what makes the muscle grow.", "Arnold Schwarzenegger"],
+    ["The pain you feel today will be the strength you feel tomorrow.", "Arnold Schwarzenegger"],
+    ["No pain, no gain. Shut up and train.", "Ronnie Coleman"],
+    ["The clock is ticking. Are you becoming the person you want to be?", "Greg Plitt"],
+    ["Rest is not quitting. Rest is repair.", "Unknown"],
+    ["Champions are made in the rest between the reps.", "Unknown"],
+    ["Your body can stand almost anything. It's your mind you have to convince.", "Unknown"],
+    ["One more set. One more rep. That is how legends are made.", "Unknown"],
+    ["The only bad workout is the one that did not happen.", "Unknown"],
+    ["Iron never lies to you.", "Henry Rollins"],
+    ["There are no shortcuts. The road is paved with effort.", "Unknown"],
+    ["Sweat is just weakness leaving the body.", "Unknown"],
+  ],
+  _getRestQuote() {
+    const q = this._REST_QUOTES;
+    return q[Math.floor(Date.now() / 60000) % q.length][0];
+  },
+  _getRestQuoteAuthor() {
+    const q = this._REST_QUOTES;
+    return q[Math.floor(Date.now() / 60000) % q.length][1];
   },
 
   // ─── HISTORY SCREEN ───────────────────────────────────────
@@ -562,7 +621,7 @@ const App = {
       </div>
 
       <!-- Live Stats Bar -->
-      <div class="flex gap-8 p-16" style="padding-top:8px; padding-bottom:8px; background: var(--ocean);">
+      <div class="flex gap-8 p-16" style="padding-top:8px; padding-bottom:8px; background:var(--glass-deep); backdrop-filter:var(--blur-md); -webkit-backdrop-filter:var(--blur-md); border-bottom:1px solid var(--glass-border);">
         <div class="flex-1 text-center">
           <div class="text-xs text-sea">Duration</div>
           <div class="text-bold text-white" id="workout-elapsed">${Timer.formatTime(elapsed)}</div>
@@ -692,12 +751,11 @@ const App = {
           <button class="btn btn-ghost flex-1" id="btn-timer-plus15">+15s</button>
         </div>
 
-        <!-- Motivational Quote (static for now, AI later) -->
         <div class="card mt-24 mx-16">
           <div class="text-sm text-sand" style="font-style: italic;">
-            "The last three or four reps is what makes the muscle grow."
+            "${this._getRestQuote()}"
           </div>
-          <div class="text-xs text-sea mt-4">— Arnold Schwarzenegger</div>
+          <div class="text-xs text-sea mt-4">— ${this._getRestQuoteAuthor()}</div>
         </div>
       </div>
     `;
@@ -715,8 +773,10 @@ const App = {
 
     return `
       <div class="fade-in text-center" style="padding-top: 40px;">
-        <div style="font-size: 4rem;">${this.Icons.anchor}</div>
-        <div class="text-xl text-extra-bold text-sunset mt-8">Workout Complete!</div>
+        <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--aqua));display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 0 32px rgba(0,200,255,0.45);">
+          ${this.Icons.anchor}
+        </div>
+        <div class="text-xl text-extra-bold text-sunset mt-16">Session Complete</div>
         <div class="text-sm text-sea mt-4">Keep riding those waves.</div>
 
         ${w.xpEarned ? `
@@ -726,19 +786,21 @@ const App = {
           </div>
         ` : ''}
 
-        <!-- Summary Stats -->
-        <div class="stat-row mt-16">
-          <div class="stat-chip">
-            <div class="stat-chip-label">Duration</div>
-            <div class="stat-chip-value">${durationMin}m</div>
+        <div class="hero-stat-row mt-16">
+          <div class="hero-stat-pill">
+            <div class="hero-stat-pill-icon">${this.Icons.sun}</div>
+            <span class="hero-stat-pill-val">${durationMin}m</span>
+            <div class="hero-stat-pill-label">Duration</div>
           </div>
-          <div class="stat-chip">
-            <div class="stat-chip-label">Volume</div>
-            <div class="stat-chip-value">${this.formatVolume(totalVolume)}</div>
+          <div class="hero-stat-pill">
+            <div class="hero-stat-pill-icon">${this.Icons.stats}</div>
+            <span class="hero-stat-pill-val">${this.formatVolume(totalVolume)}</span>
+            <div class="hero-stat-pill-label">Volume</div>
           </div>
-          <div class="stat-chip">
-            <div class="stat-chip-label">Sets</div>
-            <div class="stat-chip-value">${totalSets}</div>
+          <div class="hero-stat-pill">
+            <div class="hero-stat-pill-icon">${this.Icons.check}</div>
+            <span class="hero-stat-pill-val">${totalSets}</span>
+            <div class="hero-stat-pill-label">Sets</div>
           </div>
         </div>
 
@@ -757,13 +819,13 @@ const App = {
         <!-- Post-Workout Actions -->
         <div class="p-16">
           <button class="btn btn-primary btn-large mb-8" id="btn-ai-analyze">
-            Coach Analysis
+            Coach Review
           </button>
           <button class="btn btn-ghost btn-large mb-8" id="btn-add-post-notes">
             ${this.Icons.notes} Add Notes
           </button>
           <button class="btn btn-accent btn-large" id="btn-back-home-complete">
-            Home
+            Back to Shore
           </button>
         </div>
 
@@ -772,8 +834,9 @@ const App = {
     `;
   },
 
-  // ─── STATS SCREEN ─────────────────────────────────────────
-  renderStats() {
+  // ─── STATS SCREEN (alias → logs/stats tab) ───────────────
+  renderStats() { return this.renderLogs('stats'); },
+  _renderStats_unused() {
     const p = this.profile;
     const muscleData = this.getMuscleHeatmapData();
 
@@ -1445,6 +1508,8 @@ const App = {
         this.bindClick('btn-settings', () => this.showScreen('settings'));
         this.bindClick('btn-profile', () => this.showScreen('profile'));
         this.bindClick('btn-go-social', () => this.showScreen('social'));
+        this.bindClick('btn-resume-workout', () => this.showScreen('activeWorkout'));
+        this.bindClick('btn-resume-workout', () => this.showScreen('activeWorkout'));
         this.bindClick('btn-go-profile-char', () => this.showScreen('settings'));
         this.bindClick('btn-go-profile', () => this.showScreen('settings'));
         this.bindClick('btn-notif', () => {});
