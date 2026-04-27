@@ -1789,7 +1789,7 @@ const App = {
                 </div>
               </div>
             </div>
-            <input type="file" id="selfie-file-input" accept="image/*" capture="user" style="display:none;">
+            <input type="file" id="selfie-file-input" accept="image/*" capture="user" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;">
 
             <!-- Auto-description -->
             <div style="margin-bottom:10px;">
@@ -2001,11 +2001,11 @@ const App = {
           <button class="btn btn-ghost w-full mb-8" id="btn-export-json">Export All Data (JSON)</button>
           <button class="btn btn-ghost w-full mb-8" id="btn-export-csv">Export Workouts (CSV)</button>
           <button class="btn btn-ghost w-full mb-8" id="btn-import-data">Import Data</button>
-          <input type="file" id="import-file-input" accept=".json" class="hidden">
+          <input type="file" id="import-file-input" accept=".json" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;">
           <button class="btn btn-ghost w-full mb-8" id="btn-upload-workout-file" style="display:flex; justify-content:center; align-items:center; gap:8px;">
             ${this.Icons.plus} Import images or other files for workout logs
           </button>
-          <input type="file" id="workout-file-input" accept=".txt,.csv,.json,image/*" class="hidden">
+          <input type="file" id="workout-file-input" accept=".txt,.csv,.json,image/*" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;">
           <div class="divider"></div>
           <button class="btn btn-danger btn-small w-full mt-8" id="btn-clear-all-data">Clear All Data</button>
         </div>
@@ -2307,7 +2307,7 @@ const App = {
         <button class="btn btn-accent btn-large mb-8" id="btn-select-file-upload">
           Select File
         </button>
-        <input type="file" id="ai-file-input" accept=".txt,.csv,.json,.md,image/*" class="hidden">
+        <input type="file" id="ai-file-input" accept=".txt,.csv,.json,.md,image/*" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;">
 
         <div id="file-upload-status" class="hidden">
           <div class="card mt-16">
