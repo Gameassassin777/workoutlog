@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v49';
+const APP_VERSION = 'v50';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -107,7 +107,20 @@ const App = {
     sparkle: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364-.707.707M6.343 17.657l-.707.707m0-12.728.707.707m11.314 11.314.707.707"/></svg>`,
     up: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`,
     down: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
-    person: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`
+    person: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
+    trophy: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10L15 12a3 3 0 0 1-6 0L7 3z"/><path d="M7 6H4a2 2 0 0 0 0 4h3"/><path d="M17 6h3a2 2 0 0 1 0 4h-3"/><line x1="12" y1="15" x2="12" y2="20"/><line x1="9" y1="20" x2="15" y2="20"/></svg>`,
+    cameraIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    flame: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c0 6-6 8-6 13a6 6 0 0 0 12 0c0-5-6-7-6-13z"/><path d="M12 9c0 3-3 4.5-3 7.5a3 3 0 0 0 6 0C15 13.5 12 12 12 9z"/></svg>`,
+    waveCheck: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 4 4 8-9"/><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>`,
+    islandIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="21" rx="8" ry="2"/><line x1="12" y1="21" x2="12" y2="13"/><path d="M8 7c0-2.5 2-5 4-7 2 2 4 4.5 4 7a4 4 0 0 1-8 0z"/><path d="M10 8c.7-1 2-2 2-2s1.3 1 2 2"/></svg>`,
+    calendarWave: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M7 15c1-1 2-1 3 0s2 1 3 0 2-1 3 0"/></svg>`,
+    bellWave: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M6 17c1.3-1.3 2.7-1.3 4 0s2.7 1.3 4 0"/></svg>`,
+    beachUmbrella: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-5 0-9 3.6-9 8h18c0-4.4-4-8-9-8z"/><line x1="12" y1="2" x2="7" y2="22"/><path d="M2 18c2.5-2.5 5-2.5 7.5 0"/></svg>`,
+    selfieIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M3 18c0-3 2-5 5-5"/><rect x="13" y="10" width="9" height="7" rx="1.5"/><circle cx="17.5" cy="13.5" r="1.5"/></svg>`,
+    warningIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.29 3.86-8 13.86A1 1 0 0 0 3.15 19.5h17.7a1 1 0 0 0 .86-1.5l-8-13.86a1 1 0 0 0-1.72 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="currentColor" stroke="none"/></svg>`,
+    hourglassIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14M5 2h14"/><path d="M17 22v-4a2 2 0 0 0-.586-1.414L12 12l-4.414 4.586A2 2 0 0 0 7 18v4"/><path d="M7 2v4a2 2 0 0 0 .586 1.414L12 12l4.414-4.586A2 2 0 0 0 17 6V2"/><path d="M9 20h6"/></svg>`,
+    robotIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="9" cy="14" r="2"/><circle cx="15" cy="14" r="2"/><line x1="12" y1="8" x2="12" y2="4"/><line x1="10" y1="4" x2="14" y2="4"/><line x1="7" y1="20" x2="7" y2="22"/><line x1="17" y1="20" x2="17" y2="22"/></svg>`,
+    refreshIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 3"/><path d="M21 3v6h-6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 21"/><path d="M3 21v-6h6"/></svg>`
   },
 
   // ─── Level System ──────────────────────────────────────────
@@ -441,7 +454,7 @@ const App = {
     card.style.cssText = `position:fixed;bottom:calc(72px + var(--safe-bottom,0px));left:16px;right:16px;background:linear-gradient(135deg,rgba(0,25,60,0.97),rgba(0,12,35,0.97));border:1.5px solid rgba(0,200,255,0.30);border-radius:var(--radius-lg);padding:16px 16px 14px;box-shadow:0 8px 40px rgba(0,0,0,0.65),0 0 30px rgba(0,200,255,0.12);z-index:300;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);animation:slideUp 0.32s ease;`;
     card.innerHTML = `
       <div style="display:flex;align-items:flex-start;gap:12px;">
-        <div style="font-size:1.8rem;flex-shrink:0;margin-top:1px;">🔔</div>
+        <div style="flex-shrink:0;color:var(--aqua);">${this.Icons.bellWave.replace('width="20" height="20"','width="32" height="32"')}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:0.95rem;font-weight:800;color:var(--text-main);margin-bottom:3px;">Stay on the Island</div>
           <div style="font-size:0.76rem;color:var(--text-sub);line-height:1.5;">Streak alerts before they die, PR celebrations, and daily nudges so you never miss a session.</div>
@@ -472,7 +485,7 @@ const App = {
         DB.saveSetting('notifDailyReminder', true);
         await this.subscribeToPush();
         this._scheduleLocalNotifications();
-        this.showToast('Notifications on 🔔 You\'re locked in.');
+        this.showToast('Notifications enabled — you\'re locked in.');
       } else {
         this.settings.notificationsEnabled = false;
         DB.saveSetting('notificationsEnabled', false);
@@ -700,7 +713,7 @@ const App = {
         </button>
 
         <div class="section-header" style="padding-top:16px;">
-          <span class="section-title">🏆 This Week's Leaders</span>
+          <span class="section-title" style="display:flex;align-items:center;gap:6px;">${this.Icons.trophy} This Week's Leaders</span>
           <button class="section-action" id="btn-go-chat">Chat →</button>
         </div>
         <div id="home-lb-list" style="margin:0 16px;">
@@ -710,7 +723,7 @@ const App = {
         </div>
 
         <div class="section-header" style="padding-top:10px;">
-          <span class="section-title">📸 Recent Activity</span>
+          <span class="section-title" style="display:flex;align-items:center;gap:6px;">${this.Icons.cameraIcon} Recent Activity</span>
         </div>
         <div id="home-feed-list" style="margin:0 16px;">
           <div class="card" style="padding:14px 16px;text-align:center;margin:0;">
@@ -793,7 +806,7 @@ const App = {
       reader2.onload = (e) => {
         uploadArea.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
           <div id="selfie-upload-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;border-radius:50%;">
-            <div class="text-xs text-white" style="text-align:center;"><div style="font-size:1.5rem;">📷</div><div>Change selfie</div></div>
+            <div class="text-xs text-white" style="text-align:center;"><div style="color:#fff;margin-bottom:4px;">${this.Icons.cameraIcon.replace('width="20" height="20"','width="28" height="28"')}</div><div>Change selfie</div></div>
           </div>`;
       };
       reader2.readAsDataURL(file);
@@ -818,7 +831,7 @@ const App = {
       const description = result.description;
       // Show description in the auto-desc box
       const descBox = document.getElementById('portrait-auto-desc');
-      if (descBox) descBox.innerHTML = `🤳 <strong>Selfie:</strong> ${description}`;
+      if (descBox) descBox.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">${this.Icons.selfieIcon}</span> <strong>Selfie:</strong> ${description}`;
       DB.saveSetting('selfieDescription', description);
       this.settings.selfieDescription = description;
 
@@ -858,7 +871,7 @@ const App = {
 
     try {
       const url = this._buildPollinationsUrlFromDescription(baseDesc, style, customText, freshSeed);
-      setStatus('Generating your portrait… this takes a moment 🌊');
+      setStatus('Generating your portrait… this takes a moment');
 
       // Preload image
       await new Promise((resolve) => {
@@ -881,7 +894,7 @@ const App = {
         else {
           uploadArea.innerHTML = `<img id="portrait-preview" src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
             <div id="selfie-upload-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;border-radius:50%;">
-              <div class="text-xs text-white" style="text-align:center;"><div style="font-size:1.5rem;">📷</div><div>Change selfie</div></div>
+              <div class="text-xs text-white" style="text-align:center;"><div style="color:#fff;margin-bottom:4px;">${this.Icons.cameraIcon.replace('width="20" height="20"','width="28" height="28"')}</div><div>Change selfie</div></div>
             </div>`;
         }
       }
@@ -890,8 +903,8 @@ const App = {
       if (headerAv) headerAv.src = url;
 
       this._syncAvatarToServer(url);
-      setStatus('Looking sharp! 🔥 Tap Regenerate any time for a fresh look.');
-      if (genBtn) { genBtn.disabled = false; genBtn.textContent = '🔄 Regenerate'; }
+      setStatus('Looking sharp! Tap Regenerate any time for a fresh look.');
+      if (genBtn) { genBtn.disabled = false; genBtn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;">${this.Icons.refreshIcon.replace('width="20" height="20"','width="16" height="16"')} Regenerate</span>`; }
 
       // Show clear button if not already there
       if (!document.getElementById('btn-clear-portrait') && genBtn) {
@@ -945,16 +958,16 @@ const App = {
 
     const items = [];
     if (!workedOutToday && streak > 0) {
-      items.push({ icon: '🔥', text: `${streak}-day streak at risk — log a session today!`, cta: 'Log Workout', action: 'home' });
+      items.push({ icon: this.Icons.flame, text: `${streak}-day streak at risk — log a session today!`, cta: 'Log Workout', action: 'home' });
     } else if (workedOutToday) {
-      items.push({ icon: '✅', text: "Today's session is logged. Streak safe!", cta: null });
+      items.push({ icon: this.Icons.waveCheck, text: "Today's session is logged. Streak safe!", cta: null });
     } else {
-      items.push({ icon: '🏝️', text: 'No active streak. Start one today!', cta: 'Start Session', action: 'home' });
+      items.push({ icon: this.Icons.islandIcon, text: 'No active streak. Start one today!', cta: 'Start Session', action: 'home' });
     }
     if (daysSince >= 2 && daysSince < 90) {
-      items.push({ icon: '📅', text: `Last workout was ${Math.floor(daysSince)} day${daysSince >= 2 ? 's' : ''} ago`, cta: null });
+      items.push({ icon: this.Icons.calendarWave, text: `Last workout was ${Math.floor(daysSince)} day${daysSince >= 2 ? 's' : ''} ago`, cta: null });
     }
-    items.push({ icon: '🔔', text: `Push notifications: ${permLabel}`, cta: permLabel === 'Not set' ? 'Enable' : null, action: 'enable-notif' });
+    items.push({ icon: this.Icons.bellWave, text: `Push notifications: ${permLabel}`, cta: permLabel === 'Not set' ? 'Enable' : null, action: 'enable-notif' });
 
     const panel = document.createElement('div');
     panel.id = 'notif-panel-overlay';
@@ -970,7 +983,7 @@ const App = {
         </div>
         ${items.map(item => `
           <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <span style="font-size:1.4rem;min-width:28px;text-align:center;">${item.icon}</span>
+            <span style="min-width:28px;display:flex;align-items:center;justify-content:center;color:var(--aqua);">${item.icon}</span>
             <span style="flex:1;font-size:0.875rem;color:var(--text-sub);">${item.text}</span>
             ${item.cta ? `<button data-notif-action="${item.action || ''}" style="background:var(--lagoon);border:none;border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:600;color:#fff;cursor:pointer;white-space:nowrap;">${item.cta}</button>` : ''}
           </div>
@@ -1156,7 +1169,7 @@ const App = {
   },
 
   // ─── LOGS SCREEN — Combined History + Stats ────────────────
-  renderLogs(activeTab = 'history') {
+  renderLogs(activeTab = 'stats') {
     return `
       <div class="header">
         <span class="header-title">Tide Logs</span>
@@ -1321,7 +1334,7 @@ const App = {
   _buildVolumeLineGraph(limit) {
     const allSorted = [...this.workouts].sort((a, b) => new Date(a.date) - new Date(b.date));
     if (allSorted.length === 0) {
-      return `<div class="text-sm text-sea" style="padding:20px;text-align:center;">No sessions yet — get lifting! 🏖️</div>`;
+      return `<div class="text-sm text-sea" style="padding:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;"><span style="color:var(--aqua);">${this.Icons.beachUmbrella}</span>No sessions yet — get lifting!</div>`;
     }
 
     const pool = limit > 0 ? allSorted.slice(-limit) : allSorted;
@@ -1851,7 +1864,7 @@ const App = {
     const rankClass = (r) => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
     if (!users || !users.length) {
       list.innerHTML = `<div class="card" style="padding:24px 16px;text-align:center;">
-        <div class="text-sm text-muted">${myVolume > 0 ? "You're first on the board this week! 🏆" : 'No sessions logged this week — log one to rank up!'}</div>
+        <div class="text-sm text-muted">${myVolume > 0 ? "You're first on the board this week!" : 'No sessions logged this week — log one to rank up!'}</div>
       </div>`;
       if (myVolume > 0) {
         const badge = document.getElementById('my-rank-badge');
@@ -1896,7 +1909,7 @@ const App = {
     });
   },
 
-  REACTION_EMOJIS: ['🔥', '💪', '👑', '🤙', '😂'],
+  REACTION_EMOJIS: ['🌊', '⚓', '🐚', '🤙', '🌴'],
 
   _reactionBarHtml(itemId, itemType) {
     const myReactions = this._localReactions?.[itemId] || {};
@@ -2046,7 +2059,7 @@ const App = {
 
     if (!top3.length && !myRank) {
       list.innerHTML = `<div class="card" style="padding:14px 16px;text-align:center;margin:0;">
-        <div class="text-xs text-muted">No sessions this week — log one to rank up! 🏝️</div>
+        <div class="text-xs text-muted" style="display:flex;align-items:center;gap:6px;"><span style="color:var(--aqua);">${this.Icons.islandIcon}</span>No sessions this week — log one to rank up!</div>
       </div>`;
       return;
     }
@@ -2312,7 +2325,7 @@ const App = {
               ${s.pollinationsPortrait
                 ? `<img id="portrait-preview" src="${s.pollinationsPortrait}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
                 : `<div style="text-align:center;padding:16px;">
-                    <div style="font-size:2rem;margin-bottom:6px;">🏖️</div>
+                    <div style="margin-bottom:8px;color:var(--aqua);">${this.Icons.beachUmbrella.replace('width="24" height="24"','width="42" height="42"')}</div>
                     <div class="text-xs text-muted">Tap to upload selfie</div>
                   </div>`
               }
@@ -2322,7 +2335,7 @@ const App = {
                 opacity:0;transition:opacity 0.2s;border-radius:50%;
               ">
                 <div class="text-xs text-white" style="text-align:center;">
-                  <div style="font-size:1.5rem;">📷</div>
+                  <div style="color:#fff;margin-bottom:4px;">${this.Icons.cameraIcon.replace('width="20" height="20"','width="28" height="28"')}</div>
                   <div>Change selfie</div>
                 </div>
               </div>
@@ -2335,7 +2348,7 @@ const App = {
               <div id="portrait-auto-desc" class="text-xs text-sea" style="
                 background:var(--glass-light); border:1px solid var(--glass-border);
                 border-radius:8px; padding:8px 10px; line-height:1.5; font-style:italic;
-              ">${s.selfieDescription ? `🤳 <strong>Selfie:</strong> ${s.selfieDescription.substring(0,80)}...` : this._buildAutoPortraitDesc()}</div>
+              ">${s.selfieDescription ? `<span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">${this.Icons.selfieIcon}</span> <strong>Selfie:</strong> ${s.selfieDescription.substring(0,80)}...` : this._buildAutoPortraitDesc()}</div>
             </div>
 
             <!-- Custom additions -->
@@ -2361,7 +2374,9 @@ const App = {
             <!-- Actions -->
             <div class="flex gap-8 flex-wrap">
               <button class="btn btn-accent flex-1" id="btn-generate-portrait" style="font-size:0.85rem;font-weight:800;">
-                ${s.pollinationsPortrait ? '🔄 Regenerate' : '✨ Generate Portrait'}
+                ${s.pollinationsPortrait
+                  ? `<span style="display:inline-flex;align-items:center;gap:6px;">${this.Icons.refreshIcon.replace('width="20" height="20"','width="16" height="16"')} Regenerate</span>`
+                  : `<span style="display:inline-flex;align-items:center;gap:6px;">${this.Icons.sparkle.replace('width="20" height="20"','width="16" height="16"')} Generate Portrait</span>`}
               </button>
               ${s.pollinationsPortrait ? `
                 <button class="btn btn-ghost" id="btn-clear-portrait" style="font-size:0.82rem;color:var(--coral);">Clear</button>
@@ -2556,8 +2571,8 @@ const App = {
           TropicalFit ${APP_VERSION}
         </div>
         <div style="padding: 0 16px 32px;">
-          <button class="btn btn-ghost w-full" id="btn-force-update" style="font-size:0.82rem;opacity:0.7;">
-            🔄 Force Update App
+          <button class="btn btn-ghost w-full" id="btn-force-update" style="font-size:0.82rem;opacity:0.7;display:flex;align-items:center;justify-content:center;gap:8px;">
+            ${this.Icons.refreshIcon} Force Update App
           </button>
         </div>
       </div>
@@ -3149,8 +3164,32 @@ const App = {
               this.settings.notificationsEnabled = val;
               DB.saveSetting('notificationsEnabled', val);
               if (val) {
+                // Enable default sub-types on first grant so something actually fires
+                if (!this.settings.notifDailyReminder && !this.settings.notifStreakAtRisk) {
+                  ['notifDailyReminder','notifStreakAtRisk','notifBoardReset'].forEach(k => {
+                    this.settings[k] = true;
+                    DB.saveSetting(k, true);
+                  });
+                  if (!this.settings.notifDailyReminderTime) {
+                    this.settings.notifDailyReminderTime = '08:00';
+                    DB.saveSetting('notifDailyReminderTime', '08:00');
+                  }
+                  // Reflect in visible checkboxes without re-rendering
+                  ['notif-daily','notif-streak','notif-board'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = true;
+                  });
+                  const tr = document.getElementById('notif-time-row');
+                  if (tr) tr.style.display = '';
+                }
                 await this.subscribeToPush();
                 this._scheduleLocalNotifications();
+                // Fire a test notification immediately so user sees it worked
+                setTimeout(() => this._fireLocalNotif(
+                  'TropicalFit Notifications On',
+                  'Streak alerts and daily reminders are now active.',
+                  'notif-test'
+                ), 500);
               }
               const rows = document.getElementById('notif-detail-rows');
               if (rows) rows.style.cssText = val ? '' : 'opacity:0.4;pointer-events:none;';
@@ -3352,7 +3391,7 @@ const App = {
               // First load — replace loading hint with full history
               if (!data.messages.length) {
                 const hint = document.getElementById('chat-status-hint');
-                if (hint) hint.textContent = 'No messages yet — say something! 🏝️';
+                if (hint) hint.textContent = 'No messages yet — say something!';
                 return;
               }
               msgs.innerHTML = data.messages.map((m, i) => mkBubble(m, i)).join('');
@@ -4321,7 +4360,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (result._truncated) {
-            this.showToast('⚠️ Large file — only the first ~14KB was parsed. Add a Gemini API key for full support.', 5000);
+            this.showToast('Large file — only the first ~14KB was parsed. Add a Gemini API key in Settings for full support.', 5000);
           }
           this.showParsedWorkoutConfirmation(parsed);
         } else {
@@ -4699,7 +4738,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
           <div class="input-group">
             <label class="input-label" style="display:flex;justify-content:space-between;align-items:center;">
               <span>Muscle Groups</span>
-              <button id="btn-ai-suggest-muscles" style="background:none;border:1px solid rgba(0,200,200,0.4);border-radius:8px;color:var(--aqua);font-size:0.72rem;padding:3px 10px;cursor:pointer;">🤖 AI Suggest</button>
+              <button id="btn-ai-suggest-muscles" style="background:none;border:1px solid rgba(0,200,200,0.4);border-radius:8px;color:var(--aqua);font-size:0.72rem;padding:3px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">${this.Icons.robotIcon.replace('width="20" height="20"','width="14" height="14"')} AI Suggest</button>
             </label>
             <div class="flex flex-wrap gap-4 mt-8" id="edit-muscle-chips">
               ${MUSCLE_GROUPS.map(mg => `
@@ -4747,10 +4786,12 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     document.getElementById('btn-ai-suggest-muscles').addEventListener('click', async () => {
       const suggestBtn = document.getElementById('btn-ai-suggest-muscles');
       const name = document.getElementById('edit-ex-name').value.trim() || ex.name;
-      suggestBtn.textContent = '⏳ Thinking…';
+      suggestBtn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;">${this.Icons.hourglassIcon.replace('width="20" height="20"','width="14" height="14"')} Thinking…</span>`;
       suggestBtn.disabled = true;
       const groups = await this._aiSuggestMuscleGroups(name);
-      suggestBtn.textContent = groups.length ? '✓ Done' : '🤖 AI Suggest';
+      suggestBtn.innerHTML = groups.length
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;">${this.Icons.check.replace('width="24" height="24"','width="14" height="14"')} Done</span>`
+        : `<span style="display:inline-flex;align-items:center;gap:4px;">${this.Icons.robotIcon.replace('width="20" height="20"','width="14" height="14"')} AI Suggest</span>`;
       suggestBtn.disabled = false;
       if (groups.length) {
         selected.clear();
