@@ -289,8 +289,16 @@ async function handleChatPost(request, env) {
     'INSERT INTO chat (id, user_id, username, avatar_url, text, created_at) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(id, user_id, user.username, user.avatar_url, text.trim(), now).run();
 
-  // Push notification for chat (optional — can get noisy, keep off by default)
-  // if (env.VAPID_PUBLIC_KEY) await broadcastPush(env, { ... }, user_id);
+  // Push notification to all other subscribers
+  if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+    const preview = text.trim().length > 80 ? text.trim().substring(0, 80) + '…' : text.trim();
+    await broadcastPush(env, {
+      title: user.username || 'Someone',
+      body: preview,
+      tag: 'chat',
+      url: '/workoutlog/',
+    }, user_id); // exclude sender
+  }
 
   return json({ id, created_at: now });
 }
