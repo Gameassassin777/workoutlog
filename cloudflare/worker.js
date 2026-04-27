@@ -75,6 +75,9 @@ export default {
       if (path === '/api/reactions' && request.method === 'GET') {
         return handleGetReactions(url, env);
       }
+      if (path === '/api/reactions/bulk' && request.method === 'POST') {
+        return handleGetReactionsBulk(request, env);
+      }
 
       return json({ error: 'Not found' }, 404);
     } catch (err) {
@@ -229,7 +232,7 @@ async function handleLeaderboard(url, env) {
   return json({
     week,
     resetsAt: weekEnds.toISOString(),
-    users: rows.results.map((r, i) => ({ ...r, rank: i + 1 })),
+    users: rows.results.map((r, i) => ({ ...r, volume: r.week_volume, rank: i + 1 })),
   });
 }
 
@@ -353,6 +356,39 @@ async function handleGetReactions(url, env) {
     'SELECT emoji, COUNT(*) as count FROM reactions WHERE item_id = ? GROUP BY emoji'
   ).bind(itemId).all();
   return json({ counts: rows.results });
+}
+
+// Bulk fetch reactions for many items at once (used when chat/feed loads)
+async function handleGetReactionsBulk(request, env) {
+  const { item_ids, user_id } = await request.json();
+  if (!item_ids?.length) return json({ counts: {}, mine: {} });
+
+  const placeholders = item_ids.map(() => '?').join(',');
+
+  // Aggregate counts per item+emoji
+  const rows = await env.DB.prepare(
+    `SELECT item_id, emoji, COUNT(*) as count FROM reactions WHERE item_id IN (${placeholders}) GROUP BY item_id, emoji`
+  ).bind(...item_ids).all();
+
+  const counts = {};
+  rows.results.forEach(r => {
+    if (!counts[r.item_id]) counts[r.item_id] = {};
+    counts[r.item_id][r.emoji] = r.count;
+  });
+
+  // Which reactions belong to this user
+  const mine = {};
+  if (user_id) {
+    const myRows = await env.DB.prepare(
+      `SELECT item_id, emoji FROM reactions WHERE item_id IN (${placeholders}) AND user_id = ?`
+    ).bind(...item_ids, user_id).all();
+    myRows.results.forEach(r => {
+      if (!mine[r.item_id]) mine[r.item_id] = {};
+      mine[r.item_id][r.emoji] = true;
+    });
+  }
+
+  return json({ counts, mine });
 }
 
 // ── AI Selfie Description (vision, 1/day per user) ───────────────

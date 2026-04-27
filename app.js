@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v44';
+const APP_VERSION = 'v45';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -864,9 +864,10 @@ const App = {
         img.src = url;
       });
 
-      // Save
+      // Save and sync to server so other users see the updated avatar
       this.settings.pollinationsPortrait = url;
       DB.saveSetting('pollinationsPortrait', url);
+      this._syncProfileToServer();
 
       // Update upload area preview
       const uploadArea = document.getElementById('selfie-upload-area');
@@ -898,6 +899,7 @@ const App = {
         clearBtn.addEventListener('click', () => {
           this.settings.pollinationsPortrait = '';
           DB.saveSetting('pollinationsPortrait', '');
+          this._syncProfileToServer();
           this.showScreen('settings');
         });
         genBtn.parentElement.appendChild(clearBtn);
@@ -1860,7 +1862,7 @@ const App = {
       ${users.map(u => {
         const av = u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.user_id}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
         return `
-          <div class="leaderboard-row card-tappable" data-lb-username="${u.username}" data-lb-seed="${u.user_id}" data-lb-level="${u.level || 1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}">
+          <div class="leaderboard-row card-tappable" data-lb-username="${u.username}" data-lb-avatar="${encodeURIComponent(av)}" data-lb-level="${u.level || 1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}">
             <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
             <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
             <div class="leaderboard-info">
@@ -1874,8 +1876,8 @@ const App = {
     // Rebind row taps
     document.querySelectorAll('[data-lb-username]').forEach(el => {
       el.addEventListener('click', () => {
-        const av = el.dataset.lbSeed
-          ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${el.dataset.lbSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`
+        const av = el.dataset.lbAvatar
+          ? decodeURIComponent(el.dataset.lbAvatar)
           : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
         this.showScreen('userProfile', {
           user: {
@@ -1924,14 +1926,22 @@ const App = {
     // Re-bind the new bar
     this._bindReactionBars();
 
-    // Fire to server (non-blocking)
-    if (this.settings.serverId && !already) {
+    // Always sync to server (handles both add and remove — server toggles)
+    if (this.settings.serverId) {
       this.apiPost('/api/react', {
-        item_id: itemId,
-        item_type: itemType,
-        user_id: this.settings.serverId,
-        emoji,
+        item_id: itemId, item_type: itemType,
+        user_id: this.settings.serverId, emoji,
         poster_user_id: posterUserId || null,
+      }).then(data => {
+        if (data?.counts) {
+          if (!this._reactionCounts) this._reactionCounts = {};
+          if (!this._reactionCounts[itemId]) this._reactionCounts[itemId] = {};
+          data.counts.forEach(c => { this._reactionCounts[itemId][c.emoji] = c.count; });
+          // Re-render bar with confirmed counts
+          const bar = document.querySelector(`.reaction-bar[data-item-id="${itemId}"]`);
+          if (bar) bar.outerHTML = this._reactionBarHtml(itemId, itemType);
+          this._bindReactionBars();
+        }
       }).catch(() => {});
     }
   },
@@ -1946,6 +1956,35 @@ const App = {
         this._toggleReaction(itemId, itemType, emoji, posterId);
       });
     });
+  },
+
+  // Fetch reaction counts + current user's reactions for a batch of items
+  async _fetchReactionsBulk(itemIds) {
+    if (!itemIds?.length) return;
+    try {
+      const data = await this.apiPost('/api/reactions/bulk', {
+        item_ids: itemIds,
+        user_id: this.settings.serverId || null,
+      });
+      if (!data) return;
+      if (!this._reactionCounts) this._reactionCounts = {};
+      if (!this._localReactions) this._localReactions = {};
+      // Merge server counts
+      Object.entries(data.counts || {}).forEach(([id, emojiCounts]) => {
+        this._reactionCounts[id] = { ...(this._reactionCounts[id] || {}), ...emojiCounts };
+      });
+      // Merge "my reactions" from server
+      Object.entries(data.mine || {}).forEach(([id, emojis]) => {
+        this._localReactions[id] = { ...(this._localReactions[id] || {}), ...emojis };
+      });
+      // Re-render all reaction bars now that we have real data
+      document.querySelectorAll('.reaction-bar').forEach(bar => {
+        const id = bar.dataset.itemId;
+        const type = bar.dataset.itemType;
+        if (id) bar.outerHTML = this._reactionBarHtml(id, type);
+      });
+      this._bindReactionBars();
+    } catch (e) { /* non-critical */ }
   },
 
   _renderFeed() {
@@ -1984,6 +2023,8 @@ const App = {
         </div>`).join('')}
     </div>`;
     this._bindReactionBars();
+    const feedIds = items.map(f => f.id).filter(Boolean);
+    if (feedIds.length) this._fetchReactionsBulk(feedIds);
   },
 
   // ─── HOME MINI LEADERBOARD ────────────────────────────────
@@ -2007,11 +2048,12 @@ const App = {
     }
     let html = `<div class="card" style="padding:0;overflow:hidden;margin:0;">`;
     top3.forEach(u => {
+      const av = makeAv(u.avatar_url, u.user_id);
       html += `<div class="leaderboard-row card-tappable" style="padding:10px 14px;"
-          data-lb-username="${u.username}" data-lb-seed="${u.user_id}"
+          data-lb-username="${u.username}" data-lb-avatar="${encodeURIComponent(av)}"
           data-lb-level="${u.level||1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}">
         <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
-        <img class="leaderboard-avatar" src="${makeAv(u.avatar_url, u.user_id)}" alt="${u.username}">
+        <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
         <div class="leaderboard-info">
           <div class="leaderboard-name">${u.username}</div>
           <div class="leaderboard-sub">Lv ${u.level||1}</div>
@@ -2034,8 +2076,8 @@ const App = {
     // Bind row taps → user profile
     list.querySelectorAll('[data-lb-username]').forEach(el => {
       el.addEventListener('click', () => {
-        const av = el.dataset.lbSeed
-          ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${el.dataset.lbSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`
+        const av = el.dataset.lbAvatar
+          ? decodeURIComponent(el.dataset.lbAvatar)
           : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
         this.showScreen('userProfile', {
           user: { username: el.dataset.lbUsername, avatarUrl: av,
@@ -2933,7 +2975,13 @@ const App = {
         const usernameInput = document.getElementById('setting-username');
         if (usernameInput) {
           usernameInput.addEventListener('input', (e) => {
-            this.settings.username = e.target.value.trim();
+            const newVal = e.target.value.trim();
+            // Keep avatarSeed in sync if it was matching the old username
+            if (this.settings.avatarSeed === this.settings.username) {
+              this.settings.avatarSeed = newVal;
+              DB.saveSetting('avatarSeed', newVal);
+            }
+            this.settings.username = newVal;
             DB.saveSetting('username', this.settings.username);
             // Debounced server sync so typo names don't flood the API
             clearTimeout(this._usernameSyncTimer);
@@ -2947,9 +2995,10 @@ const App = {
             DB.saveSetting('avatarStyle', this.settings.avatarStyle);
             const builder = document.getElementById('avatar-builder');
             if (builder) builder.style.display = e.target.value === 'avataaars' ? '' : 'none';
-            // Update avatar preview
             const av = document.querySelector('.header + .fade-in img, img[alt="avatar"]');
             if (av) av.src = this._getAvatarUrl();
+            clearTimeout(this._avatarSyncTimer);
+            this._avatarSyncTimer = setTimeout(() => this._syncProfileToServer(), 1500);
           });
         }
         // Skin tone swatches
@@ -2958,11 +3007,12 @@ const App = {
             const hex = sw.dataset.skin;
             this.settings.avatarSkinColor = hex;
             DB.saveSetting('avatarSkinColor', hex);
-            // Highlight selected
             document.querySelectorAll('[data-skin]').forEach(s => s.style.borderColor = 'transparent');
             sw.style.borderColor = 'var(--aqua)';
             const av = document.getElementById('avatar-preview-img');
             if (av) av.src = this._getAvatarUrl();
+            clearTimeout(this._avatarSyncTimer);
+            this._avatarSyncTimer = setTimeout(() => this._syncProfileToServer(), 1500);
           });
         });
         // Hair style
@@ -2973,6 +3023,8 @@ const App = {
             DB.saveSetting('avatarHairStyle', e.target.value);
             const av = document.getElementById('avatar-preview-img');
             if (av) av.src = this._getAvatarUrl();
+            clearTimeout(this._avatarSyncTimer);
+            this._avatarSyncTimer = setTimeout(() => this._syncProfileToServer(), 1500);
           });
         }
         // Facial hair
@@ -2983,6 +3035,8 @@ const App = {
             DB.saveSetting('avatarFacialHair', e.target.value);
             const av = document.getElementById('avatar-preview-img');
             if (av) av.src = this._getAvatarUrl();
+            clearTimeout(this._avatarSyncTimer);
+            this._avatarSyncTimer = setTimeout(() => this._syncProfileToServer(), 1500);
           });
         }
         // Eye type
@@ -2993,6 +3047,8 @@ const App = {
             DB.saveSetting('avatarEyeType', e.target.value);
             const av = document.getElementById('avatar-preview-img');
             if (av) av.src = this._getAvatarUrl();
+            clearTimeout(this._avatarSyncTimer);
+            this._avatarSyncTimer = setTimeout(() => this._syncProfileToServer(), 1500);
           });
         }
         // Portrait: tap upload area to pick selfie
@@ -3271,6 +3327,9 @@ const App = {
               data.messages.forEach(m => seenIds.add(m.id));
               this._bindReactionBars();
               msgs.scrollTop = msgs.scrollHeight;
+              // Load real reaction counts from server
+              const msgIds = data.messages.map(m => m.id).filter(Boolean);
+              if (msgIds.length) this._fetchReactionsBulk(msgIds);
               return;
             }
 
@@ -3279,10 +3338,13 @@ const App = {
             if (!newMsgs.length) return;
             const atBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
             newMsgs.forEach(m => {
-              // Remove the optimistic bubble for our own confirmed message
+              // Remove the correct optimistic bubble — match by text to handle rapid sends
               if (m.user_id === this.settings.serverId) {
-                const opt = msgs.querySelector('[data-optimistic]');
-                if (opt && opt.querySelector('.bubble-text')?.textContent?.trim() === m.text.trim()) opt.remove();
+                const opts = msgs.querySelectorAll('[data-optimistic]');
+                const match = Array.from(opts).find(o =>
+                  o.querySelector('.bubble-text')?.textContent?.trim() === m.text.trim()
+                );
+                if (match) match.remove();
               }
               const wrap = document.createElement('div');
               wrap.innerHTML = mkBubble(m, seenIds.size);
