@@ -199,6 +199,9 @@ body::before {
   overflow: clip; position: relative; z-index: 1;
 }
 
+/* ─── Screen Header (hoisted out of scroll container) ──────── */
+#screen-header { flex-shrink: 0; }
+
 /* ─── Screen Container ──────────────────────────────────────── */
 #screen-container {
   flex: 1; overflow-y: auto; overflow-x: clip;
@@ -216,7 +219,7 @@ body::before {
   backdrop-filter: var(--blur-lg);
   -webkit-backdrop-filter: var(--blur-lg);
   border-bottom: 1px solid var(--glass-border);
-  flex-shrink: 0; z-index: 100; position: sticky; top: 0;
+  flex-shrink: 0; z-index: 100; position: relative;
 }
 
 /* Animated shimmer line under header */
