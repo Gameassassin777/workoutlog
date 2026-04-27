@@ -1,7 +1,81 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v37';
+const APP_VERSION = 'v38';
+
+// ─── Built-in exercise → muscle group lookup (no API needed) ───
+const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
+  'Quads','Hamstrings','Glutes','Calves','Abs','Traps','Lats','Full Body','Cardio'];
+
+const EXERCISE_MUSCLE_MAP = {
+  // Chest
+  'bench press':['Chest','Triceps','Shoulders'],'incline bench press':['Chest','Shoulders','Triceps'],
+  'decline bench press':['Chest','Triceps'],'dumbbell bench press':['Chest','Triceps','Shoulders'],
+  'incline dumbbell press':['Chest','Shoulders'],'dumbbell fly':['Chest'],'cable fly':['Chest'],
+  'chest fly':['Chest'],'pec deck':['Chest'],'push up':['Chest','Triceps','Shoulders'],
+  'push-up':['Chest','Triceps','Shoulders'],'pushup':['Chest','Triceps','Shoulders'],
+  'dips':['Triceps','Chest'],'chest dips':['Chest','Triceps'],
+  // Back
+  'pull up':['Lats','Biceps','Back'],'pull-up':['Lats','Biceps','Back'],'pullup':['Lats','Biceps','Back'],
+  'chin up':['Lats','Biceps'],'chin-up':['Lats','Biceps'],'chinup':['Lats','Biceps'],
+  'lat pulldown':['Lats','Biceps'],'seated row':['Back','Biceps'],'cable row':['Back','Biceps'],
+  'bent over row':['Back','Biceps'],'barbell row':['Back','Biceps'],'dumbbell row':['Back','Biceps'],
+  't-bar row':['Back','Biceps'],'deadlift':['Back','Glutes','Hamstrings','Traps'],
+  'romanian deadlift':['Hamstrings','Glutes','Back'],'rdl':['Hamstrings','Glutes','Back'],
+  'stiff leg deadlift':['Hamstrings','Glutes'],'sumo deadlift':['Glutes','Hamstrings','Back'],
+  'good morning':['Hamstrings','Back','Glutes'],'back extension':['Back','Glutes'],
+  'hyperextension':['Back','Glutes'],'face pull':['Shoulders','Traps','Back'],
+  'shrug':['Traps'],'barbell shrug':['Traps'],'dumbbell shrug':['Traps'],
+  // Shoulders
+  'overhead press':['Shoulders','Triceps'],'military press':['Shoulders','Triceps'],
+  'shoulder press':['Shoulders','Triceps'],'dumbbell shoulder press':['Shoulders','Triceps'],
+  'ohp':['Shoulders','Triceps'],'arnold press':['Shoulders','Triceps'],
+  'lateral raise':['Shoulders'],'side raise':['Shoulders'],'front raise':['Shoulders'],
+  'rear delt fly':['Shoulders','Back'],'reverse fly':['Shoulders','Back'],
+  'upright row':['Shoulders','Traps'],
+  // Biceps
+  'bicep curl':['Biceps'],'biceps curl':['Biceps'],'barbell curl':['Biceps'],
+  'dumbbell curl':['Biceps'],'hammer curl':['Biceps','Forearms'],
+  'concentration curl':['Biceps'],'preacher curl':['Biceps'],'cable curl':['Biceps'],
+  'incline dumbbell curl':['Biceps'],'zottman curl':['Biceps','Forearms'],
+  // Triceps
+  'tricep pushdown':['Triceps'],'triceps pushdown':['Triceps'],'rope pushdown':['Triceps'],
+  'overhead tricep extension':['Triceps'],'skull crusher':['Triceps'],'skullcrusher':['Triceps'],
+  'close grip bench press':['Triceps','Chest'],'tricep dip':['Triceps','Chest'],
+  'triceps dip':['Triceps','Chest'],'diamond push up':['Triceps','Chest'],
+  // Legs — quads
+  'squat':['Quads','Glutes','Hamstrings'],'back squat':['Quads','Glutes','Hamstrings'],
+  'front squat':['Quads','Glutes'],'goblet squat':['Quads','Glutes'],
+  'leg press':['Quads','Glutes','Hamstrings'],'hack squat':['Quads','Glutes'],
+  'leg extension':['Quads'],'lunges':['Quads','Glutes','Hamstrings'],
+  'lunge':['Quads','Glutes','Hamstrings'],'walking lunge':['Quads','Glutes'],
+  'split squat':['Quads','Glutes'],'bulgarian split squat':['Quads','Glutes'],
+  'step up':['Quads','Glutes'],'wall sit':['Quads'],
+  // Legs — posterior
+  'leg curl':['Hamstrings'],'lying leg curl':['Hamstrings'],'seated leg curl':['Hamstrings'],
+  'hip thrust':['Glutes','Hamstrings'],'barbell hip thrust':['Glutes','Hamstrings'],
+  'glute bridge':['Glutes','Hamstrings'],'cable kickback':['Glutes'],'donkey kick':['Glutes'],
+  // Calves
+  'calf raise':['Calves'],'standing calf raise':['Calves'],'seated calf raise':['Calves'],
+  'donkey calf raise':['Calves'],
+  // Core
+  'crunch':['Abs'],'sit up':['Abs'],'sit-up':['Abs'],'situp':['Abs'],
+  'plank':['Abs','Full Body'],'ab rollout':['Abs'],'cable crunch':['Abs'],
+  'leg raise':['Abs'],'hanging leg raise':['Abs'],'russian twist':['Abs'],
+  'mountain climber':['Abs','Full Body'],'bicycle crunch':['Abs'],'side plank':['Abs'],
+  'hollow hold':['Abs'],'toe touch':['Abs'],'v-up':['Abs'],
+  // Cardio
+  'treadmill':['Cardio'],'running':['Cardio'],'cycling':['Cardio'],'bike':['Cardio'],
+  'rowing':['Cardio','Back'],'rowing machine':['Cardio','Back'],'elliptical':['Cardio'],
+  'jump rope':['Cardio','Calves'],'stair climber':['Cardio','Quads','Glutes'],
+  'swimming':['Full Body','Cardio'],
+  // Full body
+  'clean':['Full Body'],'clean and press':['Full Body'],'snatch':['Full Body'],
+  'thruster':['Full Body'],'burpee':['Full Body','Cardio'],
+  'kettlebell swing':['Glutes','Hamstrings','Back'],'turkish get up':['Full Body'],
+  'farmer carry':['Forearms','Traps','Full Body'],'farmer walk':['Forearms','Traps','Full Body'],
+  'box jump':['Quads','Glutes','Calves'],'jump squat':['Quads','Glutes'],
+};
 
 const App = {
   currentScreen: 'home',
@@ -123,6 +197,8 @@ const App = {
     this.profile = await DB.getProfile() || { ...this.DEFAULT_PROFILE };
     this.exercises = await DB.getAllExercises();
     this.workouts = await DB.getAllWorkouts();
+    // Silently fill in missing muscle groups from local map (no API call)
+    setTimeout(() => this._autoFillMissingMuscleGroups(), 500);
     this.chatLogs = await DB.getAllChatLogs();
 
     // Restore most recent chat session into memory
@@ -920,6 +996,100 @@ const App = {
     return q[Math.floor(Date.now() / 60000) % q.length][1];
   },
 
+  // ── Muscle group helpers ──────────────────────────────────
+  // Lookup muscle groups from built-in map (fuzzy + keyword fallback)
+  _muscleGroupsFromMap(name) {
+    const lower = name.toLowerCase().trim();
+    // 1. Exact match
+    if (EXERCISE_MUSCLE_MAP[lower]) return [...EXERCISE_MUSCLE_MAP[lower]];
+    // 2. Substring match — try longest matching key first so "romanian deadlift" beats "deadlift"
+    const keys = Object.keys(EXERCISE_MUSCLE_MAP).sort((a, b) => b.length - a.length);
+    for (const key of keys) {
+      if (lower.includes(key)) return [...EXERCISE_MUSCLE_MAP[key]];
+    }
+    // 3. Keyword token fallback — handles "inclined rows", "cable chest press", etc.
+    const has = (...words) => words.some(w => lower.includes(w));
+    if (has('row', 'rows', 'pulldown', 'pull-down')) return ['Back','Biceps'];
+    if (has('curl','curls') && !has('leg')) return ['Biceps'];
+    if (has('curl') && has('leg')) return ['Hamstrings'];
+    if (has('press') && has('chest','bench','pec')) return ['Chest','Triceps','Shoulders'];
+    if (has('press') && has('shoulder','overhead','military','ohp')) return ['Shoulders','Triceps'];
+    if (has('press') && has('incline')) return ['Chest','Shoulders','Triceps'];
+    if (has('fly','flye','flies')) return ['Chest'];
+    if (has('squat','squats')) return ['Quads','Glutes','Hamstrings'];
+    if (has('lunge','lunges')) return ['Quads','Glutes'];
+    if (has('deadlift')) return ['Back','Glutes','Hamstrings'];
+    if (has('extension') && has('leg')) return ['Quads'];
+    if (has('extension') && has('tricep','triceps')) return ['Triceps'];
+    if (has('raise') && has('calf','calves')) return ['Calves'];
+    if (has('raise') && has('lateral','side','front')) return ['Shoulders'];
+    if (has('hip thrust','glute bridge','kickback')) return ['Glutes'];
+    if (has('push') && has('chest','bench')) return ['Chest','Triceps'];
+    if (has('dip','dips')) return ['Triceps','Chest'];
+    if (has('pull up','pull-up','pullup','chin')) return ['Lats','Biceps'];
+    if (has('shrug')) return ['Traps'];
+    if (has('plank','hollow','crunch','sit-up','situp')) return ['Abs'];
+    if (has('run','jog','sprint','treadmill','bike','cycling','cardio','elliptical','rowing','swim')) return ['Cardio'];
+    return [];
+  },
+
+  // Best-effort muscle groups for an exercise: library → map
+  _getMuscleGroups(name, exerciseId) {
+    const lib = this.exercises.find(e => e.id === exerciseId || e.name.toLowerCase() === name?.toLowerCase());
+    if (lib?.muscleGroups?.length) return lib.muscleGroups;
+    return this._muscleGroupsFromMap(name || '');
+  },
+
+  // Collect unique muscle groups across all exercises in a workout
+  _workoutMuscleGroups(workout) {
+    const seen = new Set();
+    workout.exercises.forEach(ex => {
+      this._getMuscleGroups(ex.name, ex.exerciseId).forEach(m => seen.add(m));
+    });
+    return Array.from(seen);
+  },
+
+  // Silently classify exercises with no muscle groups
+  // Uses local map first; falls back to AI if available and map has no result
+  async _autoFillMissingMuscleGroups() {
+    const missing = this.exercises.filter(ex => !ex.muscleGroups?.length);
+    if (!missing.length) return;
+    const canUseAI = !!(this.settings.geminiApiKey || this.settings.serverId);
+    for (const ex of missing) {
+      const local = this._muscleGroupsFromMap(ex.name);
+      if (local.length) {
+        ex.muscleGroups = local;
+        await DB.saveExercise(ex);
+      } else if (canUseAI) {
+        // Small delay between AI calls to avoid rate-limiting
+        await new Promise(r => setTimeout(r, 800));
+        const groups = await this._aiSuggestMuscleGroups(ex.name);
+        if (groups.length) {
+          ex.muscleGroups = groups;
+          await DB.saveExercise(ex);
+        }
+      }
+    }
+  },
+
+  // AI suggest muscle groups for one exercise (used by edit modal button)
+  async _aiSuggestMuscleGroups(name) {
+    // Try local map first — no API call if we know it
+    const local = this._muscleGroupsFromMap(name);
+    if (local.length) return local;
+    // Ask AI
+    try {
+      const result = await AI.backendChat([{
+        role: 'user',
+        content: `What muscle groups does "${name}" primarily work? Reply ONLY with a comma-separated list using ONLY these exact words: Chest, Back, Shoulders, Biceps, Triceps, Forearms, Quads, Hamstrings, Glutes, Calves, Abs, Traps, Lats, Full Body, Cardio. No other text, no explanation.`
+      }]);
+      if (result.text) {
+        return result.text.split(',').map(s => s.trim()).filter(s => MUSCLE_GROUPS.includes(s));
+      }
+    } catch (e) {}
+    return [];
+  },
+
   renderWorkoutCard(w) {
     const date = new Date(w.date);
     const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -946,8 +1116,18 @@ const App = {
           <span class="text-xs text-sea">${totalSets} sets</span>
           <span class="text-xs text-sunset">${totalVolume.toLocaleString()} ${this.settings.defaultWeightUnit}</span>
         </div>
-        ${w.tags && w.tags.length > 0 ? `
-          <div class="flex gap-4 mt-8 flex-wrap">
+        ${(() => {
+          const muscles = w.muscleGroups?.length
+            ? w.muscleGroups
+            : this._workoutMuscleGroups(w);
+          return muscles.length ? `
+            <div class="flex gap-4 mt-8 flex-wrap">
+              ${muscles.slice(0, 5).map(m => `<span style="background:rgba(0,180,180,0.15);color:var(--aqua);border:1px solid rgba(0,200,200,0.25);border-radius:12px;padding:2px 8px;font-size:0.62rem;font-weight:600;">${m}</span>`).join('')}
+              ${muscles.length > 5 ? `<span style="color:var(--text-muted);font-size:0.62rem;padding:2px 4px;">+${muscles.length-5}</span>` : ''}
+            </div>` : '';
+        })()}
+        ${w.tags?.length ? `
+          <div class="flex gap-4 mt-4 flex-wrap">
             ${w.tags.map(t => `<span class="tag" style="font-size:0.65rem;">#${t}</span>`).join('')}
           </div>
         ` : ''}
@@ -3203,8 +3383,6 @@ const App = {
   },
 
   showAddExerciseForWorkout() {
-    const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
-      'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Abs', 'Traps', 'Lats', 'Full Body', 'Cardio'];
 
     const html = `
       <div class="modal-overlay" id="add-exercise-overlay">
@@ -3275,6 +3453,10 @@ const App = {
       };
       await DB.saveExercise(exercise);
       this.exercises.push(exercise);
+      // If no muscle groups were selected, auto-classify in background
+      if (!exercise.muscleGroups.length) {
+        this._autoFillMissingMuscleGroups();
+      }
       document.getElementById('modal-container').innerHTML = '';
       this.addExerciseToWorkout(exercise);
     });
@@ -3515,6 +3697,9 @@ const App = {
 
     // Calculate duration
     w.duration = Math.round((Date.now() - new Date(w.date).getTime()) / 1000);
+
+    // Compute + store muscle groups for this workout
+    w.muscleGroups = this._workoutMuscleGroups(w);
 
     // Calculate XP
     const totalSets = w.exercises.reduce((s, e) => s + e.sets.length, 0);
@@ -4315,10 +4500,11 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
   showEditExerciseModal(id) {
     const ex = this.exercises.find(e => e.id === id);
     if (!ex) return;
+    const selected = new Set(ex.muscleGroups || []);
 
     const html = `
       <div class="modal-overlay" id="edit-ex-overlay">
-        <div class="modal-sheet">
+        <div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
           <div class="modal-handle"></div>
           <div class="text-bold text-white text-lg mb-16">Edit Exercise</div>
           <div class="input-group">
@@ -4326,8 +4512,17 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
             <input type="text" class="input" value="${this.escapeHtml(ex.name)}" id="edit-ex-name">
           </div>
           <div class="input-group">
-            <label class="input-label">Muscle Groups</label>
-            <input type="text" class="input" value="${(ex.muscleGroups || []).join(', ')}" id="edit-ex-muscles" placeholder="Chest, Triceps...">
+            <label class="input-label" style="display:flex;justify-content:space-between;align-items:center;">
+              <span>Muscle Groups</span>
+              <button id="btn-ai-suggest-muscles" style="background:none;border:1px solid rgba(0,200,200,0.4);border-radius:8px;color:var(--aqua);font-size:0.72rem;padding:3px 10px;cursor:pointer;">🤖 AI Suggest</button>
+            </label>
+            <div class="flex flex-wrap gap-4 mt-8" id="edit-muscle-chips">
+              ${MUSCLE_GROUPS.map(mg => `
+                <button class="tag edit-muscle-tag" data-mg="${mg}"
+                  style="cursor:pointer;transition:all 0.15s;${selected.has(mg) ? 'background:var(--lagoon);color:#fff;border-color:var(--aqua);' : ''}">
+                  ${mg}
+                </button>`).join('')}
+            </div>
           </div>
           <div class="input-group">
             <label class="input-label">Equipment</label>
@@ -4345,13 +4540,54 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     `;
     document.getElementById('modal-container').innerHTML = html;
 
+    // Chip toggle logic
+    document.querySelectorAll('.edit-muscle-tag').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mg = btn.dataset.mg;
+        if (selected.has(mg)) {
+          selected.delete(mg);
+          btn.style.background = '';
+          btn.style.color = '';
+          btn.style.borderColor = '';
+        } else {
+          selected.add(mg);
+          btn.style.background = 'var(--lagoon)';
+          btn.style.color = '#fff';
+          btn.style.borderColor = 'var(--aqua)';
+        }
+      });
+    });
+
+    // AI Suggest button
+    document.getElementById('btn-ai-suggest-muscles').addEventListener('click', async () => {
+      const suggestBtn = document.getElementById('btn-ai-suggest-muscles');
+      const name = document.getElementById('edit-ex-name').value.trim() || ex.name;
+      suggestBtn.textContent = '⏳ Thinking…';
+      suggestBtn.disabled = true;
+      const groups = await this._aiSuggestMuscleGroups(name);
+      suggestBtn.textContent = groups.length ? '✓ Done' : '🤖 AI Suggest';
+      suggestBtn.disabled = false;
+      if (groups.length) {
+        selected.clear();
+        groups.forEach(mg => selected.add(mg));
+        document.querySelectorAll('.edit-muscle-tag').forEach(btn => {
+          const active = selected.has(btn.dataset.mg);
+          btn.style.background = active ? 'var(--lagoon)' : '';
+          btn.style.color = active ? '#fff' : '';
+          btn.style.borderColor = active ? 'var(--aqua)' : '';
+        });
+      } else {
+        this.showToast('No suggestion found — try typing the name more specifically');
+      }
+    });
+
     document.getElementById('edit-ex-overlay').addEventListener('click', (e) => {
       if (e.target.id === 'edit-ex-overlay') document.getElementById('modal-container').innerHTML = '';
     });
 
     document.getElementById('btn-save-edit-ex').addEventListener('click', async () => {
       ex.name = document.getElementById('edit-ex-name').value.trim();
-      ex.muscleGroups = document.getElementById('edit-ex-muscles').value.split(',').map(s => s.trim()).filter(Boolean);
+      ex.muscleGroups = Array.from(selected);
       ex.equipment = document.getElementById('edit-ex-equipment').value.trim();
       ex.notes = document.getElementById('edit-ex-notes').value.trim();
       await DB.saveExercise(ex);
