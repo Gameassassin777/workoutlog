@@ -1,6 +1,8 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
+const APP_VERSION = 'v36';
+
 const App = {
   currentScreen: 'home',
   activeWorkout: null,
@@ -2010,11 +2012,13 @@ const App = {
           <button class="btn btn-danger btn-small w-full mt-8" id="btn-clear-all-data">Clear All Data</button>
         </div>
 
-        <button class="btn btn-ghost w-full mx-16 mt-16 mb-16" id="btn-save-settings">
-          Save Settings
-        </button>
+        <div style="padding: 16px;">
+          <button class="btn btn-ghost w-full" id="btn-save-settings">Save Settings</button>
+        </div>
 
-        <div style="height: 20px;"></div>
+        <div style="text-align:center; padding: 8px 16px 32px; color: var(--text-muted); font-size: 0.72rem; letter-spacing: 0.05em;">
+          TropicalFit ${APP_VERSION}
+        </div>
       </div>
     `;
   },
