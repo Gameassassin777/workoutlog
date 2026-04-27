@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v57';
+const APP_VERSION = 'v58';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3601,6 +3601,7 @@ const App = {
       aiAnalysis: ''
     };
 
+    navigator.vibrate?.([60]);
     await Timer.startWorkoutSession();
     this.showExercisePicker();
   },
@@ -3930,7 +3931,10 @@ const App = {
     const isPR = this.checkAndUpdatePR(exName, set);
 
     if (isPR) {
+      navigator.vibrate?.([50, 40, 100, 40, 200]);
       this.showCelebration(this.Icons.anchor, 'NEW PR!', `${exName}: ${set.weight} ${set.weightUnit} × ${set.reps}`);
+    } else {
+      navigator.vibrate?.([40]);
     }
 
     // Check if this was the last uncompleted set for this exercise
@@ -4018,6 +4022,7 @@ const App = {
     // Log to server in background (don't block UI)
     this._logWorkoutToServer(w);
 
+    navigator.vibrate?.([80, 50, 80, 50, 200]);
     this.showScreen('workoutComplete');
   },
 
@@ -4080,6 +4085,7 @@ const App = {
       },
       // onComplete
       () => {
+        navigator.vibrate?.([100, 60, 100, 60, 100]);
         if (data.onComplete) {
           data.onComplete();
         } else {
