@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v47';
+const APP_VERSION = 'v48';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -584,9 +584,11 @@ const App = {
     if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
     if (this._chatVisibilityHandler) { document.removeEventListener('visibilitychange', this._chatVisibilityHandler); this._chatVisibilityHandler = null; }
     this._teardownChatVV();
+    // Restore scroll that _positionChatFrame locks down for the social chat frame
+    const container = document.getElementById('screen-container');
+    if (container) container.style.overflow = '';
     this.currentScreen = name;
     this.setActiveNav(name);
-    const container = document.getElementById('screen-container');
 
     const renderers = {
       home: () => this.renderHome(),

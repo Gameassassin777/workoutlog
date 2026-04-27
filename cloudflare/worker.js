@@ -238,9 +238,14 @@ async function handleLeaderboard(url, env) {
 
 // ── Feed ─────────────────────────────────────────────────────────
 async function handleFeed(env) {
-  const rows = await env.DB.prepare(
-    'SELECT * FROM feed ORDER BY created_at DESC LIMIT 50'
-  ).all();
+  // JOIN users so avatar_url / username always reflect the current profile
+  const rows = await env.DB.prepare(`
+    SELECT f.id, f.user_id, f.type, f.text, f.created_at,
+           COALESCE(u.username,   f.username)   AS username,
+           COALESCE(u.avatar_url, f.avatar_url) AS avatar_url
+    FROM feed f LEFT JOIN users u ON f.user_id = u.id
+    ORDER BY f.created_at DESC LIMIT 50
+  `).all();
   return json({ items: rows.results });
 }
 
