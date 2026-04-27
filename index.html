@@ -10,7 +10,7 @@
   <meta name="description" content="Track your gains, island style">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=46">
+  <link rel="stylesheet" href="style.css?v=47">
   <title>TropicalFit</title>
 </head>
 <body>
@@ -23,7 +23,8 @@
       const v = document.getElementById('bg-video');
       function play() { v.play().catch(() => {}); }
       v.addEventListener('ended', () => { v.currentTime = 0; play(); });
-      v.addEventListener('pause',  () => { if (!v.ended) play(); });
+      // Only restart if the pause wasn't triggered by a source-switch
+      v.addEventListener('pause', () => { if (!v.ended && !v._switching) play(); });
       document.addEventListener('visibilitychange', () => { if (!document.hidden) play(); });
       window.addEventListener('pageshow', play);
       play();
@@ -32,10 +33,15 @@
       window.setBgVideo = function (src) {
         if (v.getAttribute('data-src') === src) return;
         v.setAttribute('data-src', src);
-        const t = v.currentTime;
+        // Flag so the pause listener doesn't fight us during the load
+        v._switching = true;
         v.src = src;
         v.load();
-        play();
+        v.addEventListener('canplay', function onReady() {
+          v._switching = false;
+          play();
+          v.removeEventListener('canplay', onReady);
+        }, { once: true });
       };
     })();
   </script>
@@ -71,13 +77,13 @@
   <div id="modal-container"></div>
   <div id="celebration-container"></div>
 
-  <script src="db.js?v=46"></script>
-  <script src="shader.js?v=46"></script>
-  <script src="palm.js?v=46"></script>
-  <script src="transition.js?v=46"></script>
-  <script src="timer.js?v=46"></script>
-  <script src="ai.js?v=46"></script>
-  <script src="export.js?v=46"></script>
-  <script src="app.js?v=46"></script>
+  <script src="db.js?v=47"></script>
+  <script src="shader.js?v=47"></script>
+  <script src="palm.js?v=47"></script>
+  <script src="transition.js?v=47"></script>
+  <script src="timer.js?v=47"></script>
+  <script src="ai.js?v=47"></script>
+  <script src="export.js?v=47"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>

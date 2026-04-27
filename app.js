@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v46';
+const APP_VERSION = 'v47';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -583,6 +583,7 @@ const App = {
     // Kill background timers when navigating away
     if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
     if (this._chatVisibilityHandler) { document.removeEventListener('visibilitychange', this._chatVisibilityHandler); this._chatVisibilityHandler = null; }
+    this._teardownChatVV();
     this.currentScreen = name;
     this.setActiveNav(name);
     const container = document.getElementById('screen-container');
@@ -2141,6 +2142,29 @@ const App = {
     // Prevent container from scrolling (which would shift the header/tab pills out of view)
     const sc = document.getElementById('screen-container');
     if (sc) sc.style.overflow = 'hidden';
+
+    // iOS keyboard: use visualViewport to keep the input bar above the keyboard
+    if (window.visualViewport && !this._chatVVHandler) {
+      this._chatVVHandler = () => {
+        const f = document.getElementById('chat-fixed-frame');
+        if (!f) return;
+        const vv = window.visualViewport;
+        // How far the keyboard is pushing up the visual viewport
+        const keyboardH = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        const safeBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom')) || 0;
+        f.style.bottom = (56 + safeBottom + keyboardH) + 'px';
+      };
+      window.visualViewport.addEventListener('resize', this._chatVVHandler);
+      window.visualViewport.addEventListener('scroll', this._chatVVHandler);
+    }
+  },
+
+  _teardownChatVV() {
+    if (this._chatVVHandler && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this._chatVVHandler);
+      window.visualViewport.removeEventListener('scroll', this._chatVVHandler);
+      this._chatVVHandler = null;
+    }
   },
 
   // ─── CHAT SCREEN ──────────────────────────────────────────

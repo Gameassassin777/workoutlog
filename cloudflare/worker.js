@@ -247,14 +247,20 @@ async function handleFeed(env) {
 // ── Global Chat ──────────────────────────────────────────────────
 async function handleChatGet(url, env) {
   const since = url.searchParams.get('since'); // ISO timestamp
+  // Always JOIN users so we get the current avatar/username, not the snapshot stored at send-time
+  const SELECT = `
+    SELECT c.id, c.user_id, c.text, c.created_at,
+           COALESCE(u.username,   c.username)   AS username,
+           COALESCE(u.avatar_url, c.avatar_url) AS avatar_url
+    FROM chat c LEFT JOIN users u ON c.user_id = u.id`;
   let rows;
   if (since) {
     rows = await env.DB.prepare(
-      'SELECT * FROM chat WHERE created_at > ? ORDER BY created_at ASC LIMIT 100'
+      SELECT + ' WHERE c.created_at > ? ORDER BY c.created_at ASC LIMIT 100'
     ).bind(since).all();
   } else {
     rows = await env.DB.prepare(
-      'SELECT * FROM chat ORDER BY created_at DESC LIMIT 60'
+      SELECT + ' ORDER BY c.created_at DESC LIMIT 60'
     ).all();
     rows.results.reverse();
   }
