@@ -201,7 +201,7 @@ body::before {
 
 /* ─── Screen Container ──────────────────────────────────────── */
 #screen-container {
-  flex: 1; overflow-y: auto; overflow-x: hidden;
+  flex: 1; overflow-y: auto; overflow-x: clip;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth; padding-bottom: 40px;
 }
@@ -237,9 +237,10 @@ body::before {
 }
 
 .header-title {
-  font-size: 1.1rem; font-weight: 800; letter-spacing: -0.4px;
+  font-family: 'Pacifico', cursive;
+  font-size: 1.15rem; font-weight: 400; letter-spacing: 0;
   color: var(--text-main); flex: 1;
-  text-shadow: 0 0 20px rgba(0,200,255,0.35);
+  text-shadow: 0 0 24px rgba(0,200,255,0.5), 0 2px 8px rgba(0,0,0,0.6);
 }
 
 .header-back {
@@ -933,16 +934,17 @@ select.input {
    HOME HERO
 ═══════════════════════════════════════════════════════ */
 .hero-greeting {
-  padding: 14px 16px 0;
+  padding: 14px 16px 10px;
+  background: linear-gradient(to bottom, rgba(0,5,20,0.65) 0%, transparent 100%);
 }
 .hero-greeting-sub {
-  font-size: 0.82rem; color: var(--text-muted); font-weight: 500;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+  font-size: 0.82rem; color: rgba(255,255,255,0.75); font-weight: 500;
+  text-shadow: 0 1px 6px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,0.8);
 }
 .hero-greeting-name {
-  font-size: 1.3rem; font-weight: 900; color: var(--text-main);
+  font-size: 1.3rem; font-weight: 900; color: #fff;
   letter-spacing: -0.5px; line-height: 1.2;
-  text-shadow: 0 0 24px rgba(0,200,255,0.35), 0 2px 6px rgba(0,0,0,0.9);
+  text-shadow: 0 0 28px rgba(0,200,255,0.5), 0 2px 8px rgba(0,0,0,1), 0 4px 16px rgba(0,0,0,0.8);
 }
 .hero-level-pill {
   display: flex; align-items: center; gap: 8px;
