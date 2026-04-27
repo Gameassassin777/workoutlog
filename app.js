@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v56';
+const APP_VERSION = 'v57';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1920,8 +1920,9 @@ const App = {
 
   _reactionBarHtml(itemId, itemType) {
     const myReactions = this._localReactions?.[itemId] || {};
-    return `<div class="reaction-bar" data-item-id="${itemId}" data-item-type="${itemType}">
-      ${this.REACTION_EMOJIS.map(e => {
+    const activeEmojis = this.REACTION_EMOJIS.filter(e => (this._reactionCounts?.[itemId]?.[e] || 0) > 0 || myReactions[e]);
+    return `<div class="reaction-bar${activeEmojis.length ? ' has-reactions' : ''}" data-item-id="${itemId}" data-item-type="${itemType}">
+      ${activeEmojis.map(e => {
         const count = this._reactionCounts?.[itemId]?.[e] || 0;
         const mine  = myReactions[e];
         return `<button class="reaction-btn ${mine ? 'reacted' : ''}" data-emoji="${e}" data-item-id="${itemId}" data-item-type="${itemType}">${e}${count > 0 ? `<span>${count}</span>` : ''}</button>`;
@@ -1979,6 +1980,87 @@ const App = {
         const posterId = bar?.dataset.posterUserId || null;
         this._toggleReaction(itemId, itemType, emoji, posterId);
       });
+    });
+  },
+
+  _showBubbleActions(x, y, itemId, itemType, text) {
+    document.getElementById('bubble-actions-popup')?.remove();
+    const el = document.createElement('div');
+    el.id = 'bubble-actions-popup';
+    el.className = 'bubble-actions';
+    const emojiRow = itemId ? this.REACTION_EMOJIS.map(e => {
+      const mine = this._localReactions?.[itemId]?.[e];
+      return `<button class="bap-emoji${mine ? ' reacted' : ''}" data-emoji="${e}" data-item-id="${itemId}" data-item-type="${itemType}">${e}</button>`;
+    }).join('') : '';
+    el.innerHTML = `<button class="bap-copy" id="bap-copy-btn">Copy</button><div class="bap-sep"></div>${emojiRow}`;
+    document.body.appendChild(el);
+    const pw = el.offsetWidth || 240;
+    const ph = el.offsetHeight || 48;
+    let left = Math.max(8, Math.min(window.innerWidth - pw - 8, x - pw / 2));
+    let top = Math.max(8, y - ph - 16);
+    el.style.cssText += `position:fixed;left:${left}px;top:${top}px;`;
+    document.getElementById('bap-copy-btn')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(text).then(() => this.showToast('Copied'));
+      el.remove();
+    });
+    el.querySelectorAll('.bap-emoji').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        this._toggleReaction(btn.dataset.itemId, btn.dataset.itemType, btn.dataset.emoji, null);
+        el.remove();
+      });
+    });
+    const dismiss = e => {
+      if (!el.contains(e.target)) { el.remove(); document.removeEventListener('touchstart', dismiss); document.removeEventListener('mousedown', dismiss); }
+    };
+    setTimeout(() => { document.addEventListener('touchstart', dismiss, { passive: true }); document.addEventListener('mousedown', dismiss); }, 100);
+  },
+
+  _bindBubbleInteractions(container) {
+    container.querySelectorAll('.chat-global-bubble, .feed-item').forEach(bubble => {
+      if (bubble.dataset.interBound) return;
+      bubble.dataset.interBound = '1';
+      let timer, startX, startY;
+      bubble.addEventListener('touchstart', e => {
+        if (e.target.closest('.reaction-btn, .reaction-bar, .bubble-avatar, a')) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        timer = setTimeout(() => {
+          const textEl = bubble.querySelector('.bubble-text, .feed-text');
+          const text = textEl?.textContent?.trim() || '';
+          const barEl = bubble.querySelector('.reaction-bar');
+          const itemId = barEl?.dataset.itemId;
+          const itemType = barEl?.dataset.itemType;
+          navigator.vibrate?.(30);
+          this._showBubbleActions(startX, startY, itemId, itemType, text);
+        }, 500);
+      }, { passive: true });
+      bubble.addEventListener('touchmove', e => {
+        if (Math.abs(e.touches[0].clientX - startX) > 8 || Math.abs(e.touches[0].clientY - startY) > 8) clearTimeout(timer);
+      }, { passive: true });
+      bubble.addEventListener('touchend', () => clearTimeout(timer), { passive: true });
+      bubble.addEventListener('touchcancel', () => clearTimeout(timer), { passive: true });
+    });
+  },
+
+  _bindAiChatCopy(container) {
+    container.querySelectorAll('.chat-bubble').forEach(el => {
+      if (el.dataset.interBound) return;
+      el.dataset.interBound = '1';
+      let timer, startX, startY;
+      el.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        timer = setTimeout(() => {
+          const text = el.textContent?.trim();
+          if (text) { navigator.vibrate?.(30); navigator.clipboard.writeText(text).then(() => this.showToast('Copied')); }
+        }, 500);
+      }, { passive: true });
+      el.addEventListener('touchmove', e => {
+        if (Math.abs(e.touches[0].clientX - startX) > 8 || Math.abs(e.touches[0].clientY - startY) > 8) clearTimeout(timer);
+      }, { passive: true });
+      el.addEventListener('touchend', () => clearTimeout(timer), { passive: true });
+      el.addEventListener('touchcancel', () => clearTimeout(timer), { passive: true });
     });
   },
 
@@ -2047,6 +2129,7 @@ const App = {
         </div>`).join('')}
     </div>`;
     this._bindReactionBars();
+    this._bindBubbleInteractions(list);
     const feedIds = items.map(f => f.id).filter(Boolean);
     if (feedIds.length) this._fetchReactionsBulk(feedIds);
   },
@@ -2983,9 +3066,9 @@ const App = {
           });
           if (data.prefill) chatInput.focus();
         }
-        // Scroll to bottom
+        // Scroll to bottom + bind copy on long-press
         const msgs = document.getElementById('chat-messages');
-        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        if (msgs) { msgs.scrollTop = msgs.scrollHeight; this._bindAiChatCopy(msgs); }
         document.querySelectorAll('[data-chip]').forEach(chip => {
           chip.addEventListener('click', () => {
             const input = document.getElementById('chat-input');
@@ -3404,6 +3487,7 @@ const App = {
               msgs.innerHTML = data.messages.map((m, i) => mkBubble(m, i)).join('');
               data.messages.forEach(m => seenIds.add(m.id));
               this._bindReactionBars();
+              this._bindBubbleInteractions(msgs);
               msgs.scrollTop = msgs.scrollHeight;
               // Load real reaction counts from server
               const msgIds = data.messages.map(m => m.id).filter(Boolean);
@@ -3430,6 +3514,7 @@ const App = {
               seenIds.add(m.id);
             });
             this._bindReactionBars();
+            this._bindBubbleInteractions(msgs);
             if (atBottom) msgs.scrollTop = msgs.scrollHeight;
           };
 
@@ -4232,9 +4317,11 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
 
     if (result.error) {
       msgsContainer.innerHTML += `<div class="chat-bubble ai" style="color: var(--coral);">${this.escapeHtml(result.error)}</div>`;
+      this._bindAiChatCopy(msgsContainer);
     } else {
       this._currentChatMessages.push({ role: 'ai', content: result.text });
       msgsContainer.innerHTML += `<div class="chat-bubble ai">${this.escapeHtml(result.text)}</div>`;
+      this._bindAiChatCopy(msgsContainer);
 
       // Execute any app action the AI requested
       if (result.action) {

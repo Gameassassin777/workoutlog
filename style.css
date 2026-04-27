@@ -1162,8 +1162,37 @@ select.input {
 }
 /* ── Reactions ──────────────────────────────────────────────── */
 .reaction-bar {
-  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;
+  display: none; flex-wrap: wrap; gap: 4px; margin-top: 6px;
 }
+.reaction-bar.has-reactions { display: flex; }
+
+/* ── Bubble action popup (long-press: copy + react) ─────────── */
+.bubble-actions {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--glass-deep);
+  backdrop-filter: var(--blur-xl); -webkit-backdrop-filter: var(--blur-xl);
+  border: 1px solid var(--glass-border-hi);
+  border-radius: 28px; padding: 6px 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+  z-index: 9999;
+  animation: bapIn 0.14s cubic-bezier(0.22,1,0.36,1);
+}
+@keyframes bapIn { from { transform: scale(0.75); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.bap-copy {
+  font-size: 0.75rem; font-weight: 700; color: var(--text-main);
+  background: none; border: none; padding: 4px 10px; cursor: pointer;
+  font-family: inherit; border-radius: 20px;
+  -webkit-tap-highlight-color: transparent;
+}
+.bap-copy:active { background: var(--glass-border); }
+.bap-sep { width: 1px; height: 20px; background: var(--glass-border); margin: 0 2px; }
+.bap-emoji {
+  font-size: 1.25rem; background: none; border: none;
+  padding: 4px 5px; cursor: pointer; border-radius: 50%;
+  transition: transform 0.1s; -webkit-tap-highlight-color: transparent;
+}
+.bap-emoji:active { transform: scale(1.3); }
+.bap-emoji.reacted { filter: drop-shadow(0 0 4px rgba(0,200,255,0.7)); }
 .reaction-btn {
   display: flex; align-items: center; gap: 3px;
   background: rgba(255,255,255,0.06);
