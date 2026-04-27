@@ -146,12 +146,6 @@ const AI = {
       return tryBackend();
     }
 
-    // Large text files: chunk to avoid hitting per-minute token limits
-    const CHUNK_CHARS = 60000; // ~15K tokens per chunk — comfortably under per-minute TPM limits
-    if (!isImage && content.length > CHUNK_CHARS) {
-      return this._parseFileInChunks(content, apiKey, CHUNK_CHARS, onProgress, tryBackend);
-    }
-
     const parsePrompt = `You are a workout log parser. Convert the following into a JSON object with a "workouts" array.
     Each workout: "date" (ISO), "title", "exercises" (array with "name" and "sets" array of {weight, reps}).
     Add unclear items to an "uncertain" array. Return only valid JSON.\n\nData:\n${isImage ? '[See attached image]' : content}`;
@@ -184,75 +178,6 @@ const AI = {
       console.error('AI Parsing failed:', err);
       return { error: 'Parsing failed: ' + err.message };
     }
-  },
-
-  // ─── Chunked parsing for large files ───────────────────────
-  async _parseFileInChunks(content, apiKey, chunkSize, onProgress, fallback) {
-    const totalChunks = Math.ceil(content.length / chunkSize);
-    const allWorkouts = [];
-    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-    if (onProgress) onProgress(`Large file detected (${Math.round(content.length/1024)}KB) — splitting into ${totalChunks} chunks...`);
-
-    for (let i = 0; i < totalChunks; i++) {
-      const chunk = content.substring(i * chunkSize, (i + 1) * chunkSize);
-      if (onProgress) onProgress(`Parsing chunk ${i + 1} of ${totalChunks}...`);
-
-      const prompt = `Parse this workout log chunk (${i + 1} of ${totalChunks}) into a JSON object with a "workouts" array.
-Each workout: "date" (ISO string), "title", "exercises" (array with "name" and "sets" array of {weight, reps}).
-Return only valid JSON — no markdown, no explanation.\n\nData:\n${chunk}`;
-
-      try {
-        const response = await this.fetchWithRetry(
-          GEMINI_URL,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) },
-          4, onProgress
-        );
-
-        if (!response.ok) {
-          if (response.status === 429) {
-            // After exhausting retries on a chunk, try backend for remaining content
-            if (fallback) {
-              if (onProgress) onProgress(`Still rate limited on chunk ${i + 1} — falling back to backup server for remaining data...`);
-              const remaining = content.substring(i * chunkSize);
-              const fallbackResult = await fallback(remaining);
-              if (!fallbackResult.error) {
-                try {
-                  let raw = fallbackResult.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-                  const m = raw.match(/\{[\s\S]*\}/);
-                  if (m) { const p = JSON.parse(m[0]); if (p.workouts) allWorkouts.push(...p.workouts); }
-                } catch(_) {}
-              }
-              break;
-            }
-            return { error: `Rate limit hit on chunk ${i + 1}. Parsed ${allWorkouts.length} workouts so far. Try again in a minute.` };
-          }
-          console.warn(`Chunk ${i + 1} failed: HTTP ${response.status}`);
-          continue;
-        }
-
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        let raw = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (parsed.workouts?.length) allWorkouts.push(...parsed.workouts);
-        }
-      } catch (err) {
-        console.warn(`Chunk ${i + 1} parse error:`, err);
-      }
-
-      // Pause between chunks to stay under per-minute token limits
-      if (i < totalChunks - 1) {
-        if (onProgress) onProgress(`Chunk ${i + 1} done — waiting 4s before next chunk...`);
-        await new Promise(r => setTimeout(r, 4000));
-      }
-    }
-
-    if (!allWorkouts.length) return { error: 'Could not parse any workouts from the file. Try a different format.' };
-    if (onProgress) onProgress(`Done! Found ${allWorkouts.length} workouts across ${totalChunks} chunks.`);
-    return { text: JSON.stringify({ workouts: allWorkouts }) };
   },
 
   // Describe a person's appearance from a selfie (Gemini Vision)
