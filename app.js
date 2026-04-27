@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v58';
+const APP_VERSION = 'v59';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1992,7 +1992,7 @@ const App = {
       const mine = this._localReactions?.[itemId]?.[e];
       return `<button class="bap-emoji${mine ? ' reacted' : ''}" data-emoji="${e}" data-item-id="${itemId}" data-item-type="${itemType}">${e}</button>`;
     }).join('') : '';
-    el.innerHTML = `<button class="bap-copy" id="bap-copy-btn">Copy</button><div class="bap-sep"></div>${emojiRow}`;
+    el.innerHTML = `<button class="bap-copy" id="bap-copy-btn">Copy</button>${emojiRow ? '<div class="bap-sep"></div>' + emojiRow : ''}`;
     document.body.appendChild(el);
     const pw = el.offsetWidth || 240;
     const ph = el.offsetHeight || 48;
@@ -2020,26 +2020,24 @@ const App = {
     container.querySelectorAll('.chat-global-bubble, .feed-item').forEach(bubble => {
       if (bubble.dataset.interBound) return;
       bubble.dataset.interBound = '1';
-      let timer, startX, startY;
+      let startX, startY, moved;
       bubble.addEventListener('touchstart', e => {
         if (e.target.closest('.reaction-btn, .reaction-bar, .bubble-avatar, a')) return;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
-        timer = setTimeout(() => {
-          const textEl = bubble.querySelector('.bubble-text, .feed-text');
-          const text = textEl?.textContent?.trim() || '';
-          const barEl = bubble.querySelector('.reaction-bar');
-          const itemId = barEl?.dataset.itemId;
-          const itemType = barEl?.dataset.itemType;
-          navigator.vibrate?.(30);
-          this._showBubbleActions(startX, startY, itemId, itemType, text);
-        }, 500);
+        moved = false;
       }, { passive: true });
       bubble.addEventListener('touchmove', e => {
-        if (Math.abs(e.touches[0].clientX - startX) > 8 || Math.abs(e.touches[0].clientY - startY) > 8) clearTimeout(timer);
+        if (Math.abs(e.touches[0].clientX - startX) > 8 || Math.abs(e.touches[0].clientY - startY) > 8) moved = true;
       }, { passive: true });
-      bubble.addEventListener('touchend', () => clearTimeout(timer), { passive: true });
-      bubble.addEventListener('touchcancel', () => clearTimeout(timer), { passive: true });
+      bubble.addEventListener('touchend', e => {
+        if (moved) return;
+        if (e.target.closest('.reaction-btn, .reaction-bar, .bubble-avatar, a')) return;
+        const textEl = bubble.querySelector('.bubble-text, .feed-text');
+        const text = textEl?.textContent?.trim() || '';
+        const barEl = bubble.querySelector('.reaction-bar');
+        this._showBubbleActions(startX, startY, barEl?.dataset.itemId, barEl?.dataset.itemType, text);
+      }, { passive: true });
     });
   },
 
@@ -2047,20 +2045,20 @@ const App = {
     container.querySelectorAll('.chat-bubble').forEach(el => {
       if (el.dataset.interBound) return;
       el.dataset.interBound = '1';
-      let timer, startX, startY;
+      let startX, startY, moved;
       el.addEventListener('touchstart', e => {
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
-        timer = setTimeout(() => {
-          const text = el.textContent?.trim();
-          if (text) { navigator.vibrate?.(30); navigator.clipboard.writeText(text).then(() => this.showToast('Copied')); }
-        }, 500);
+        moved = false;
       }, { passive: true });
       el.addEventListener('touchmove', e => {
-        if (Math.abs(e.touches[0].clientX - startX) > 8 || Math.abs(e.touches[0].clientY - startY) > 8) clearTimeout(timer);
+        if (Math.abs(e.touches[0].clientX - startX) > 8 || Math.abs(e.touches[0].clientY - startY) > 8) moved = true;
       }, { passive: true });
-      el.addEventListener('touchend', () => clearTimeout(timer), { passive: true });
-      el.addEventListener('touchcancel', () => clearTimeout(timer), { passive: true });
+      el.addEventListener('touchend', e => {
+        if (moved) return;
+        const text = el.textContent?.trim() || '';
+        this._showBubbleActions(startX, startY, null, null, text);
+      }, { passive: true });
     });
   },
 
