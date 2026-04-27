@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v39';
+const APP_VERSION = 'v40';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1267,19 +1267,12 @@ const App = {
 
         <!-- Muscle activity heatmap -->
         <div class="section-header"><span class="section-title">Muscle Heatmap</span></div>
-        <div class="card">
+        <div class="card" style="padding:16px 12px;">
           ${Object.keys(muscleData).length === 0 ? `
             <div class="text-sm text-sea" style="padding:8px;text-align:center;">No workouts in the last 30 days</div>
           ` : `
-            <div class="text-xs text-sea mb-12">Last ${muscleWindow} · brighter = more volume</div>
-            <div class="flex flex-wrap gap-8" style="justify-content:center;">
-              ${Object.entries(muscleData)
-                .sort((a, b) => b[1] - a[1])
-                .map(([muscle, intensity]) => `
-                  <div class="heatmap-region intensity-${intensity}"
-                       style="padding:9px 14px;border-radius:var(--radius-sm);">${muscle}</div>
-                `).join('')}
-            </div>
+            <div class="text-xs text-sea" style="margin-bottom:12px;">Last ${muscleWindow} · brighter = more sets</div>
+            ${this._buildBodyHeatmap(muscleData)}
           `}
         </div>
 
@@ -4854,6 +4847,117 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     }
 
     return muscles; // only contains muscles with intensity >= 1
+  },
+
+  // ─── SVG BODY HEATMAP ──────────────────────────────────────
+  _buildBodyHeatmap(muscleData) {
+    const C = [
+      'rgba(255,255,255,0.06)', // 0 — untrained
+      'rgba(0,160,185,0.35)',   // 1
+      'rgba(0,200,220,0.55)',   // 2
+      'rgba(255,210,55,0.65)',  // 3
+      'rgba(255,125,35,0.80)',  // 4
+      'rgba(215,45,30,0.90)',   // 5
+    ];
+
+    // Each SVG region → which muscle groups contribute to it
+    const RM = {
+      chest:  ['Chest', 'Full Body'],
+      shl:    ['Shoulders', 'Full Body'],
+      shr:    ['Shoulders', 'Full Body'],
+      bil:    ['Biceps', 'Full Body'],
+      bir:    ['Biceps', 'Full Body'],
+      fal:    ['Forearms', 'Full Body'],
+      far:    ['Forearms', 'Full Body'],
+      abs:    ['Abs', 'Full Body', 'Cardio'],
+      ql:     ['Quads', 'Full Body', 'Cardio'],
+      qr:     ['Quads', 'Full Body', 'Cardio'],
+      clf:    ['Calves', 'Full Body', 'Cardio'],
+      crf:    ['Calves', 'Full Body', 'Cardio'],
+      traps:  ['Traps', 'Full Body'],
+      sbsl:   ['Shoulders', 'Full Body'],
+      sbsr:   ['Shoulders', 'Full Body'],
+      back:   ['Back', 'Lats', 'Full Body'],
+      tril:   ['Triceps', 'Full Body'],
+      trir:   ['Triceps', 'Full Body'],
+      glutes: ['Glutes', 'Full Body', 'Cardio'],
+      hl:     ['Hamstrings', 'Full Body', 'Cardio'],
+      hr:     ['Hamstrings', 'Full Body', 'Cardio'],
+      clb:    ['Calves', 'Full Body', 'Cardio'],
+      crb:    ['Calves', 'Full Body', 'Cardio'],
+    };
+
+    // Build intensity per region (max of all contributing muscles)
+    const ri = {};
+    for (const [region, muscles] of Object.entries(RM)) {
+      ri[region] = Math.max(0, ...muscles.map(m => muscleData[m] || 0));
+    }
+    const f = id => C[ri[id] || 0];
+    const base = 'rgba(255,255,255,0.07)';
+    const sk   = 'rgba(255,255,255,0.16)';
+    const ol   = 'rgba(255,255,255,0.11)';
+
+    // Trained muscle summary (for text label)
+    const trained = Object.entries(muscleData).sort((a,b)=>b[1]-a[1]).map(([m])=>m).join(' · ') || 'None';
+
+    return `
+      <svg viewBox="0 0 190 205" width="100%" style="display:block;max-width:400px;margin:0 auto;">
+
+        <!-- ── FRONT ── -->
+        <g>
+          <circle cx="47" cy="13" r="10" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <rect x="43" y="23" width="8" height="7" rx="2" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <ellipse cx="30" cy="39" rx="10" ry="8" fill="${f('shl')}" stroke="${sk}" stroke-width="0.8"/>
+          <ellipse cx="64" cy="39" rx="10" ry="8" fill="${f('shr')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="32" y="30" width="30" height="26" rx="5" fill="${f('chest')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="19" y="35" width="12" height="27" rx="6" fill="${f('bil')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="63" y="35" width="12" height="27" rx="6" fill="${f('bir')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="18" y="64" width="11" height="22" rx="4" fill="${f('fal')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="65" y="64" width="11" height="22" rx="4" fill="${f('far')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="33" y="56" width="28" height="30" rx="4" fill="${f('abs')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="30" y="86" width="34" height="10" rx="5" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <rect x="30" y="96" width="15" height="42" rx="7" fill="${f('ql')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="49" y="96" width="15" height="42" rx="7" fill="${f('qr')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="31" y="141" width="13" height="33" rx="6" fill="${f('clf')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="50" y="141" width="13" height="33" rx="6" fill="${f('crf')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="29" y="174" width="15" height="7" rx="3" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <rect x="50" y="174" width="15" height="7" rx="3" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <text x="47" y="192" text-anchor="middle" fill="rgba(120,195,215,0.6)" font-size="7.5" font-family="-apple-system,sans-serif" font-weight="600" letter-spacing="0.5">FRONT</text>
+        </g>
+
+        <!-- ── BACK ── -->
+        <g transform="translate(96,0)">
+          <circle cx="47" cy="13" r="10" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <rect x="43" y="23" width="8" height="7" rx="2" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <path d="M44,25 L50,25 L64,47 L30,47 Z" fill="${f('traps')}" stroke="${sk}" stroke-width="0.8"/>
+          <ellipse cx="30" cy="39" rx="10" ry="8" fill="${f('sbsl')}" stroke="${sk}" stroke-width="0.8"/>
+          <ellipse cx="64" cy="39" rx="10" ry="8" fill="${f('sbsr')}" stroke="${sk}" stroke-width="0.8"/>
+          <path d="M30,47 L64,47 L59,87 L35,87 Z" fill="${f('back')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="19" y="35" width="12" height="27" rx="6" fill="${f('tril')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="63" y="35" width="12" height="27" rx="6" fill="${f('trir')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="18" y="64" width="11" height="22" rx="4" fill="${f('fal')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="65" y="64" width="11" height="22" rx="4" fill="${f('far')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="30" y="87" width="34" height="22" rx="8" fill="${f('glutes')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="30" y="109" width="15" height="36" rx="7" fill="${f('hl')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="49" y="109" width="15" height="36" rx="7" fill="${f('hr')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="31" y="148" width="13" height="28" rx="6" fill="${f('clb')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="50" y="148" width="13" height="28" rx="6" fill="${f('crb')}" stroke="${sk}" stroke-width="0.8"/>
+          <rect x="29" y="176" width="15" height="7" rx="3" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <rect x="50" y="176" width="15" height="7" rx="3" fill="${base}" stroke="${ol}" stroke-width="0.8"/>
+          <text x="47" y="192" text-anchor="middle" fill="rgba(120,195,215,0.6)" font-size="7.5" font-family="-apple-system,sans-serif" font-weight="600" letter-spacing="0.5">BACK</text>
+        </g>
+
+        <!-- Divider -->
+        <line x1="95" y1="4" x2="95" y2="186" stroke="rgba(255,255,255,0.07)" stroke-width="0.5"/>
+
+        <!-- Legend -->
+        <g transform="translate(15,197)">
+          <text x="0" y="7" fill="rgba(120,190,210,0.55)" font-size="7" font-family="-apple-system,sans-serif">Less</text>
+          ${[1,2,3,4,5].map((i,idx) => `<rect x="${27+idx*13}" y="0" width="11" height="8" rx="2" fill="${C[i]}"/>`).join('')}
+          <text x="96" y="7" fill="rgba(120,190,210,0.55)" font-size="7" font-family="-apple-system,sans-serif">More</text>
+        </g>
+      </svg>
+      <div style="text-align:center;font-size:0.68rem;color:var(--text-muted);margin-top:6px;line-height:1.5;">${trained}</div>`;
   },
 
   // ─── CELEBRATIONS ──────────────────────────────────────────
