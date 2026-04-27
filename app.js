@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v41';
+const APP_VERSION = 'v42';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4212,6 +4212,9 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
+          if (result._truncated) {
+            this.showToast('⚠️ Large file — only the first ~14KB was parsed. Add a Gemini API key for full support.', 5000);
+          }
           this.showParsedWorkoutConfirmation(parsed);
         } else {
           if (resultEl) {
@@ -5043,13 +5046,13 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
   },
 
   // ─── TOAST ─────────────────────────────────────────────────
-  showToast(message) {
+  showToast(message, duration = 3000) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.textContent = message;
     container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    setTimeout(() => toast.remove(), duration);
   },
 
   // ─── HELPERS ──────────────────────────────────────────────

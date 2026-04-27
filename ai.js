@@ -125,13 +125,19 @@ const AI = {
     const isImage = type && type.startsWith('image/');
 
     // Backend fallback for text-based files (no key or rate limited)
+    // Limit: ~14k chars. Larger files need a personal Gemini key for full processing.
+    const BACKEND_CHAR_LIMIT = 14000;
     const tryBackend = async () => {
       const userId = await DB.getSetting('serverId');
       if (!userId) return { error: 'Add a Gemini API key in Settings → AI to import files, or join the community first.' };
-      const truncated = content.length > 5000 ? content.substring(0, 5000) + '\n...[truncated]' : content;
+      const wasLarge = content.length > BACKEND_CHAR_LIMIT;
+      const truncated = wasLarge ? content.substring(0, BACKEND_CHAR_LIMIT) + '\n...[file truncated — add a Gemini API key in Settings for full file support]' : content;
+      if (wasLarge && onProgress) onProgress(`File is large (${Math.round(content.length/1024)}KB) — only first ~14KB will be parsed. Add a Gemini API key for full support.`);
       const prompt = `Parse this workout log into JSON. Return ONLY a JSON object with a "workouts" array. Each workout needs: "date" (ISO), "title", "exercises" (array with "name" and "sets" array of {weight, reps}). Data:\n${truncated}`;
-      if (onProgress) onProgress('Trying backup server...');
-      return this.backendChat([{ role: 'user', content: prompt }], '');
+      if (!wasLarge && onProgress) onProgress('Trying backup server...');
+      const result = await this.backendChat([{ role: 'user', content: prompt }], '');
+      if (wasLarge && !result.error) result._truncated = true;
+      return result;
     };
 
     if (!apiKey) {
