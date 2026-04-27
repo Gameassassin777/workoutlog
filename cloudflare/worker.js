@@ -28,6 +28,9 @@ export default {
       if (path === '/api/user/avatar' && request.method === 'POST') {
         return handleUserAvatar(request, env);
       }
+      if (path === '/api/user/update' && request.method === 'POST') {
+        return handleUserUpdate(request, env);
+      }
 
       // ── Workout ───────────────────────────────────────────
       if (path === '/api/workout/log' && request.method === 'POST') {
@@ -127,6 +130,21 @@ async function handleUserAvatar(request, env) {
   const user = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(user_id).first();
   if (!user) return json({ error: 'Not found' }, 404);
   await env.DB.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').bind(avatar_url, user_id).run();
+  return json({ ok: true });
+}
+
+// Update username and/or avatar — called when user changes their name in settings
+async function handleUserUpdate(request, env) {
+  const { user_id, username, avatar_url } = await request.json();
+  if (!user_id) return json({ error: 'Missing user_id' }, 400);
+  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(user_id).first();
+  if (!user) return json({ error: 'Not found' }, 404);
+  const parts = [], vals = [];
+  if (username?.trim()) { parts.push('username = ?'); vals.push(username.trim()); }
+  if (avatar_url)       { parts.push('avatar_url = ?'); vals.push(avatar_url); }
+  if (!parts.length) return json({ ok: true });
+  vals.push(user_id);
+  await env.DB.prepare(`UPDATE users SET ${parts.join(', ')} WHERE id = ?`).bind(...vals).run();
   return json({ ok: true });
 }
 

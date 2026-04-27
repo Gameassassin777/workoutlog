@@ -72,12 +72,13 @@ const App = {
     avatarFacialHair: '',
     avatarEyeType: 'default',
     avatarClothes: 'hoodie',
-    notificationsEnabled: false,
-    notifDailyReminder: false,
+    notificationsEnabled: true,
+    notifDailyReminder: true,
     notifDailyReminderTime: '08:00',
     notifStreakAtRisk: true,
     notifChatMessages: false,
     notifBoardReset: true,
+    notifPromptDismissed: false,
     socialPrivacyVolume: true,
     socialPrivacyFeed: true,
     pollinationsPortrait: '',
@@ -108,7 +109,9 @@ const App = {
     this.showScreen('home');
     this.registerSW();
     this.registerWithServer();
-    if (this.settings.notificationsEnabled) this._scheduleLocalNotifications();
+    this._scheduleLocalNotifications();
+    // Auto-prompt for notifications after 2s if permission not yet decided
+    setTimeout(() => this._maybeAskNotifPermission(), 2000);
     // Re-apply theme if OS dark/light preference changes while app is open
     window.matchMedia('(prefers-color-scheme: light)')
       .addEventListener('change', () => this.applyTheme());
@@ -158,9 +161,15 @@ const App = {
 
     if (this.settings.batterySaver) {
       document.body.classList.add('battery-saver');
+      // Pause video; CSS will show the still image instead
+      const vid = document.getElementById('bg-video');
+      if (vid) { vid.pause(); }
       if (window.oceanShader) window.oceanShader.stop();
       if (window.palmTree) window.palmTree.stop();
     } else {
+      // Resume video
+      const vid = document.getElementById('bg-video');
+      if (vid) { vid.play().catch(() => {}); }
       if (!window.oceanShader && window.OceanShaderEngine) {
         window.oceanShader = new window.OceanShaderEngine('ocean-shader');
       }
@@ -208,10 +217,14 @@ const App = {
     }
   },
 
-  // Register user on first launch (if username set and no server ID yet)
+  // Register user on first launch; if already registered, sync username/avatar
   async registerWithServer() {
     if (!this.settings.username) return;
-    if (this.settings.serverId) return;
+    if (this.settings.serverId) {
+      // Already registered — push latest username/avatar in case they changed
+      this._syncProfileToServer();
+      return;
+    }
     const result = await this.apiPost('/api/user/register', {
       username: this.settings.username,
       avatar_url: this._getAvatarUrl(),
@@ -220,6 +233,15 @@ const App = {
       this.settings.serverId = result.id;
       DB.saveSetting('serverId', result.id);
     }
+  },
+
+  async _syncProfileToServer() {
+    if (!this.settings.serverId) return;
+    this.apiPost('/api/user/update', {
+      user_id: this.settings.serverId,
+      username: this.settings.username,
+      avatar_url: this._getAvatarUrl(),
+    }).catch(() => {});
   },
 
   // Subscribe to Web Push and send subscription to server
@@ -313,6 +335,73 @@ const App = {
         vibrate: [100, 50, 100],
       });
     } catch (e) { /* permission denied or SW not ready */ }
+  },
+
+  // ─── NOTIFICATION PERMISSION PROMPT ───────────────────
+  async _maybeAskNotifPermission() {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+      // Already have permission — ensure we're subscribed to push
+      this.settings.notificationsEnabled = true;
+      DB.saveSetting('notificationsEnabled', true);
+      this.subscribeToPush();
+      return;
+    }
+    if (perm === 'denied') return; // user blocked it — nothing to do
+    // 'default' — show our card if they haven't dismissed it before
+    if (!this.settings.notifPromptDismissed) {
+      this._showNotifPromptCard();
+    }
+  },
+
+  _showNotifPromptCard() {
+    if (document.getElementById('notif-prompt-card')) return;
+    if (Notification.permission !== 'default') return;
+    const card = document.createElement('div');
+    card.id = 'notif-prompt-card';
+    card.style.cssText = `position:fixed;bottom:calc(72px + var(--safe-bottom,0px));left:16px;right:16px;background:linear-gradient(135deg,rgba(0,25,60,0.97),rgba(0,12,35,0.97));border:1.5px solid rgba(0,200,255,0.30);border-radius:var(--radius-lg);padding:16px 16px 14px;box-shadow:0 8px 40px rgba(0,0,0,0.65),0 0 30px rgba(0,200,255,0.12);z-index:300;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);animation:slideUp 0.32s ease;`;
+    card.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="font-size:1.8rem;flex-shrink:0;margin-top:1px;">🔔</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:0.95rem;font-weight:800;color:var(--text-main);margin-bottom:3px;">Stay on the Island</div>
+          <div style="font-size:0.76rem;color:var(--text-sub);line-height:1.5;">Streak alerts before they die, PR celebrations, and daily nudges so you never miss a session.</div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button id="notif-allow-btn" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--teal),var(--lagoon));border:none;border-radius:var(--radius-md);font-weight:800;font-size:0.85rem;color:#021628;cursor:pointer;font-family:inherit;">Allow Notifications</button>
+            <button id="notif-skip-btn" style="padding:11px 16px;background:transparent;border:1px solid var(--glass-border);border-radius:var(--radius-md);font-size:0.80rem;color:var(--text-muted);cursor:pointer;font-family:inherit;">Not now</button>
+          </div>
+        </div>
+        <button id="notif-close-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 0 0 4px;flex-shrink:0;line-height:1;">✕</button>
+      </div>`;
+    document.body.appendChild(card);
+
+    const dismiss = (permanent) => {
+      card.remove();
+      if (permanent) {
+        this.settings.notifPromptDismissed = true;
+        DB.saveSetting('notifPromptDismissed', true);
+      }
+    };
+
+    document.getElementById('notif-allow-btn')?.addEventListener('click', async () => {
+      dismiss(true);
+      const granted = await Notification.requestPermission();
+      if (granted === 'granted') {
+        this.settings.notificationsEnabled = true;
+        this.settings.notifDailyReminder = true;
+        DB.saveSetting('notificationsEnabled', true);
+        DB.saveSetting('notifDailyReminder', true);
+        await this.subscribeToPush();
+        this._scheduleLocalNotifications();
+        this.showToast('Notifications on 🔔 You\'re locked in.');
+      } else {
+        this.settings.notificationsEnabled = false;
+        DB.saveSetting('notificationsEnabled', false);
+      }
+    });
+    document.getElementById('notif-skip-btn')?.addEventListener('click', () => dismiss(true));
+    document.getElementById('notif-close-btn')?.addEventListener('click', () => dismiss(false));
   },
 
   async _logWorkoutToServer(w) {
@@ -2319,6 +2408,9 @@ const App = {
           usernameInput.addEventListener('input', (e) => {
             this.settings.username = e.target.value.trim();
             DB.saveSetting('username', this.settings.username);
+            // Debounced server sync so typo names don't flood the API
+            clearTimeout(this._usernameSyncTimer);
+            this._usernameSyncTimer = setTimeout(() => this._syncProfileToServer(), 1200);
           });
         }
         const avatarStyleSelect = document.getElementById('setting-avatar-style');
@@ -2609,11 +2701,11 @@ const App = {
         if (document.getElementById('feed-list')) {
           this._fetchFeed().then(d => this._populateFeed(d?.items || d || []));
         }
-        // ─── Global chat: send handler + live polling ──────────
-        {
+        // ─── Global chat: incremental polling + send ──────────
+        if (document.getElementById('global-chat-messages')) {
           const globalInput = document.getElementById('global-chat-input');
           const makeAv = (url) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
-          const renderMsg = (m, i) => {
+          const mkBubble = (m, idx) => {
             const mine = m.user_id === this.settings.serverId;
             const myAv = this._getAvatarUrl();
             return `<div class="chat-global-bubble ${mine ? 'mine' : ''}">
@@ -2621,56 +2713,82 @@ const App = {
               <div class="bubble-body">
                 ${!mine ? `<div class="bubble-name">${m.username || 'athlete'}</div>` : ''}
                 <div class="bubble-text">${this.escapeHtml(m.text)}</div>
-                ${this._reactionBarHtml(m.id || `chat-srv-${i}`, 'chat')}
+                ${this._reactionBarHtml(m.id || `chat-srv-${idx}`, 'chat')}
               </div>
               ${mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
             </div>`;
           };
 
-          // Send message
+          // Track which server-confirmed message IDs are already in the DOM
+          const seenIds = new Set();
+
+          const poll = async () => {
+            const msgs = document.getElementById('global-chat-messages');
+            if (!msgs) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; return; }
+            const data = await this._fetchChat();
+            if (!data?.messages) return;
+
+            if (seenIds.size === 0) {
+              // First load — replace loading hint with full history
+              if (!data.messages.length) {
+                const hint = document.getElementById('chat-status-hint');
+                if (hint) hint.textContent = 'No messages yet — say something! 🏝️';
+                return;
+              }
+              msgs.innerHTML = data.messages.map((m, i) => mkBubble(m, i)).join('');
+              data.messages.forEach(m => seenIds.add(m.id));
+              this._bindReactionBars();
+              msgs.scrollTop = msgs.scrollHeight;
+              return;
+            }
+
+            // Incremental — only append messages not yet in DOM
+            const newMsgs = data.messages.filter(m => !seenIds.has(m.id));
+            if (!newMsgs.length) return;
+            const atBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
+            newMsgs.forEach(m => {
+              // Remove the optimistic bubble for our own confirmed message
+              if (m.user_id === this.settings.serverId) {
+                const opt = msgs.querySelector('[data-optimistic]');
+                if (opt && opt.querySelector('.bubble-text')?.textContent?.trim() === m.text.trim()) opt.remove();
+              }
+              const wrap = document.createElement('div');
+              wrap.innerHTML = mkBubble(m, seenIds.size);
+              msgs.appendChild(wrap.firstChild);
+              seenIds.add(m.id);
+            });
+            this._bindReactionBars();
+            if (atBottom) msgs.scrollTop = msgs.scrollHeight;
+          };
+
+          if (this._chatPollTimer) clearInterval(this._chatPollTimer);
+          poll(); // immediate first load
+          this._chatPollTimer = setInterval(poll, 6000);
+
+          // Send handler
           const sendGlobal = async () => {
             const text = globalInput?.value.trim();
             if (!text) return;
+            if (!this.settings.serverId) { this.showToast('Join the Board to chat!'); return; }
             globalInput.value = '';
             const msgs = document.getElementById('global-chat-messages');
             if (msgs) {
-              // Remove "no messages" hint
               const hint = document.getElementById('chat-status-hint');
               if (hint) hint.remove();
               const myAv = this._getAvatarUrl();
               const el = document.createElement('div');
               el.className = 'chat-global-bubble mine';
+              el.setAttribute('data-optimistic', 'true');
               el.innerHTML = `<div class="bubble-body"><div class="bubble-text">${this.escapeHtml(text)}</div></div><img class="bubble-avatar" src="${myAv}" alt="you">`;
               msgs.appendChild(el);
               msgs.scrollTop = msgs.scrollHeight;
             }
-            this._postChatMessage(text);
+            await this._postChatMessage(text);
+            // Force a poll ~700ms later to confirm and swap the optimistic bubble
+            setTimeout(poll, 700);
           };
           this.bindClick('btn-global-chat-send', sendGlobal);
           if (globalInput) globalInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendGlobal(); });
-
-          // Live polling — replace entire list on each tick (simple + correct)
-          if (document.getElementById('global-chat-messages')) {
-            let lastMessageCount = 0;
-            const pollChat = async () => {
-              const msgs = document.getElementById('global-chat-messages');
-              if (!msgs) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; return; }
-              const data = await this._fetchChat();
-              if (!data?.messages) return;
-              const count = data.messages.length;
-              if (count === lastMessageCount) return; // nothing new
-              lastMessageCount = count;
-              const wasAtBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 60;
-              msgs.innerHTML = count === 0
-                ? `<div class="text-center text-xs text-muted" style="padding:20px 16px;" id="chat-status-hint">No messages yet — say something! 🏝️</div>`
-                : data.messages.map((m, i) => renderMsg(m, i)).join('');
-              this._bindReactionBars();
-              if (wasAtBottom || lastMessageCount === count) msgs.scrollTop = msgs.scrollHeight;
-            };
-            if (this._chatPollTimer) clearInterval(this._chatPollTimer);
-            pollChat(); // immediate first load
-            this._chatPollTimer = setInterval(pollChat, 7000);
-          }
         }
         break;
     }

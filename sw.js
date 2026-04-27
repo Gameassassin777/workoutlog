@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v32';
+const CACHE_NAME = 'tropical-fit-v33';
 const ASSETS = [
   '/workoutlog/',
   '/workoutlog/index.html',
@@ -15,7 +15,9 @@ const ASSETS = [
   '/workoutlog/icons/icon-192.png',
   '/workoutlog/icons/icon-512.png',
   '/workoutlog/bg.mp4',
-  '/workoutlog/bg-day.mp4'
+  '/workoutlog/bg-day.mp4',
+  '/workoutlog/bg.jpg',
+  '/workoutlog/bg2.jpg'
 ];
 
 self.addEventListener('install', event => {
