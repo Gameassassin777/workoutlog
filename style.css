@@ -143,6 +143,9 @@ body.battery-saver, body.battery-saver * {
 body.battery-saver {
   background: url('bg.jpg') center top / cover fixed #021628;
 }
+body.theme-light.battery-saver {
+  background: url('bg2.jpg') center top / cover fixed #0B3954;
+}
 
 /* ─── Base ──────────────────────────────────────────────────── */
 body {

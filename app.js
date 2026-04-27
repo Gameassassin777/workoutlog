@@ -652,20 +652,6 @@ const App = {
     return `https://image.pollinations.ai/prompt/${prompt}?width=128&height=128&nologo=true&model=flux-schnell&seed=${safeSeed}`;
   },
 
-  _buildPollinationsUrl() {
-    const levelInfo = this.getLevelInfo(this.profile.xp);
-    const muscleData = this.getMuscleHeatmapData();
-    const topMuscle = Object.entries(muscleData)
-      .filter(([, v]) => v > 0)
-      .sort((a, b) => b[1] - a[1])[0]?.[0] || 'strength';
-    const handle = this.settings.username || 'warrior';
-    const seed = encodeURIComponent(handle + levelInfo.level);
-    const prompt = encodeURIComponent(
-      `tropical beach warrior, ${levelInfo.title}, muscular ${topMuscle.toLowerCase()} athlete, anime portrait, vibrant ocean sunset background, detailed face, confident pose, no text`
-    );
-    return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&nologo=true&seed=${seed}&model=flux`;
-  },
-
   // Auto-description string from level + training (shown in UI and used as base prompt)
   _buildAutoPortraitDesc() {
     const levelInfo = this.getLevelInfo(this.profile.xp);
@@ -840,7 +826,72 @@ const App = {
   },
 
   _hasUnreadNotifs() {
-    return false; // Phase 2: check real notifications
+    // Show badge when the user hasn't worked out today and has a streak to protect
+    const streak = this.profile?.currentStreak || 0;
+    if (streak === 0) return false;
+    const todayStr = new Date().toDateString();
+    const workedOutToday = (this.workouts || []).some(w => new Date(w.date).toDateString() === todayStr);
+    return !workedOutToday;
+  },
+
+  _showNotifPanel() {
+    const streak = this.profile?.currentStreak || 0;
+    const todayStr = new Date().toDateString();
+    const workedOutToday = (this.workouts || []).some(w => new Date(w.date).toDateString() === todayStr);
+    const lastWO = this.profile?.lastWorkoutDate;
+    const daysSince = lastWO ? (Date.now() - new Date(lastWO).getTime()) / 86400000 : 99;
+    const permLabel = !('Notification' in window) ? 'Unavailable'
+      : Notification.permission === 'granted' ? 'Enabled ✓'
+      : Notification.permission === 'denied' ? 'Blocked'
+      : 'Not set';
+
+    const items = [];
+    if (!workedOutToday && streak > 0) {
+      items.push({ icon: '🔥', text: `${streak}-day streak at risk — log a session today!`, cta: 'Log Workout', action: 'home' });
+    } else if (workedOutToday) {
+      items.push({ icon: '✅', text: "Today's session is logged. Streak safe!", cta: null });
+    } else {
+      items.push({ icon: '🏝️', text: 'No active streak. Start one today!', cta: 'Start Session', action: 'home' });
+    }
+    if (daysSince >= 2 && daysSince < 90) {
+      items.push({ icon: '📅', text: `Last workout was ${Math.floor(daysSince)} day${daysSince >= 2 ? 's' : ''} ago`, cta: null });
+    }
+    items.push({ icon: '🔔', text: `Push notifications: ${permLabel}`, cta: permLabel === 'Not set' ? 'Enable' : null, action: 'enable-notif' });
+
+    const panel = document.createElement('div');
+    panel.id = 'notif-panel-overlay';
+    panel.style.cssText = 'position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;justify-content:flex-end;';
+    panel.innerHTML = `
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.5);" id="notif-panel-backdrop"></div>
+      <div style="position:relative;background:linear-gradient(180deg,rgba(5,20,50,0.98),rgba(2,10,28,0.99));border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px 16px calc(20px + var(--safe-bottom,0px));border-top:1.5px solid rgba(0,200,255,0.2);box-shadow:0 -8px 40px rgba(0,0,0,0.6);max-height:60vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <span style="font-weight:700;font-size:1rem;color:var(--text-main);">Notifications</span>
+          <button id="btn-close-notif-panel" style="background:none;border:none;padding:4px;cursor:pointer;color:var(--text-muted);">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        ${items.map(item => `
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <span style="font-size:1.4rem;min-width:28px;text-align:center;">${item.icon}</span>
+            <span style="flex:1;font-size:0.875rem;color:var(--text-sub);">${item.text}</span>
+            ${item.cta ? `<button data-notif-action="${item.action || ''}" style="background:var(--lagoon);border:none;border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:600;color:#fff;cursor:pointer;white-space:nowrap;">${item.cta}</button>` : ''}
+          </div>
+        `).join('')}
+      </div>`;
+
+    document.body.appendChild(panel);
+
+    const close = () => panel.remove();
+    document.getElementById('notif-panel-backdrop').addEventListener('click', close);
+    document.getElementById('btn-close-notif-panel').addEventListener('click', close);
+    panel.querySelectorAll('[data-notif-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.notifAction;
+        close();
+        if (action === 'home') this.showScreen('home');
+        else if (action === 'enable-notif') this._showNotifPromptCard();
+      });
+    });
   },
 
 
@@ -1377,7 +1428,8 @@ const App = {
     const myVolume = this.getWeekVolume();
     const fmt = (v) => v >= 1000 ? (v/1000).toFixed(1)+'k' : v;
     const now = new Date();
-    const daysLeft = 7 - now.getDay();
+    // Days until next Monday (0 = Sun, 1 = Mon ... 6 = Sat)
+    const daysLeft = (8 - now.getDay()) % 7 || 7;
     const hoursLeft = 24 - now.getHours();
     return `
       <div class="social-reset-timer">Resets in ${daysLeft}d ${hoursLeft}h</div>
@@ -2291,7 +2343,7 @@ const App = {
         this.bindClick('btn-resume-workout', () => this.showScreen('activeWorkout'));
         this.bindClick('btn-go-profile-char', () => this.showScreen('settings'));
         this.bindClick('btn-go-profile', () => this.showScreen('settings'));
-        this.bindClick('btn-notif', () => {});
+        this.bindClick('btn-notif', () => this._showNotifPanel());
 
         // Tappable stats → AI chat
         this.bindClick('tap-streak', () => this.openAIChat(`I have a ${this.profile.currentStreak} day workout streak. Give me motivation and evidence-based recovery tips to keep going!`));
@@ -2770,6 +2822,7 @@ const App = {
             const text = globalInput?.value.trim();
             if (!text) return;
             if (!this.settings.serverId) { this.showToast('Join the Board to chat!'); return; }
+            if (text.length > 300) { this.showToast('Message too long (max 300 chars)'); return; }
             globalInput.value = '';
             const msgs = document.getElementById('global-chat-messages');
             if (msgs) {
