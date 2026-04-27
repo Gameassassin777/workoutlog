@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v38';
+const APP_VERSION = 'v39';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1175,7 +1175,12 @@ const App = {
 
   _renderLogsStats() {
     const p = this.profile;
-    const muscleData = this.getMuscleHeatmapData();
+    let muscleData = this.getMuscleHeatmapData(7);
+    let muscleWindow = '7 days';
+    if (!Object.keys(muscleData).length) {
+      muscleData = this.getMuscleHeatmapData(30);
+      muscleWindow = '30 days';
+    }
 
     // ── Overview numbers ──────────────────────────────────────
     const totalSessions = this.workouts.length;
@@ -1260,18 +1265,22 @@ const App = {
           ${this._buildCalendarHTML(false)}
         </div>
 
-        <!-- Muscle activity -->
-        <div class="section-header"><span class="section-title">Muscle Activity</span></div>
+        <!-- Muscle activity heatmap -->
+        <div class="section-header"><span class="section-title">Muscle Heatmap</span></div>
         <div class="card">
-          <div class="text-xs text-sea mb-8">This week's training focus</div>
-          <div class="flex flex-wrap gap-8" style="justify-content:center;">
-            ${Object.entries(muscleData).length === 0
-              ? `<div class="text-sm text-sea">Log a workout this week to see muscle heatmap</div>`
-              : Object.entries(muscleData).map(([muscle, intensity]) => `
-                  <div class="heatmap-region intensity-${Math.min(5, intensity)}"
-                       style="padding:8px 12px;border-radius:var(--radius-sm);">${muscle}</div>
+          ${Object.keys(muscleData).length === 0 ? `
+            <div class="text-sm text-sea" style="padding:8px;text-align:center;">No workouts in the last 30 days</div>
+          ` : `
+            <div class="text-xs text-sea mb-12">Last ${muscleWindow} · brighter = more volume</div>
+            <div class="flex flex-wrap gap-8" style="justify-content:center;">
+              ${Object.entries(muscleData)
+                .sort((a, b) => b[1] - a[1])
+                .map(([muscle, intensity]) => `
+                  <div class="heatmap-region intensity-${intensity}"
+                       style="padding:9px 14px;border-radius:var(--radius-sm);">${muscle}</div>
                 `).join('')}
-          </div>
+            </div>
+          `}
         </div>
 
         <!-- PRs -->
@@ -4823,37 +4832,28 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     return data;
   },
 
-  getMuscleHeatmapData() {
+  getMuscleHeatmapData(days = 7) {
     const muscles = {};
-    const today = new Date();
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay());
-    weekStart.setHours(0, 0, 0, 0);
+    const cutoff = new Date(Date.now() - days * 86400000);
 
     this.workouts
-      .filter(w => new Date(w.date) >= weekStart)
+      .filter(w => new Date(w.date) >= cutoff)
       .forEach(w => {
         w.exercises.forEach(ex => {
-          const exerciseLib = this.exercises.find(e => e.id === ex.exerciseId || e.name === ex.name);
-          const groups = exerciseLib?.muscleGroups || [];
+          const groups = this._getMuscleGroups(ex.name, ex.exerciseId);
           groups.forEach(mg => {
             muscles[mg] = (muscles[mg] || 0) + ex.sets.length;
           });
         });
       });
 
-    // Normalize to 0-5 scale
+    // Normalize to 1-5 scale (only muscles that were actually trained)
     const maxSets = Math.max(1, ...Object.values(muscles));
     for (const key of Object.keys(muscles)) {
       muscles[key] = Math.min(5, Math.ceil((muscles[key] / maxSets) * 5));
     }
 
-    // Add common muscles with 0 if not present
-    ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Abs'].forEach(m => {
-      if (!muscles[m]) muscles[m] = 0;
-    });
-
-    return muscles;
+    return muscles; // only contains muscles with intensity >= 1
   },
 
   // ─── CELEBRATIONS ──────────────────────────────────────────
