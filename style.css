@@ -141,10 +141,15 @@ body.battery-saver, body.battery-saver * {
 }
 /* Still-image background replaces video in battery saver */
 body.battery-saver {
-  background: url('bg.jpg') center top / cover fixed #021628;
+  background: url('bg-night-saver.jpg') center top / cover fixed #021628;
 }
 body.theme-light.battery-saver {
-  background: url('bg2.jpg') center top / cover fixed #0B3954;
+  background: url('bg-day-saver.jpg') center top / cover fixed #0B3954;
+}
+@media (prefers-color-scheme: light) {
+  body:not(.theme-dark):not(.theme-light).battery-saver {
+    background: url('bg-day-saver.jpg') center top / cover fixed #0B3954;
+  }
 }
 
 /* ─── Base ──────────────────────────────────────────────────── */
