@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v36';
+const APP_VERSION = 'v37';
 
 const App = {
   currentScreen: 'home',
@@ -996,56 +996,105 @@ const App = {
   _renderLogsStats() {
     const p = this.profile;
     const muscleData = this.getMuscleHeatmapData();
-    const calCells = this._buildStreakCalendar();
+
+    // ── Overview numbers ──────────────────────────────────────
+    const totalSessions = this.workouts.length;
+    const sorted = [...this.workouts].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const firstDate = sorted.length ? new Date(sorted[0].date) : new Date();
+    const weeksSinceFirst = Math.max(1, (Date.now() - firstDate.getTime()) / (7 * 86400000));
+    const avgPerWeek = (totalSessions / weeksSinceFirst).toFixed(1);
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const thisMonth  = this.workouts.filter(w => new Date(w.date) >= thisMonthStart).length;
+    const lastMonth  = this.workouts.filter(w => new Date(w.date) >= lastMonthStart && new Date(w.date) < thisMonthStart).length;
+    const monthColor = thisMonth >= lastMonth ? 'var(--sea-foam)' : 'var(--coral)';
+
+    // ── Most-trained muscle this month ───────────────────────
+    const monthMuscles = {};
+    this.workouts.filter(w => new Date(w.date) >= thisMonthStart).forEach(w => {
+      w.exercises.forEach(ex => {
+        const lib = this.exercises.find(e => e.id === ex.exerciseId || e.name === ex.name);
+        (lib?.muscleGroups || []).forEach(m => { monthMuscles[m] = (monthMuscles[m] || 0) + 1; });
+      });
+    });
+    const topMuscle = Object.entries(monthMuscles).sort((a,b) => b[1]-a[1])[0]?.[0] || '—';
+
     return `
       <div class="fade-in">
-        <div class="section-header"><span class="section-title">Weekly Volume</span></div>
-        <div class="card">
-          <div class="text-xs text-sea">Last 4 Weeks</div>
-          <div class="flex gap-4 mt-8" style="align-items:flex-end;height:60px;">
-            ${this.getVolumeHistory(4).map(v => `
-              <div class="flex-1 flex flex-col" style="align-items:center;justify-content:flex-end;height:100%;">
-                <div style="width:100%;background:linear-gradient(to top,var(--teal),var(--sea-foam));border-radius:4px 4px 0 0;min-height:4px;height:${v.percent}%;"></div>
-                <div class="text-xs text-sea mt-4">${v.label}</div>
-              </div>
-            `).join('')}
+
+        <!-- Overview chips -->
+        <div class="section-header"><span class="section-title">Overview</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 4px;">
+          <div class="card" style="padding:14px 12px;text-align:center;">
+            <div style="font-size:1.5rem;font-weight:800;color:var(--aqua);line-height:1;">${totalSessions}</div>
+            <div class="text-xs text-sea mt-4">Total Sessions</div>
+          </div>
+          <div class="card" style="padding:14px 12px;text-align:center;">
+            <div style="font-size:1.5rem;font-weight:800;color:var(--aqua);line-height:1;">${avgPerWeek}</div>
+            <div class="text-xs text-sea mt-4">Avg / Week</div>
+          </div>
+          <div class="card" style="padding:14px 12px;text-align:center;">
+            <div style="font-size:1.5rem;font-weight:800;color:${monthColor};line-height:1;">${thisMonth} <span style="font-size:0.8rem;color:var(--text-sea);">/ ${lastMonth}</span></div>
+            <div class="text-xs text-sea mt-4">This Month / Last</div>
+          </div>
+          <div class="card" style="padding:14px 12px;text-align:center;">
+            <div style="font-size:1rem;font-weight:700;color:var(--sea-foam);line-height:1.2;">${topMuscle}</div>
+            <div class="text-xs text-sea mt-4">Top Muscle (Month)</div>
           </div>
         </div>
 
-        <div class="section-header"><span class="section-title">Consistency — 90 Days</span></div>
-        <div class="card" style="overflow:hidden;">
-          <div style="display:flex;justify-content:space-around;margin-bottom:5px;">
-            ${['S','M','T','W','T','F','S'].map(d => `<div style="flex:1;text-align:center;font-size:0.6rem;color:var(--text-sea);font-weight:700;">${d}</div>`).join('')}
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
-            ${calCells.map(c => {
-              if (c.pad) return `<div style="aspect-ratio:1;"></div>`;
-              const bg = c.isFuture ? 'transparent'
-                : c.worked ? 'var(--lagoon)'
-                : c.isToday ? 'rgba(0,200,255,0.18)'
-                : 'rgba(255,255,255,0.07)';
-              const ring = c.isToday ? 'outline:1.5px solid var(--aqua);outline-offset:-1px;' : '';
-              return `<div style="aspect-ratio:1;border-radius:3px;background:${bg};${ring}" title="${c.date ? c.date.toLocaleDateString() : ''}"></div>`;
-            }).join('')}
-          </div>
-          <div class="flex gap-6 mt-10" style="align-items:center;justify-content:flex-end;">
-            <span class="text-xs text-sea">Less</span>
-            <div style="width:9px;height:9px;border-radius:2px;background:rgba(255,255,255,0.07);"></div>
-            <div style="width:9px;height:9px;border-radius:2px;background:rgba(0,160,140,0.45);"></div>
-            <div style="width:9px;height:9px;border-radius:2px;background:var(--lagoon);"></div>
-            <span class="text-xs text-sea">More</span>
-          </div>
+        <!-- Volume per session line graph -->
+        <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="section-title">Volume per Session</span>
+          <button id="btn-toggle-graph" data-mode="recent"
+            style="background:none;border:none;color:var(--aqua);font-size:0.75rem;font-weight:600;cursor:pointer;padding:0 16px 0 0;">
+            All time ▾
+          </button>
+        </div>
+        <div class="card" id="vol-graph-card">
+          ${this._buildVolumeLineGraph(14)}
         </div>
 
+        <!-- Weekly volume bars -->
+        <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="section-title">Weekly Volume</span>
+          <button id="btn-toggle-weekly" data-weeks="4"
+            style="background:none;border:none;color:var(--aqua);font-size:0.75rem;font-weight:600;cursor:pointer;padding:0 16px 0 0;">
+            12 weeks ▾
+          </button>
+        </div>
+        <div class="card" id="weekly-vol-card">
+          ${this._buildWeeklyVolBars(4)}
+        </div>
+
+        <!-- Consistency calendar -->
+        <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="section-title">Consistency</span>
+          <button id="btn-toggle-calendar" data-mode="recent"
+            style="background:none;border:none;color:var(--aqua);font-size:0.75rem;font-weight:600;cursor:pointer;padding:0 16px 0 0;">
+            Full history ▾
+          </button>
+        </div>
+        <div class="card" id="cal-card" style="overflow:hidden;">
+          ${this._buildCalendarHTML(false)}
+        </div>
+
+        <!-- Muscle activity -->
         <div class="section-header"><span class="section-title">Muscle Activity</span></div>
         <div class="card">
+          <div class="text-xs text-sea mb-8">This week's training focus</div>
           <div class="flex flex-wrap gap-8" style="justify-content:center;">
-            ${Object.entries(muscleData).map(([muscle, intensity]) => `
-              <div class="heatmap-region intensity-${Math.min(5, intensity)}"
-                   style="padding:8px 12px;border-radius:var(--radius-sm);">${muscle}</div>
-            `).join('')}
+            ${Object.entries(muscleData).length === 0
+              ? `<div class="text-sm text-sea">Log a workout this week to see muscle heatmap</div>`
+              : Object.entries(muscleData).map(([muscle, intensity]) => `
+                  <div class="heatmap-region intensity-${Math.min(5, intensity)}"
+                       style="padding:8px 12px;border-radius:var(--radius-sm);">${muscle}</div>
+                `).join('')}
           </div>
         </div>
+
+        <!-- PRs -->
         <div class="section-header"><span class="section-title">Personal Records</span></div>
         ${Object.entries(p.personalRecords || {}).length === 0 ? `
           <div class="empty-state" style="padding:30px;">
@@ -1061,20 +1110,164 @@ const App = {
                 <div class="text-sunset text-bold">${this.Icons.anchor}</div>
               </div>
             </div>
-          `).join('')
-        }
+          `).join('')}
         <div style="height:20px;"></div>
       </div>`;
   },
 
-  _buildStreakCalendar() {
-    // Build a set of workout date strings
+  // ── Volume per-session SVG line graph ─────────────────────
+  _buildVolumeLineGraph(limit) {
+    const allSorted = [...this.workouts].sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (allSorted.length === 0) {
+      return `<div class="text-sm text-sea" style="padding:20px;text-align:center;">No sessions yet — get lifting! 🏖️</div>`;
+    }
+
+    const pool = limit > 0 ? allSorted.slice(-limit) : allSorted;
+    const unit = this.settings?.defaultWeightUnit || 'lbs';
+    const data = pool.map(w => ({
+      date: new Date(w.date),
+      vol: w.exercises.reduce((s, ex) =>
+        s + ex.sets.reduce((ss, set) => ss + ((set.weight||0)*(set.reps||0)), 0), 0)
+    }));
+
+    if (data.length < 2) {
+      const v = data[0]?.vol || 0;
+      return `<div class="text-sm text-sea" style="padding:16px;text-align:center;">
+        Only 1 session recorded (${Math.round(v).toLocaleString()} ${unit}). Come back after your next workout!
+      </div>`;
+    }
+
+    const maxV = Math.max(...data.map(d => d.vol));
+    const minV = Math.min(...data.map(d => d.vol));
+    const range = maxV - minV || 1;
+    const W = 300, H = 90, PL = 4, PR = 4, PT = 10, PB = 20;
+    const iW = W - PL - PR, iH = H - PT - PB;
+    const n = data.length - 1;
+
+    const pts = data.map((d, i) => ({
+      x: PL + (i / n) * iW,
+      y: PT + (1 - (d.vol - minV) / range) * iH,
+      d,
+    }));
+
+    const line = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const area = `M${pts[0].x.toFixed(1)},${(PT+iH).toFixed(1)} ` +
+      pts.map(p => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') +
+      ` L${pts[n].x.toFixed(1)},${(PT+iH).toFixed(1)} Z`;
+
+    // Label first, last, and midpoint
+    const labelIdx = new Set([0, Math.floor(n/2), n]);
+    const xLabels = [...labelIdx].map(i => {
+      const p = pts[i];
+      const lbl = p.d.date.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      return `<text x="${p.x.toFixed(1)}" y="${H-1}" text-anchor="middle" fill="rgba(130,190,210,0.75)" font-size="7.5" font-family="-apple-system,sans-serif">${lbl}</text>`;
+    }).join('');
+
+    const latest = data[n].vol;
+    const prev   = data[n-1].vol;
+    const delta  = latest - prev;
+    const dStr   = (delta >= 0 ? '+' : '') + Math.round(delta).toLocaleString();
+    const dColor = delta >= 0 ? 'var(--sea-foam)' : 'var(--coral)';
+    const fmt    = v => v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v).toLocaleString();
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <div style="font-size:1.15rem;font-weight:800;color:var(--text-main);">
+            ${fmt(latest)} <span style="font-size:0.72rem;font-weight:500;color:var(--text-sea);">${unit}</span>
+          </div>
+          <div style="font-size:0.75rem;color:${dColor};">${dStr} from last session</div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text-muted);padding-top:2px;">
+          ${limit > 0 ? `Last ${data.length}` : `All ${data.length}`} sessions
+        </div>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible;">
+        <defs>
+          <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#00c8cc" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="#00c8cc" stop-opacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <path d="${area}" fill="url(#volGrad)"/>
+        <polyline points="${line}" fill="none" stroke="#00d4e0" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${pts.map((p, i) => {
+          const isLast = i === n;
+          return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}"
+            r="${isLast ? 4 : 2.5}"
+            fill="${isLast ? '#00d4e0' : '#4ee8c8'}"
+            stroke="rgba(2,22,40,0.85)" stroke-width="1.5"/>`;
+        }).join('')}
+        ${xLabels}
+      </svg>`;
+  },
+
+  // ── Weekly volume bar chart ───────────────────────────────
+  _buildWeeklyVolBars(weeks) {
+    const data = this.getVolumeHistory(weeks);
+    const unit = this.settings?.defaultWeightUnit || 'lbs';
+    const fmt  = v => v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v).toLocaleString();
+    return `
+      <div class="text-xs text-sea" style="margin-bottom:8px;">Last ${weeks} weeks</div>
+      <div class="flex gap-4" style="align-items:flex-end;height:80px;">
+        ${data.map(v => `
+          <div class="flex-1 flex flex-col" style="align-items:center;justify-content:flex-end;height:100%;">
+            ${v.volume > 0 ? `<div style="font-size:0.55rem;color:var(--text-sea);margin-bottom:2px;">${fmt(v.volume)}</div>` : ''}
+            <div style="width:100%;background:linear-gradient(to top,var(--teal),var(--sea-foam));border-radius:4px 4px 0 0;min-height:${v.volume>0?4:2}px;height:${Math.max(v.percent,v.volume>0?5:2)}%;opacity:${v.volume>0?1:0.25};"></div>
+            <div class="text-xs text-sea mt-4">${v.label}</div>
+          </div>
+        `).join('')}
+      </div>`;
+  },
+
+  // ── Consistency calendar HTML (reusable) ─────────────────
+  _buildCalendarHTML(showAll) {
+    const cells = this._buildStreakCalendar(showAll);
+    return `
+      <div style="display:flex;justify-content:space-around;margin-bottom:5px;">
+        ${['S','M','T','W','T','F','S'].map(d =>
+          `<div style="flex:1;text-align:center;font-size:0.6rem;color:var(--text-sea);font-weight:700;">${d}</div>`
+        ).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
+        ${cells.map(c => {
+          if (c.pad) return `<div style="aspect-ratio:1;"></div>`;
+          const bg = c.worked ? 'var(--lagoon)'
+            : c.isToday ? 'rgba(0,200,255,0.18)'
+            : 'rgba(255,255,255,0.07)';
+          const ring = c.isToday ? 'outline:1.5px solid var(--aqua);outline-offset:-1px;' : '';
+          return `<div style="aspect-ratio:1;border-radius:3px;background:${bg};${ring}" title="${c.date?c.date.toLocaleDateString():''}"></div>`;
+        }).join('')}
+      </div>
+      <div class="flex gap-6 mt-10" style="align-items:center;justify-content:flex-end;">
+        <span class="text-xs text-sea">Less</span>
+        <div style="width:9px;height:9px;border-radius:2px;background:rgba(255,255,255,0.07);"></div>
+        <div style="width:9px;height:9px;border-radius:2px;background:rgba(0,160,140,0.45);"></div>
+        <div style="width:9px;height:9px;border-radius:2px;background:var(--lagoon);"></div>
+        <span class="text-xs text-sea">More</span>
+      </div>`;
+  },
+
+  _buildStreakCalendar(showAll = false) {
     const workoutDates = new Set(this.workouts.map(w => new Date(w.date).toDateString()));
     const today = new Date();
-    // Align start to the beginning of the week (Sunday) 13 weeks ago
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 90);
-    startDate.setDate(startDate.getDate() - startDate.getDay()); // back to Sunday
+    let startDate;
+
+    if (showAll && this.workouts.length > 0) {
+      // Start from first workout date (capped at 90 days back)
+      const earliest = new Date(Math.min(...this.workouts.map(w => new Date(w.date).getTime())));
+      startDate = new Date(earliest);
+      startDate.setDate(startDate.getDate() - startDate.getDay()); // align to Sunday
+      const cap = new Date(today);
+      cap.setDate(cap.getDate() - 90);
+      cap.setDate(cap.getDate() - cap.getDay());
+      if (startDate < cap) startDate = cap;
+    } else {
+      // Default: last 2 weeks, aligned to Sunday
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 13);
+      startDate.setDate(startDate.getDate() - startDate.getDay());
+    }
 
     const cells = [];
     const cursor = new Date(startDate);
@@ -1083,14 +1276,12 @@ const App = {
         date: new Date(cursor),
         worked: workoutDates.has(cursor.toDateString()),
         isToday: cursor.toDateString() === today.toDateString(),
-        isFuture: false,
       });
       cursor.setDate(cursor.getDate() + 1);
     }
-    // Pad end to complete the last week row
     const remaining = 7 - (cells.length % 7 || 7);
     if (remaining < 7) {
-      for (let i = 0; i < remaining; i++) cells.push({ isFuture: true, pad: true });
+      for (let i = 0; i < remaining; i++) cells.push({ pad: true });
     }
     return cells;
   },
@@ -2689,6 +2880,53 @@ const App = {
         });
         document.querySelectorAll('[data-pr-exercise]').forEach(el => {
           el.addEventListener('click', () => this.openAIChat?.(`Tell me about my ${el.dataset.prExercise} progress.`));
+        });
+
+        // ── Stats expand/collapse toggles ─────────────────────
+        this.bindClick('btn-toggle-graph', () => {
+          const btn = document.getElementById('btn-toggle-graph');
+          if (!btn) return;
+          const card = document.getElementById('vol-graph-card');
+          if (btn.dataset.mode === 'recent') {
+            btn.dataset.mode = 'all';
+            btn.textContent = 'Last 14 ▴';
+            card.innerHTML = this._buildVolumeLineGraph(0);
+          } else {
+            btn.dataset.mode = 'recent';
+            btn.textContent = 'All time ▾';
+            card.innerHTML = this._buildVolumeLineGraph(14);
+          }
+        });
+
+        this.bindClick('btn-toggle-weekly', () => {
+          const btn = document.getElementById('btn-toggle-weekly');
+          if (!btn) return;
+          const card = document.getElementById('weekly-vol-card');
+          const cur = parseInt(btn.dataset.weeks);
+          if (cur === 4) {
+            btn.dataset.weeks = '12';
+            btn.textContent = '4 weeks ▴';
+            card.innerHTML = this._buildWeeklyVolBars(12);
+          } else {
+            btn.dataset.weeks = '4';
+            btn.textContent = '12 weeks ▾';
+            card.innerHTML = this._buildWeeklyVolBars(4);
+          }
+        });
+
+        this.bindClick('btn-toggle-calendar', () => {
+          const btn = document.getElementById('btn-toggle-calendar');
+          if (!btn) return;
+          const card = document.getElementById('cal-card');
+          if (btn.dataset.mode === 'recent') {
+            btn.dataset.mode = 'all';
+            btn.textContent = '2 weeks ▴';
+            card.innerHTML = this._buildCalendarHTML(true);
+          } else {
+            btn.dataset.mode = 'recent';
+            btn.textContent = 'Full history ▾';
+            card.innerHTML = this._buildCalendarHTML(false);
+          }
         });
         break;
 
