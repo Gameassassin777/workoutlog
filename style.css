@@ -10,11 +10,11 @@
   --glass-border:    rgba(255, 255, 255, 0.20);
   --glass-border-hi: rgba(255, 255, 255, 0.46);
 
-  /* Blur depths — minimal so video is legible through cards */
-  --blur-sm:  blur(2px);
-  --blur-md:  blur(5px);
-  --blur-lg:  blur(8px);
-  --blur-xl:  blur(12px);
+  /* Blur depths */
+  --blur-sm:  blur(4px);
+  --blur-md:  blur(10px);
+  --blur-lg:  blur(16px);
+  --blur-xl:  blur(22px);
 
   /* Ocean palette */
   --teal:       #00C2D4;
@@ -371,6 +371,7 @@ body::before {
 .card-title {
   font-size: 0.68rem; font-weight: 800; color: var(--text-sub);
   text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
 .card-value {
   font-size: 2.2rem; font-weight: 900; color: var(--text-main);
@@ -567,7 +568,7 @@ select.input {
 
 /* ─── Section Headers ───────────────────────────────────────── */
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 6px; }
-.section-title { font-size: 0.74rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; }
+.section-title { font-size: 0.74rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
 .section-action { font-size: 0.75rem; font-weight: 700; color: var(--aqua); background: none; border: none; cursor: pointer; padding: 4px 0; font-family: inherit; transition: text-shadow 0.2s; }
 .section-action:hover { text-shadow: 0 0 10px rgba(0,200,255,0.55); }
 
@@ -936,10 +937,12 @@ select.input {
 }
 .hero-greeting-sub {
   font-size: 0.82rem; color: var(--text-muted); font-weight: 500;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9);
 }
 .hero-greeting-name {
   font-size: 1.3rem; font-weight: 900; color: var(--text-main);
   letter-spacing: -0.5px; line-height: 1.2;
+  text-shadow: 0 0 24px rgba(0,200,255,0.35), 0 2px 6px rgba(0,0,0,0.9);
 }
 .hero-level-pill {
   display: flex; align-items: center; gap: 8px;
@@ -1069,6 +1072,7 @@ select.input {
 .leaderboard-name {
   font-size: 0.88rem; font-weight: 700; color: var(--text-main);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 .leaderboard-sub { font-size: 0.72rem; color: var(--text-sub); margin-top: 1px; }
 .leaderboard-volume {
@@ -1089,8 +1093,8 @@ select.input {
   border: 1px solid var(--glass-border);
 }
 .feed-content { flex: 1; min-width: 0; }
-.feed-user { font-size: 0.82rem; font-weight: 700; color: var(--text-main); }
-.feed-text { font-size: 0.78rem; color: var(--text-sub); margin-top: 1px; line-height: 1.35; }
+.feed-user { font-size: 0.82rem; font-weight: 700; color: var(--text-main); text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.feed-text { font-size: 0.78rem; color: var(--text-sub); margin-top: 1px; line-height: 1.35; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
 .feed-time { font-size: 0.68rem; color: var(--text-muted); margin-top: 3px; }
 .feed-emoji { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
 
@@ -1120,17 +1124,18 @@ select.input {
 .chat-global-bubble.mine .bubble-body { align-items: flex-end; }
 .bubble-name {
   font-size: 0.70rem; font-weight: 700; color: var(--text-sub);
-  padding: 0 6px;
+  padding: 0 6px; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 .bubble-text {
   background: var(--glass-mid);
   border: 1px solid var(--glass-border);
-  backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm);
+  backdrop-filter: var(--blur-md); -webkit-backdrop-filter: var(--blur-md);
   border-radius: 16px 16px 16px 4px;
   padding: 8px 12px;
   font-size: 0.85rem; color: var(--text-main);
   line-height: 1.4;
   box-shadow: var(--shadow-glass);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
 .chat-global-bubble.mine .bubble-text {
   background: linear-gradient(135deg, rgba(0,140,170,0.35), rgba(0,200,255,0.25));
@@ -1149,6 +1154,7 @@ select.input {
   font-size: 0.82rem; cursor: pointer; color: var(--text-sub);
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
 }
 .reaction-btn:active { transform: scale(0.93); }
 .reaction-btn span {

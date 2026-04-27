@@ -122,30 +122,50 @@ const AI = {
 
   async parseFileContent(content, type, onProgress = null) {
     const apiKey = await this.getApiKey();
-    if (!apiKey) return { error: 'API Key missing' };
+    const isImage = type && type.startsWith('image/');
 
-    const prompt = `You are a workout log parser. Convert the following text or data into a JSON format with a "workouts" array. 
-    Each workout should have: "date" (ISO), "title", and "exercises" (array with "name" and "sets" array of {weight, reps}).
-    If anything is unclear, add it to an "uncertain" array with a "field" description.
-    
-    Data to parse:
-    ${content}`;
+    // Backend fallback for text-based files (no key or rate limited)
+    const tryBackend = async () => {
+      const userId = await DB.getSetting('serverId');
+      if (!userId) return { error: 'Add a Gemini API key in Settings → AI to import files, or join the community first.' };
+      const truncated = content.length > 5000 ? content.substring(0, 5000) + '\n...[truncated]' : content;
+      const prompt = `Parse this workout log into JSON. Return ONLY a JSON object with a "workouts" array. Each workout needs: "date" (ISO), "title", "exercises" (array with "name" and "sets" array of {weight, reps}). Data:\n${truncated}`;
+      if (onProgress) onProgress('Trying backup server...');
+      return this.backendChat([{ role: 'user', content: prompt }], '');
+    };
+
+    if (!apiKey) {
+      if (isImage) return { error: 'A Gemini API key is required to parse image files. Add yours in Settings → AI.' };
+      return tryBackend();
+    }
+
+    const parsePrompt = `You are a workout log parser. Convert the following into a JSON object with a "workouts" array.
+    Each workout: "date" (ISO), "title", "exercises" (array with "name" and "sets" array of {weight, reps}).
+    Add unclear items to an "uncertain" array. Return only valid JSON.\n\nData:\n${isImage ? '[See attached image]' : content}`;
+
+    // Use multimodal parts for images, text-only for everything else
+    const parts = isImage
+      ? [{ inline_data: { mime_type: type, data: content.replace(/^data:[^,]+,/, '') } }, { text: parsePrompt }]
+      : [{ text: parsePrompt }];
 
     try {
-      const response = await this.fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      }, 3, onProgress);
+      const response = await this.fetchWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts }] }) },
+        3, onProgress
+      );
 
       if (!response.ok) {
+        if (response.status === 429) {
+          if (!isImage) return tryBackend();
+          return { error: 'Gemini rate limit hit. Please wait a minute and try again.' };
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) throw new Error('Invalid response format');
-      
       return { text };
     } catch (err) {
       console.error('AI Parsing failed:', err);

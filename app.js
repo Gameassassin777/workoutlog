@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v40';
+const APP_VERSION = 'v41';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -695,12 +695,26 @@ const App = {
           ${this.activeWorkout ? 'NEW SESSION' : 'START SESSION'}
         </button>
 
-        <div class="hero-feed-teaser" id="btn-go-social">
-          <div class="hero-feed-teaser-label">Live · The Board</div>
-          <div class="hero-feed-item" id="home-feed-preview" style="color:var(--text-muted);">See who's grinding on the island →</div>
+        <div class="section-header" style="padding-top:16px;">
+          <span class="section-title">🏆 This Week's Leaders</span>
+          <button class="section-action" id="btn-go-chat">Chat →</button>
+        </div>
+        <div id="home-lb-list" style="margin:0 16px;">
+          <div class="card" style="padding:14px 16px;text-align:center;margin:0;">
+            <div class="text-xs text-muted">Loading rankings...</div>
+          </div>
         </div>
 
-        <div style="height: 16px;"></div>
+        <div class="section-header" style="padding-top:10px;">
+          <span class="section-title">📸 Recent Activity</span>
+        </div>
+        <div id="home-feed-list" style="margin:0 16px;">
+          <div class="card" style="padding:14px 16px;text-align:center;margin:0;">
+            <div class="text-xs text-muted">Loading feed...</div>
+          </div>
+        </div>
+
+        <div style="height: 24px;"></div>
       </div>
     `;
   },
@@ -1756,7 +1770,7 @@ const App = {
   },
 
   // ─── SOCIAL SCREEN ────────────────────────────────────────
-  renderSocial(activeTab = 'leaderboard') {
+  renderSocial() {
     const hasUsername = !!this.settings.username;
     if (!hasUsername) {
       return this._renderSocialSetup();
@@ -1765,13 +1779,8 @@ const App = {
       <div class="header">
         <span class="header-title">The Board</span>
       </div>
-      <div class="tab-pill">
-        <button class="tab-pill-item ${activeTab === 'leaderboard' ? 'active' : ''}" data-social-tab="leaderboard">Leaderboard</button>
-        <button class="tab-pill-item ${activeTab === 'feed' ? 'active' : ''}" data-social-tab="feed">Feed</button>
-        <button class="tab-pill-item ${activeTab === 'chat' ? 'active' : ''}" data-social-tab="chat">Chat</button>
-      </div>
       <div id="social-tab-content">
-        ${this._renderSocialTab(activeTab)}
+        ${this._renderGlobalChat()}
       </div>
     `;
   },
@@ -1977,9 +1986,94 @@ const App = {
     this._bindReactionBars();
   },
 
+  // ─── HOME MINI LEADERBOARD ────────────────────────────────
+  _populateHomeLb(users) {
+    const list = document.getElementById('home-lb-list');
+    if (!list) return;
+    const fmt = (v) => v >= 1000 ? (v/1000).toFixed(1)+'k' : v;
+    const rankClass = (r) => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
+    const makeAv = (url, seed) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'user'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
+    const myVolume = this.getWeekVolume();
+    const top3 = (users || []).slice(0, 3);
+    const myRank = myVolume > 0 && users.length
+      ? users.filter(u => u.volume > myVolume).length + 1
+      : (myVolume > 0 ? 1 : null);
+
+    if (!top3.length && !myRank) {
+      list.innerHTML = `<div class="card" style="padding:14px 16px;text-align:center;margin:0;">
+        <div class="text-xs text-muted">No sessions this week — log one to rank up! 🏝️</div>
+      </div>`;
+      return;
+    }
+    let html = `<div class="card" style="padding:0;overflow:hidden;margin:0;">`;
+    top3.forEach(u => {
+      html += `<div class="leaderboard-row card-tappable" style="padding:10px 14px;"
+          data-lb-username="${u.username}" data-lb-seed="${u.user_id}"
+          data-lb-level="${u.level||1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}">
+        <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
+        <img class="leaderboard-avatar" src="${makeAv(u.avatar_url, u.user_id)}" alt="${u.username}">
+        <div class="leaderboard-info">
+          <div class="leaderboard-name">${u.username}</div>
+          <div class="leaderboard-sub">Lv ${u.level||1}</div>
+        </div>
+        <div class="leaderboard-volume">${fmt(u.volume)} lbs</div>
+      </div>`;
+    });
+    if (myRank) {
+      html += `<div class="leaderboard-row" style="padding:10px 14px;background:rgba(0,180,255,0.06);">
+        <div class="leaderboard-rank you">${myRank}</div>
+        <img class="leaderboard-avatar" src="${this._getAvatarUrl()}" alt="you">
+        <div class="leaderboard-info">
+          <div class="leaderboard-name">${this.settings.username||'You'} <span style="font-size:0.62rem;color:var(--aqua);">(you)</span></div>
+        </div>
+        <div class="leaderboard-volume">${fmt(myVolume)} lbs</div>
+      </div>`;
+    }
+    html += '</div>';
+    list.innerHTML = html;
+    // Bind row taps → user profile
+    list.querySelectorAll('[data-lb-username]').forEach(el => {
+      el.addEventListener('click', () => {
+        const av = el.dataset.lbSeed
+          ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${el.dataset.lbSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`
+          : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
+        this.showScreen('userProfile', {
+          user: { username: el.dataset.lbUsername, avatarUrl: av,
+            level: parseInt(el.dataset.lbLevel)||1, volume: parseInt(el.dataset.lbVolume)||0,
+            rank: parseInt(el.dataset.lbRank)||null, streak: null, sessions: null }
+        });
+      });
+    });
+  },
+
+  // ─── HOME MINI FEED ────────────────────────────────────────
+  _populateHomeFeed(items) {
+    const list = document.getElementById('home-feed-list');
+    if (!list) return;
+    const recent = (items || []).slice(0, 3);
+    if (!recent.length) {
+      list.innerHTML = `<div class="card" style="padding:14px 16px;text-align:center;margin:0;">
+        <div class="text-xs text-muted">No activity yet — finish a workout to appear here!</div>
+      </div>`;
+      return;
+    }
+    const makeAv = (url, seed) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed||'user'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
+    list.innerHTML = `<div class="card" style="padding:0;overflow:hidden;margin:0;">
+      ${recent.map(f => `
+        <div class="feed-item" style="padding:10px 14px;gap:10px;">
+          <img class="feed-avatar" style="width:30px;height:30px;flex-shrink:0;" src="${makeAv(f.avatar_url, f.user_id)}" alt="${f.username||'athlete'}">
+          <div class="feed-content" style="flex:1;min-width:0;">
+            <div class="feed-user">${f.username||'athlete'}</div>
+            <div class="feed-text">${f.text||f.description||''}</div>
+          </div>
+          <div class="feed-time" style="font-size:0.62rem;flex-shrink:0;">${f.time_ago||''}</div>
+        </div>`).join('')}
+    </div>`;
+  },
+
   _renderGlobalChat() {
     return `
-      <div id="chat-fixed-frame" style="position:fixed; left:0; right:0; bottom:calc(56px + var(--safe-bottom,0px)); display:flex; flex-direction:column; z-index:5; top:160px;">
+      <div id="chat-fixed-frame" style="position:fixed; left:0; right:0; bottom:calc(56px + var(--safe-bottom,0px)); display:flex; flex-direction:column; z-index:5; top:60px;">
         <div class="chat-global-messages" id="global-chat-messages">
           <div class="text-center text-xs text-muted" style="padding:20px 16px;" id="chat-status-hint">Loading messages...</div>
         </div>
@@ -2716,11 +2810,15 @@ const App = {
         this.bindClick('btn-settings', () => this.showScreen('settings'));
         this.bindClick('btn-profile', () => this.showScreen('profile'));
         this.bindClick('btn-go-social', () => this.showScreen('social'));
-        this.bindClick('btn-resume-workout', () => this.showScreen('activeWorkout'));
+        this.bindClick('btn-go-chat', () => this.showScreen('social'));
         this.bindClick('btn-resume-workout', () => this.showScreen('activeWorkout'));
         this.bindClick('btn-go-profile-char', () => this.showScreen('settings'));
         this.bindClick('btn-go-profile', () => this.showScreen('settings'));
         this.bindClick('btn-notif', () => this._showNotifPanel());
+
+        // Load mini leaderboard + feed for home screen
+        this._fetchLeaderboard().then(d => this._populateHomeLb(d?.users || d || []));
+        this._fetchFeed().then(d => this._populateHomeFeed(d?.items || d || []));
 
         // Tappable stats → AI chat
         this.bindClick('tap-streak', () => this.openAIChat(`I have a ${this.profile.currentStreak} day workout streak. Give me motivation and evidence-based recovery tips to keep going!`));
@@ -3121,44 +3219,9 @@ const App = {
         break;
 
       case 'social':
-        document.querySelectorAll('[data-social-tab]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            // Kill any active chat poll before switching tabs
-            if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
-            const container = document.getElementById('screen-container');
-            container.style.overflow = '';
-            container.innerHTML = `<div class="header"><span class="header-title">The Board</span></div>
-              <div class="tab-pill">
-                <button class="tab-pill-item ${btn.dataset.socialTab === 'leaderboard' ? 'active' : ''}" data-social-tab="leaderboard">Leaderboard</button>
-                <button class="tab-pill-item ${btn.dataset.socialTab === 'feed' ? 'active' : ''}" data-social-tab="feed">Feed</button>
-                <button class="tab-pill-item ${btn.dataset.socialTab === 'chat' ? 'active' : ''}" data-social-tab="chat">Chat</button>
-              </div>
-              <div id="social-tab-content">${this._renderSocialTab(btn.dataset.socialTab)}</div>`;
-            this.bindScreenEvents('social');
-            this._bindReactionBars();
-            if (btn.dataset.socialTab === 'chat') this._positionChatFrame();
-          });
-        });
         // Reactions
         this._bindReactionBars();
-        // Leaderboard row taps → user profile (populated by _populateLeaderboard, also bind any already rendered)
-        document.querySelectorAll('[data-lb-username]').forEach(el => {
-          el.addEventListener('click', () => {
-            const av = el.dataset.lbSeed
-              ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${el.dataset.lbSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`
-              : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
-            this.showScreen('userProfile', {
-              user: {
-                username: el.dataset.lbUsername, avatarUrl: av,
-                level: parseInt(el.dataset.lbLevel) || 1,
-                volume: parseInt(el.dataset.lbVolume) || 0,
-                rank: parseInt(el.dataset.lbRank) || null,
-                streak: null, sessions: null,
-              }
-            });
-          });
-        });
-        // Social join
+        // Social join (shown when no username yet)
         this.bindClick('btn-social-join', async () => {
           const val = document.getElementById('social-username-input')?.value.trim();
           if (!val) return;
@@ -3169,16 +3232,9 @@ const App = {
           await this.registerWithServer();
           this.showScreen('social');
         });
-        // ─── Load real leaderboard ─────────────────────────────
-        if (document.getElementById('leaderboard-list')) {
-          this._fetchLeaderboard().then(d => this._populateLeaderboard(d?.users || d || []));
-        }
-        // ─── Load real feed ────────────────────────────────────
-        if (document.getElementById('feed-list')) {
-          this._fetchFeed().then(d => this._populateFeed(d?.items || d || []));
-        }
         // ─── Global chat: incremental polling + send ──────────
         if (document.getElementById('global-chat-messages')) {
+          requestAnimationFrame(() => this._positionChatFrame());
           const globalInput = document.getElementById('global-chat-input');
           const makeAv = (url) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
           const mkBubble = (m, idx) => {
