@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v45';
+const APP_VERSION = 'v46';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -582,6 +582,7 @@ const App = {
   async showScreen(name, data = {}) {
     // Kill background timers when navigating away
     if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
+    if (this._chatVisibilityHandler) { document.removeEventListener('visibilitychange', this._chatVisibilityHandler); this._chatVisibilityHandler = null; }
     this.currentScreen = name;
     this.setActiveNav(name);
     const container = document.getElementById('screen-container');
@@ -3356,8 +3357,22 @@ const App = {
           };
 
           if (this._chatPollTimer) clearInterval(this._chatPollTimer);
+          if (this._chatVisibilityHandler) {
+            document.removeEventListener('visibilitychange', this._chatVisibilityHandler);
+            this._chatVisibilityHandler = null;
+          }
           poll(); // immediate first load
-          this._chatPollTimer = setInterval(poll, 6000);
+          this._chatPollTimer = setInterval(poll, 2000);
+
+          // Resume fast when the user switches back to the app
+          this._chatVisibilityHandler = () => {
+            if (!document.hidden && this.currentScreen === 'social') {
+              poll(); // immediate catch-up poll
+              if (this._chatPollTimer) clearInterval(this._chatPollTimer);
+              this._chatPollTimer = setInterval(poll, 2000);
+            }
+          };
+          document.addEventListener('visibilitychange', this._chatVisibilityHandler);
 
           // Send handler
           const sendGlobal = async () => {
@@ -3379,8 +3394,8 @@ const App = {
               msgs.scrollTop = msgs.scrollHeight;
             }
             await this._postChatMessage(text);
-            // Force a poll ~700ms later to confirm and swap the optimistic bubble
-            setTimeout(poll, 700);
+            // Force a poll ~300ms later to confirm and swap the optimistic bubble
+            setTimeout(poll, 300);
           };
           this.bindClick('btn-global-chat-send', sendGlobal);
           if (globalInput) globalInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendGlobal(); });
