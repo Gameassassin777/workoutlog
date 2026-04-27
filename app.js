@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v48';
+const APP_VERSION = 'v49';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2552,8 +2552,13 @@ const App = {
           <button class="btn btn-ghost w-full" id="btn-save-settings">Save Settings</button>
         </div>
 
-        <div style="text-align:center; padding: 8px 16px 32px; color: var(--text-muted); font-size: 0.72rem; letter-spacing: 0.05em;">
+        <div style="text-align:center; padding: 8px 16px 8px; color: var(--text-muted); font-size: 0.72rem; letter-spacing: 0.05em;">
           TropicalFit ${APP_VERSION}
+        </div>
+        <div style="padding: 0 16px 32px;">
+          <button class="btn btn-ghost w-full" id="btn-force-update" style="font-size:0.82rem;opacity:0.7;">
+            🔄 Force Update App
+          </button>
         </div>
       </div>
     `;
@@ -4519,6 +4524,22 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
           this.showScreen('home');
         }
       }
+    });
+
+    this.bindClick('btn-force-update', async () => {
+      this.showToast('Clearing cache and updating…');
+      try {
+        // Delete every service worker cache
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+        // Unregister all service workers so the new one installs fresh
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+      } catch(e) { console.warn('Cache clear error:', e); }
+      // Hard reload bypasses any in-memory cache
+      location.reload(true);
     });
   },
 
