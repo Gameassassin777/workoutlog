@@ -207,6 +207,7 @@ body::before {
   flex: 1; overflow-y: auto; overflow-x: clip;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth; padding-bottom: 40px;
+  overscroll-behavior-y: none;
 }
 #screen-container::-webkit-scrollbar { display: none; }
 
@@ -271,9 +272,9 @@ body::before {
 /* ─── Bottom Navigation ─────────────────────────────────────── */
 .bottom-nav {
   display: flex;
-  background: rgba(2, 10, 28, 0.82);
+  background: var(--glass-deep);
   backdrop-filter: var(--blur-xl); -webkit-backdrop-filter: var(--blur-xl);
-  border-top: 1px solid rgba(0,200,255,0.18);
+  border-top: 1px solid var(--glass-border);
   padding: 4px 0; padding-bottom: calc(4px + var(--safe-bottom));
   flex-shrink: 0; position: relative;
 }
@@ -327,6 +328,11 @@ body::before {
 }
 
 .nav-item:active { transform: scale(0.88); }
+
+body.theme-light .nav-item { color: rgba(2, 20, 60, 0.80); text-shadow: none; }
+@media (prefers-color-scheme: light) {
+  body:not(.theme-dark):not(.theme-light) .nav-item { color: rgba(2, 20, 60, 0.80); text-shadow: none; }
+}
 
 /* ─── Cards ─────────────────────────────────────────────────── */
 .card {
