@@ -3073,8 +3073,12 @@ const App = {
           chatInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); this.sendChatMessage(); }
           });
-          // Auto-focus and pre-select prefilled text
-          if (data.prefill) { chatInput.focus(); chatInput.select(); }
+          // Defer focus so iOS has time to finish compositing the DOM before
+          // showing the keyboard — a single rAF is often swallowed, double-rAF isn't
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            chatInput.focus();
+            if (data.prefill) chatInput.select();
+          }));
         }
         // Scroll to bottom + bind copy on long-press
         const msgs = document.getElementById('chat-messages');
@@ -3588,7 +3592,7 @@ const App = {
             setTimeout(poll, 300);
           };
           this.bindClick('btn-global-chat-send', sendGlobal);
-          if (globalInput) globalInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendGlobal(); });
+          if (globalInput) globalInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendGlobal(); } });
         }
         break;
     }
@@ -4381,6 +4385,12 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     msgsContainer.appendChild(aiBubble);
     this._bindAiChatCopy(msgsContainer);
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+    // Re-focus input so user can type the next message without tapping
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const inp = document.getElementById('chat-input');
+      if (inp) inp.focus();
+    }));
 
     // Execute any app action the AI requested
     if (!result.error && result.action) {
