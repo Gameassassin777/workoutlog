@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v59';
+const APP_VERSION = 'v60';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -323,6 +323,10 @@ const App = {
     if (result.id) {
       this.settings.serverId = result.id;
       DB.saveSetting('serverId', result.id);
+      // Ensure push subscription is registered now that we have a server ID
+      if (this.settings.notificationsEnabled && Notification.permission === 'granted') {
+        this.subscribeToPush().catch(() => {});
+      }
     }
   },
 
@@ -415,6 +419,8 @@ const App = {
 
   async _fireLocalNotif(title, body, tag = 'tf') {
     if (!('serviceWorker' in navigator)) return;
+    // Hard guard: browser permission must be explicitly granted
+    if (Notification.permission !== 'granted') return;
     try {
       const reg = await navigator.serviceWorker.ready;
       reg.showNotification(title, {
@@ -425,7 +431,7 @@ const App = {
         data: { url: '/workoutlog/' },
         vibrate: [100, 50, 100],
       });
-    } catch (e) { /* permission denied or SW not ready */ }
+    } catch (e) { /* SW not ready */ }
   },
 
   // ─── NOTIFICATION PERMISSION PROMPT ───────────────────
@@ -2722,7 +2728,12 @@ const App = {
       <div class="header">
         <button class="header-back" id="btn-back-history">${this.Icons.back}</button>
         <span class="header-title">${w.title || dateStr}</span>
-        <button class="header-action" id="btn-delete-workout" data-id="${w.id}">${this.Icons.trash}</button>
+        <div style="display:flex;gap:6px;">
+          <button class="header-action" id="btn-edit-workout" data-id="${w.id}" style="color:var(--aqua);" title="Edit workout">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="header-action" id="btn-delete-workout" data-id="${w.id}">${this.Icons.trash}</button>
+        </div>
       </div>
       <div class="fade-in">
         <div class="p-16">
@@ -3060,13 +3071,18 @@ const App = {
         const chatInput = document.getElementById('chat-input');
         if (chatInput) {
           chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.sendChatMessage();
+            if (e.key === 'Enter') { e.preventDefault(); this.sendChatMessage(); }
           });
-          if (data.prefill) chatInput.focus();
+          // Auto-focus and pre-select prefilled text
+          if (data.prefill) { chatInput.focus(); chatInput.select(); }
         }
         // Scroll to bottom + bind copy on long-press
         const msgs = document.getElementById('chat-messages');
-        if (msgs) { msgs.scrollTop = msgs.scrollHeight; this._bindAiChatCopy(msgs); }
+        if (msgs) {
+          // Use requestAnimationFrame to ensure DOM has painted before scrolling
+          requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; });
+          this._bindAiChatCopy(msgs);
+        }
         document.querySelectorAll('[data-chip]').forEach(chip => {
           chip.addEventListener('click', () => {
             const input = document.getElementById('chat-input');
@@ -3246,6 +3262,12 @@ const App = {
         if (notifToggle) {
           notifToggle.addEventListener('change', async (e) => {
             if (e.target.checked) {
+              // If already denied in browser, warn user — requestPermission won't re-prompt
+              if (Notification.permission === 'denied') {
+                e.target.checked = false;
+                this.showToast('Notifications blocked — go to your browser/OS Settings and allow TropicalFit notifications, then try again.');
+                return;
+              }
               const perm = await Notification.requestPermission();
               const val = perm === 'granted';
               e.target.checked = val;
@@ -3340,6 +3362,14 @@ const App = {
         const deleteBtn = document.getElementById('btn-delete-workout');
         if (deleteBtn) {
           deleteBtn.addEventListener('click', () => this.deleteWorkout(deleteBtn.dataset.id));
+        }
+        const editBtn = document.getElementById('btn-edit-workout');
+        if (editBtn) {
+          editBtn.addEventListener('click', () => {
+            const wId = editBtn.dataset.id;
+            const w = this.workouts.find(wk => wk.id === wId);
+            if (w) this.showEditWorkoutModal(w);
+          });
         }
         const analyzeBtn = document.getElementById('btn-analyze-detail');
         if (analyzeBtn) {
@@ -3795,7 +3825,8 @@ const App = {
 
   bindSetInputs() {
     document.querySelectorAll('[data-field]').forEach(input => {
-      input.addEventListener('change', (e) => {
+      // Use 'input' not 'change' so the live volume ticker updates on every keystroke
+      input.addEventListener('input', (e) => {
         const exIdx = parseInt(e.target.dataset.ex);
         const setIdx = parseInt(e.target.dataset.set);
         const field = e.target.dataset.field;
@@ -4305,12 +4336,26 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     if (!message) return;
 
     input.value = '';
+    input.disabled = true; // prevent double-send
     this._currentChatMessages.push({ role: 'user', content: message });
 
     const msgsContainer = document.getElementById('chat-messages');
-    msgsContainer.innerHTML += `<div class="chat-bubble user">${this.escapeHtml(message)}</div>`;
-    msgsContainer.innerHTML += `<div class="chat-bubble ai" id="ai-typing"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>`;
+    const userBubble = document.createElement('div');
+    userBubble.className = 'chat-bubble user';
+    userBubble.textContent = message;
+    msgsContainer.appendChild(userBubble);
+
+    const typingBubble = document.createElement('div');
+    typingBubble.className = 'chat-bubble ai';
+    typingBubble.id = 'ai-typing';
+    typingBubble.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>';
+    msgsContainer.appendChild(typingBubble);
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+    // Auto-register with server if needed (required for free backend AI tier)
+    if (!this.settings.serverId && this.settings.username) {
+      await this.registerWithServer().catch(() => {});
+    }
 
     // Build rich context from app data
     const context = this._currentChatContext || this.buildChatContext();
@@ -4318,21 +4363,29 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
 
     const typingEl = document.getElementById('ai-typing');
     if (typingEl) typingEl.remove();
+    input.disabled = false;
 
+    const aiBubble = document.createElement('div');
+    aiBubble.className = 'chat-bubble ai';
     if (result.error) {
-      msgsContainer.innerHTML += `<div class="chat-bubble ai" style="color: var(--coral);">${this.escapeHtml(result.error)}</div>`;
-      this._bindAiChatCopy(msgsContainer);
+      aiBubble.style.color = 'var(--coral)';
+      aiBubble.textContent = result.error;
+      // If free tier error, show helpful hint
+      if (result.error.includes('Join the community') || result.error.includes('Register')) {
+        aiBubble.innerHTML = `<span style="color:var(--coral)">${this.escapeHtml(result.error)}</span><br><small style="color:var(--text-muted)">Set a username in Config → Profile to unlock the free AI Coach.</small>`;
+      }
     } else {
       this._currentChatMessages.push({ role: 'ai', content: result.text });
-      msgsContainer.innerHTML += `<div class="chat-bubble ai">${this.escapeHtml(result.text)}</div>`;
-      this._bindAiChatCopy(msgsContainer);
-
-      // Execute any app action the AI requested
-      if (result.action) {
-        await this.executeAIAction(result.action);
-      }
+      aiBubble.textContent = result.text;
     }
+    msgsContainer.appendChild(aiBubble);
+    this._bindAiChatCopy(msgsContainer);
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+    // Execute any app action the AI requested
+    if (!result.error && result.action) {
+      await this.executeAIAction(result.action);
+    }
 
     // Save chat log
     await this.saveChatLog();
@@ -4930,6 +4983,100 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
         document.getElementById('modal-container').innerHTML = '';
         this.showScreen('exerciseLibrary');
       }
+    });
+  },
+
+  // ─── EDIT PAST WORKOUT MODAL ────────────────────────────────
+  showEditWorkoutModal(w) {
+    const unit = this.settings.defaultWeightUnit;
+    const exerciseRows = w.exercises.map((ex, exIdx) => `
+      <div style="margin-bottom:18px;">
+        <div class="text-bold text-white mb-8">${this.escapeHtml(ex.name)}</div>
+        ${ex.sets.map((s, sIdx) => `
+          <div class="flex gap-8 mb-6" style="align-items:center;">
+            <div class="set-number completed" style="width:22px;height:22px;font-size:0.68rem;flex-shrink:0;">${sIdx + 1}</div>
+            <input type="number" inputmode="decimal" class="input edit-set-weight" step="0.5" min="0"
+              data-ex="${exIdx}" data-set="${sIdx}"
+              value="${s.weight || ''}" placeholder="wt"
+              style="width:70px;text-align:center;padding:6px 8px;">
+            <span class="text-xs text-muted">${s.weightUnit || unit}</span>
+            <span class="text-xs text-muted">×</span>
+            <input type="number" inputmode="numeric" class="input edit-set-reps" step="1" min="0"
+              data-ex="${exIdx}" data-set="${sIdx}"
+              value="${s.reps || ''}" placeholder="reps"
+              style="width:60px;text-align:center;padding:6px 8px;">
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+
+    const html = `
+      <div class="modal-overlay" id="edit-workout-overlay">
+        <div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
+          <div class="modal-handle"></div>
+          <div class="text-bold text-white text-lg mb-4">Edit Workout</div>
+          <div class="text-xs text-sea mb-16">${new Date(w.date).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
+          ${exerciseRows}
+          <div class="input-group" style="margin-top:8px;">
+            <label class="input-label">Notes</label>
+            <textarea class="input" id="edit-workout-notes" rows="2">${this.escapeHtml(w.notes || '')}</textarea>
+          </div>
+          <div class="flex gap-8 mt-16">
+            <button class="btn btn-accent flex-1" id="btn-save-edit-workout">Save Changes</button>
+            <button class="btn btn-ghost" id="btn-cancel-edit-workout">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-container').innerHTML = html;
+
+    // Snapshot of edited values — updated live from inputs
+    const editedSets = w.exercises.map(ex => ex.sets.map(s => ({ weight: s.weight, reps: s.reps })));
+
+    document.querySelectorAll('.edit-set-weight').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const exIdx = parseInt(e.target.dataset.ex);
+        const sIdx = parseInt(e.target.dataset.set);
+        editedSets[exIdx][sIdx].weight = parseFloat(e.target.value) || 0;
+      });
+    });
+    document.querySelectorAll('.edit-set-reps').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const exIdx = parseInt(e.target.dataset.ex);
+        const sIdx = parseInt(e.target.dataset.set);
+        editedSets[exIdx][sIdx].reps = parseFloat(e.target.value) || 0;
+      });
+    });
+
+    document.getElementById('edit-workout-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'edit-workout-overlay') document.getElementById('modal-container').innerHTML = '';
+    });
+    document.getElementById('btn-cancel-edit-workout').addEventListener('click', () => {
+      document.getElementById('modal-container').innerHTML = '';
+    });
+
+    document.getElementById('btn-save-edit-workout').addEventListener('click', async () => {
+      // Apply edits back to the workout object
+      w.exercises.forEach((ex, exIdx) => {
+        ex.sets.forEach((s, sIdx) => {
+          s.weight = editedSets[exIdx][sIdx].weight;
+          s.reps   = editedSets[exIdx][sIdx].reps;
+        });
+      });
+      w.notes = document.getElementById('edit-workout-notes').value.trim();
+
+      // Recalculate total volume for profile stat accuracy
+      const newVol = w.exercises.reduce((sum, ex) =>
+        sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+      w._editedVolume = newVol;
+
+      await DB.saveWorkout(w);
+      const idx = this.workouts.findIndex(wk => wk.id === w.id);
+      if (idx >= 0) this.workouts[idx] = w;
+
+      document.getElementById('modal-container').innerHTML = '';
+      this.showToast('Workout updated!');
+      this.showScreen('workoutDetail', { workout: w });
     });
   },
 
