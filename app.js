@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v64';
+const APP_VERSION = 'v65';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -665,8 +665,14 @@ const App = {
           screenHeader.innerHTML = '';
           if (h) screenHeader.appendChild(h);
         }
-        // Chat manages its own internal scroll — lock the outer container
-        container.style.overflow = (name === 'chat') ? 'hidden' : '';
+        // Chat manages its own internal scroll — lock the outer container and kill padding
+        if (name === 'chat') {
+          container.style.overflow = 'hidden';
+          container.style.paddingBottom = '0';
+        } else {
+          container.style.overflow = '';
+          container.style.paddingBottom = '';
+        }
         this.bindScreenEvents(name, data);
       };
 
@@ -3600,7 +3606,10 @@ const App = {
               data.messages.forEach(m => seenIds.add(m.id));
               this._bindReactionBars();
               this._bindBubbleInteractions(msgs);
-              msgs.scrollTop = msgs.scrollHeight;
+              // Double-rAF: wait for _positionChatFrame to finish settling before scrolling
+              requestAnimationFrame(() => requestAnimationFrame(() => {
+                msgs.scrollTop = msgs.scrollHeight;
+              }));
               // Load real reaction counts from server
               const msgIds = data.messages.map(m => m.id).filter(Boolean);
               if (msgIds.length) this._fetchReactionsBulk(msgIds);
