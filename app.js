@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v60';
+const APP_VERSION = 'v61';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -415,6 +415,26 @@ const App = {
         }
       }, delay));
     }
+
+    // Board Reset — fires Sunday at 9pm (weekly board resets Monday morning)
+    if (this.settings.notifBoardReset) {
+      const fire = new Date(now);
+      // Find next Sunday at 21:00
+      const daysUntilSunday = (7 - fire.getDay()) % 7; // 0 = already Sunday
+      fire.setDate(fire.getDate() + daysUntilSunday);
+      fire.setHours(21, 0, 0, 0);
+      if (fire <= now) fire.setDate(fire.getDate() + 7); // already past — wait a week
+      const delay = fire - now;
+      this._notifTimers.push(setTimeout(() => {
+        this._fireLocalNotif(
+          'Board Resets Tonight',
+          'Weekly rankings lock at midnight. Log a session to defend your spot.',
+          'board-reset'
+        );
+        // Re-schedule for next Sunday
+        this._scheduleLocalNotifications();
+      }, delay));
+    }
   },
 
   async _fireLocalNotif(title, body, tag = 'tf') {
@@ -446,7 +466,15 @@ const App = {
       return;
     }
     if (perm === 'denied') return; // user blocked it — nothing to do
-    // 'default' — show our card if they haven't dismissed it before
+    // 'default' — check if dismiss timestamp is stale (>30 days) and reset it
+    if (this.settings.notifPromptDismissed) {
+      const dismissedAt = await DB.getSetting('notifPromptDismissedAt');
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+      if (!dismissedAt || (Date.now() - Number(dismissedAt)) > thirtyDays) {
+        this.settings.notifPromptDismissed = false;
+        DB.saveSetting('notifPromptDismissed', false);
+      }
+    }
     if (!this.settings.notifPromptDismissed) {
       this._showNotifPromptCard();
     }
@@ -478,6 +506,7 @@ const App = {
       if (permanent) {
         this.settings.notifPromptDismissed = true;
         DB.saveSetting('notifPromptDismissed', true);
+        DB.saveSetting('notifPromptDismissedAt', Date.now());
       }
     };
 
@@ -2493,6 +2522,17 @@ const App = {
             <input type="checkbox" id="setting-notifications" ${s.notificationsEnabled ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
           </div>
 
+          <!-- Browser permission status pill -->
+          <div id="notif-permission-pill" style="margin-bottom:12px;">
+            ${(() => {
+              const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+              if (perm === 'granted') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(0,220,120,0.15);border:1px solid rgba(0,220,120,0.35);font-size:0.72rem;color:#00dc78;font-weight:700;">✓ Browser permission granted</span>`;
+              if (perm === 'denied') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,80,60,0.15);border:1px solid rgba(255,80,60,0.35);font-size:0.72rem;color:#ff6050;font-weight:700;">✗ Blocked — enable in browser/OS settings</span>`;
+              if (perm === 'unsupported') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(100,100,100,0.15);border:1px solid rgba(100,100,100,0.35);font-size:0.72rem;color:var(--text-muted);font-weight:700;">Not supported in this browser</span>`;
+              return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,200,60,0.15);border:1px solid rgba(255,200,60,0.35);font-size:0.72rem;color:#ffc83c;font-weight:700;">⚠ Permission not yet granted — tap the toggle</span>`;
+            })()}
+          </div>
+
           <div id="notif-detail-rows" style="${s.notificationsEnabled ? '' : 'opacity:0.4;pointer-events:none;'}">
             <div style="height:1px;background:var(--glass-border);margin:14px 0;"></div>
 
@@ -2519,18 +2559,22 @@ const App = {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <div>
                 <div class="text-sm text-white">Board Reset</div>
-                <div class="text-xs text-sea mt-1">Alert when weekly rankings reset</div>
+                <div class="text-xs text-sea mt-1">Alert Sunday 9pm before weekly rankings lock</div>
               </div>
               <input type="checkbox" id="notif-board" ${s.notifBoardReset ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
             </div>
 
-            <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
               <div>
                 <div class="text-sm text-white">Chat Messages</div>
                 <div class="text-xs text-sea mt-1">Push when someone drops in the chat</div>
               </div>
               <input type="checkbox" id="notif-chat" ${s.notifChatMessages ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
             </div>
+
+            <button id="btn-test-notif" style="width:100%;padding:10px;background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.25);border-radius:var(--radius-md);color:var(--aqua);font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;">
+              🔔 Send Test Notification
+            </button>
           </div>
         </div>
 
@@ -3340,6 +3384,32 @@ const App = {
             DB.saveSetting('notifDailyReminderTime', e.target.value);
             this._scheduleLocalNotifications();
           });
+        }
+        // Test notification button
+        this.bindClick('btn-test-notif', async () => {
+          if (Notification.permission !== 'granted') {
+            this.showToast('Grant notification permission first using the toggle above.');
+            return;
+          }
+          await this._fireLocalNotif(
+            'TropicalFit Test 🏖️',
+            'Notifications are working! Streak alerts and reminders are active.',
+            'notif-test'
+          );
+          this.showToast('Test notification sent!');
+        });
+        // Update permission pill without re-render when user grants via toggle
+        const _updatePermPill = () => {
+          const pill = document.getElementById('notif-permission-pill');
+          if (!pill || !('Notification' in window)) return;
+          const perm = Notification.permission;
+          if (perm === 'granted') pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(0,220,120,0.15);border:1px solid rgba(0,220,120,0.35);font-size:0.72rem;color:#00dc78;font-weight:700;">✓ Browser permission granted</span>`;
+          else if (perm === 'denied') pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,80,60,0.15);border:1px solid rgba(255,80,60,0.35);font-size:0.72rem;color:#ff6050;font-weight:700;">✗ Blocked — enable in browser/OS settings</span>`;
+        };
+        // Observe permission changes (fires after requestPermission resolves)
+        const notifToggleEl = document.getElementById('setting-notifications');
+        if (notifToggleEl) {
+          notifToggleEl.addEventListener('change', () => setTimeout(_updatePermPill, 800));
         }
         break;
 
@@ -4999,35 +5069,191 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
   // ─── EDIT PAST WORKOUT MODAL ────────────────────────────────
   showEditWorkoutModal(w) {
     const unit = this.settings.defaultWeightUnit;
-    const exerciseRows = w.exercises.map((ex, exIdx) => `
-      <div style="margin-bottom:18px;">
-        <div class="text-bold text-white mb-8">${this.escapeHtml(ex.name)}</div>
-        ${ex.sets.map((s, sIdx) => `
-          <div class="flex gap-8 mb-6" style="align-items:center;">
-            <div class="set-number completed" style="width:22px;height:22px;font-size:0.68rem;flex-shrink:0;">${sIdx + 1}</div>
-            <input type="number" inputmode="decimal" class="input edit-set-weight" step="0.5" min="0"
-              data-ex="${exIdx}" data-set="${sIdx}"
-              value="${s.weight || ''}" placeholder="wt"
-              style="width:70px;text-align:center;padding:6px 8px;">
-            <span class="text-xs text-muted">${s.weightUnit || unit}</span>
-            <span class="text-xs text-muted">×</span>
-            <input type="number" inputmode="numeric" class="input edit-set-reps" step="1" min="0"
-              data-ex="${exIdx}" data-set="${sIdx}"
-              value="${s.reps || ''}" placeholder="reps"
-              style="width:60px;text-align:center;padding:6px 8px;">
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
 
+    // Deep-clone exercises so we mutate editState, not the live workout
+    const editState = w.exercises.map(ex => ({
+      name: ex.name,
+      notes: ex.notes || '',
+      sets: ex.sets.map(s => ({
+        weight: s.weight ?? '',
+        reps:   s.reps   ?? '',
+        weightUnit: s.weightUnit || unit,
+      })),
+    }));
+
+    // Build all exercise names for autocomplete (library + EXERCISE_MUSCLE_MAP keys)
+    const allExerciseNames = Array.from(new Set([
+      ...this.exercises.map(e => e.name),
+      ...Object.keys(EXERCISE_MUSCLE_MAP).map(k => k.charAt(0).toUpperCase() + k.slice(1)),
+    ])).sort();
+
+    // ── Render just the exercises block (called on every mutation) ──
+    const renderExercises = () => {
+      const container = document.getElementById('edit-exercises-container');
+      if (!container) return;
+      container.innerHTML = editState.map((ex, exIdx) => `
+        <div class="edit-ex-block" data-ex-idx="${exIdx}" style="margin-bottom:16px;padding:14px;background:rgba(255,255,255,0.04);border-radius:var(--radius-md);border:1px solid var(--glass-border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div class="text-bold text-white" style="font-size:0.9rem;">${this.escapeHtml(ex.name)}</div>
+            <button class="btn-remove-ex" data-ex="${exIdx}"
+              style="background:none;border:none;color:rgba(255,100,100,0.7);cursor:pointer;font-size:1.1rem;padding:2px 6px;line-height:1;" title="Remove exercise">✕</button>
+          </div>
+          <div class="edit-sets-list" data-ex="${exIdx}">
+            ${ex.sets.map((s, sIdx) => `
+              <div class="edit-set-row" data-ex="${exIdx}" data-set="${sIdx}" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div class="set-number completed" style="width:20px;height:20px;font-size:0.65rem;flex-shrink:0;">${sIdx + 1}</div>
+                <input type="number" inputmode="decimal" class="input edit-set-weight" step="0.5" min="0"
+                  data-ex="${exIdx}" data-set="${sIdx}" value="${s.weight}" placeholder="wt"
+                  style="width:68px;text-align:center;padding:5px 6px;">
+                <span class="text-xs text-muted">${s.weightUnit}</span>
+                <span class="text-xs text-muted">×</span>
+                <input type="number" inputmode="numeric" class="input edit-set-reps" step="1" min="0"
+                  data-ex="${exIdx}" data-set="${sIdx}" value="${s.reps}" placeholder="reps"
+                  style="width:56px;text-align:center;padding:5px 6px;">
+                <button class="btn-remove-set" data-ex="${exIdx}" data-set="${sIdx}"
+                  style="background:none;border:none;color:rgba(255,100,100,0.6);cursor:pointer;font-size:1rem;padding:2px 5px;line-height:1;margin-left:auto;" title="Remove set">–</button>
+              </div>
+            `).join('')}
+          </div>
+          <button class="btn-add-set" data-ex="${exIdx}"
+            style="margin-top:6px;padding:6px 12px;background:rgba(0,200,255,0.08);border:1px solid rgba(0,200,255,0.2);border-radius:var(--radius-sm);color:var(--aqua);font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit;">
+            + Add Set
+          </button>
+        </div>
+      `).join('') + `
+        <div style="margin-top:4px;margin-bottom:8px;">
+          <div style="display:flex;gap:8px;position:relative;">
+            <input type="text" id="edit-add-ex-input" class="input" placeholder="Add exercise (type to search)…"
+              style="flex:1;" autocomplete="off">
+            <button id="btn-confirm-add-ex"
+              style="padding:8px 14px;background:linear-gradient(135deg,var(--teal),var(--lagoon));border:none;border-radius:var(--radius-md);color:#021628;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:inherit;white-space:nowrap;">
+              + Add
+            </button>
+          </div>
+          <div id="edit-ex-suggestions" style="display:none;position:absolute;left:0;right:0;z-index:50;background:var(--card-bg);border:1px solid var(--glass-border);border-radius:var(--radius-md);max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5);margin-top:2px;"></div>
+        </div>
+      `;
+      _bindExerciseContainerEvents();
+    };
+
+    // ── Flush input values into editState before any mutation ──
+    const _flushInputs = () => {
+      document.querySelectorAll('.edit-set-weight').forEach(inp => {
+        const ei = parseInt(inp.dataset.ex), si = parseInt(inp.dataset.set);
+        if (editState[ei]?.sets[si]) editState[ei].sets[si].weight = parseFloat(inp.value) || 0;
+      });
+      document.querySelectorAll('.edit-set-reps').forEach(inp => {
+        const ei = parseInt(inp.dataset.ex), si = parseInt(inp.dataset.set);
+        if (editState[ei]?.sets[si]) editState[ei].sets[si].reps = parseFloat(inp.value) || 0;
+      });
+    };
+
+    // ── Event delegation on the exercises container ──
+    const _bindExerciseContainerEvents = () => {
+      const container = document.getElementById('edit-exercises-container');
+      if (!container) return;
+
+      // Remove exercise
+      container.querySelectorAll('.btn-remove-ex').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _flushInputs();
+          const exIdx = parseInt(btn.dataset.ex);
+          if (editState.length <= 1) { this.showToast('Need at least one exercise'); return; }
+          editState.splice(exIdx, 1);
+          renderExercises();
+        });
+      });
+
+      // Remove set
+      container.querySelectorAll('.btn-remove-set').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _flushInputs();
+          const exIdx = parseInt(btn.dataset.ex), sIdx = parseInt(btn.dataset.set);
+          if (editState[exIdx].sets.length <= 1) { this.showToast('Need at least one set'); return; }
+          editState[exIdx].sets.splice(sIdx, 1);
+          renderExercises();
+        });
+      });
+
+      // Add set
+      container.querySelectorAll('.btn-add-set').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _flushInputs();
+          const exIdx = parseInt(btn.dataset.ex);
+          // Default new set to last set's values
+          const lastSet = editState[exIdx].sets[editState[exIdx].sets.length - 1];
+          editState[exIdx].sets.push({
+            weight: lastSet?.weight ?? '',
+            reps:   lastSet?.reps   ?? '',
+            weightUnit: lastSet?.weightUnit || unit,
+          });
+          renderExercises();
+        });
+      });
+
+      // Add exercise: autocomplete
+      const exInput = document.getElementById('edit-add-ex-input');
+      const suggestBox = document.getElementById('edit-ex-suggestions');
+      if (exInput && suggestBox) {
+        exInput.addEventListener('input', () => {
+          const q = exInput.value.trim().toLowerCase();
+          if (!q) { suggestBox.style.display = 'none'; return; }
+          const hits = allExerciseNames.filter(n => n.toLowerCase().includes(q)).slice(0, 8);
+          if (!hits.length) { suggestBox.style.display = 'none'; return; }
+          suggestBox.style.display = 'block';
+          suggestBox.innerHTML = hits.map(h =>
+            `<div class="edit-ex-suggestion" style="padding:10px 14px;cursor:pointer;font-size:0.85rem;color:var(--text-main);border-bottom:1px solid var(--glass-border);">${this.escapeHtml(h)}</div>`
+          ).join('');
+          suggestBox.querySelectorAll('.edit-ex-suggestion').forEach(el => {
+            el.addEventListener('click', () => {
+              exInput.value = el.textContent;
+              suggestBox.style.display = 'none';
+            });
+          });
+        });
+        exInput.addEventListener('keydown', e => {
+          if (e.key === 'Escape') suggestBox.style.display = 'none';
+        });
+      }
+
+      // Confirm add exercise
+      const confirmBtn = document.getElementById('btn-confirm-add-ex');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+          const inp = document.getElementById('edit-add-ex-input');
+          const name = inp?.value.trim();
+          if (!name) { this.showToast('Enter an exercise name'); return; }
+          _flushInputs();
+          const setsToClone = parseInt(this.settings.defaultSetsPerExercise) || 3;
+          editState.push({
+            name,
+            notes: '',
+            sets: Array.from({ length: setsToClone }, () => ({ weight: '', reps: '', weightUnit: unit })),
+          });
+          if (inp) inp.value = '';
+          const sug = document.getElementById('edit-ex-suggestions');
+          if (sug) sug.style.display = 'none';
+          renderExercises();
+          // Scroll to new exercise
+          setTimeout(() => {
+            const newBlock = document.getElementById('edit-exercises-container')?.lastElementChild?.previousElementSibling;
+            newBlock?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 60);
+        });
+      }
+    };
+
+    // ── Build the modal shell (notes + action buttons are outside the exercise container) ──
     const html = `
       <div class="modal-overlay" id="edit-workout-overlay">
-        <div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
+        <div class="modal-sheet" style="max-height:92vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px);">
           <div class="modal-handle"></div>
           <div class="text-bold text-white text-lg mb-4">Edit Workout</div>
           <div class="text-xs text-sea mb-16">${new Date(w.date).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
-          ${exerciseRows}
-          <div class="input-group" style="margin-top:8px;">
+
+          <div id="edit-exercises-container" style="position:relative;"></div>
+
+          <div class="input-group" style="margin-top:12px;">
             <label class="input-label">Notes</label>
             <textarea class="input" id="edit-workout-notes" rows="2">${this.escapeHtml(w.notes || '')}</textarea>
           </div>
@@ -5040,24 +5266,10 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     `;
     document.getElementById('modal-container').innerHTML = html;
 
-    // Snapshot of edited values — updated live from inputs
-    const editedSets = w.exercises.map(ex => ex.sets.map(s => ({ weight: s.weight, reps: s.reps })));
+    // Render exercises into the container
+    renderExercises();
 
-    document.querySelectorAll('.edit-set-weight').forEach(input => {
-      input.addEventListener('input', (e) => {
-        const exIdx = parseInt(e.target.dataset.ex);
-        const sIdx = parseInt(e.target.dataset.set);
-        editedSets[exIdx][sIdx].weight = parseFloat(e.target.value) || 0;
-      });
-    });
-    document.querySelectorAll('.edit-set-reps').forEach(input => {
-      input.addEventListener('input', (e) => {
-        const exIdx = parseInt(e.target.dataset.ex);
-        const sIdx = parseInt(e.target.dataset.set);
-        editedSets[exIdx][sIdx].reps = parseFloat(e.target.value) || 0;
-      });
-    });
-
+    // ── Close / cancel ──
     document.getElementById('edit-workout-overlay').addEventListener('click', (e) => {
       if (e.target.id === 'edit-workout-overlay') document.getElementById('modal-container').innerHTML = '';
     });
@@ -5065,20 +5277,26 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       document.getElementById('modal-container').innerHTML = '';
     });
 
+    // ── Save ──
     document.getElementById('btn-save-edit-workout').addEventListener('click', async () => {
-      // Apply edits back to the workout object
-      w.exercises.forEach((ex, exIdx) => {
-        ex.sets.forEach((s, sIdx) => {
-          s.weight = editedSets[exIdx][sIdx].weight;
-          s.reps   = editedSets[exIdx][sIdx].reps;
-        });
-      });
+      // Flush any in-progress inputs
+      _flushInputs();
+
+      // Write editState back to the workout object
+      w.exercises = editState.map(ex => ({
+        ...ex,
+        sets: ex.sets.map(s => ({
+          weight: parseFloat(s.weight) || 0,
+          reps:   parseFloat(s.reps)   || 0,
+          weightUnit: s.weightUnit || unit,
+          completed: true,
+        })),
+      }));
       w.notes = document.getElementById('edit-workout-notes').value.trim();
 
       // Recalculate total volume for profile stat accuracy
-      const newVol = w.exercises.reduce((sum, ex) =>
+      w._editedVolume = w.exercises.reduce((sum, ex) =>
         sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
-      w._editedVolume = newVol;
 
       await DB.saveWorkout(w);
       const idx = this.workouts.findIndex(wk => wk.id === w.id);
