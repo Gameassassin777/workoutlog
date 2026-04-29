@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v61';
+const APP_VERSION = 'v62';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -659,12 +659,19 @@ const App = {
     if (renderer) {
       const renderNext = async () => {
         container.innerHTML = await renderer();
-        // Move .header out of the scrollable container into the fixed slot above it
+        // The chat screen manages its own fixed layout — extracting .header
+        // would break the flex column and misplace the input bar/cursor.
+        // All other screens get their .header hoisted into the fixed slot.
         const screenHeader = document.getElementById('screen-header');
         if (screenHeader) {
-          const h = container.querySelector('.header');
-          screenHeader.innerHTML = '';
-          if (h) screenHeader.appendChild(h);
+          if (name === 'chat') {
+            // Chat renders a full-screen fixed overlay — clear the slot header only
+            screenHeader.innerHTML = '';
+          } else {
+            const h = container.querySelector('.header');
+            screenHeader.innerHTML = '';
+            if (h) screenHeader.appendChild(h);
+          }
         }
         this.bindScreenEvents(name, data);
       };
@@ -3462,8 +3469,17 @@ const App = {
       case 'logs':
         document.querySelectorAll('[data-tab]').forEach(btn => {
           btn.addEventListener('click', () => {
-            const container = document.getElementById('screen-container');
-            container.innerHTML = this.renderLogs(btn.dataset.tab);
+            // Only swap the tab content — never re-render the full screen (avoids double header)
+            const tabContent = document.getElementById('logs-tab-content');
+            if (tabContent) {
+              tabContent.innerHTML = btn.dataset.tab === 'history'
+                ? this._renderLogsHistory()
+                : this._renderLogsStats();
+              // Update active tab pill styling
+              document.querySelectorAll('[data-tab]').forEach(t =>
+                t.classList.toggle('active', t.dataset.tab === btn.dataset.tab)
+              );
+            }
             this.bindScreenEvents('logs');
           });
         });
@@ -5130,7 +5146,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
               + Add
             </button>
           </div>
-          <div id="edit-ex-suggestions" style="display:none;position:absolute;left:0;right:0;z-index:50;background:var(--card-bg);border:1px solid var(--glass-border);border-radius:var(--radius-md);max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5);margin-top:2px;"></div>
+          <div id="edit-ex-suggestions" style="display:none;position:absolute;left:0;right:0;z-index:50;background:#0a1628;border:1px solid var(--glass-border);border-radius:var(--radius-md);max-height:180px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.85);margin-top:2px;"></div>
         </div>
       `;
       _bindExerciseContainerEvents();
