@@ -282,7 +282,7 @@ const App = {
 
   // ─── Backend API ───────────────────────────────────────────
   API_BASE: 'https://tropicalfit.gameassassin777.workers.dev',
-  VAPID_PUBLIC_KEY: 'BB9IqPlJIV0elVug_WG7r6ZiL1xTsiNDt9hZ23sAmsfLjyrF_Aj8CwYeivMXNNEI0o_JySQDnRRt21uGONinQJ0',
+  VAPID_PUBLIC_KEY: 'BP5CbqNNLT8fhZBOsBUiHI6Gss731N84mpJXUNn3VHfcXmCuaipY8p30424hB1PGXaru7nqMQzVuKrqFLszRdIc',
 
   async apiPost(path, body) {
     try {
