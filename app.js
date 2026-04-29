@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v63';
+const APP_VERSION = 'v64';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -659,20 +659,14 @@ const App = {
     if (renderer) {
       const renderNext = async () => {
         container.innerHTML = await renderer();
-        // The chat screen manages its own fixed layout — extracting .header
-        // would break the flex column and misplace the input bar/cursor.
-        // All other screens get their .header hoisted into the fixed slot.
         const screenHeader = document.getElementById('screen-header');
         if (screenHeader) {
-          if (name === 'chat') {
-            // Chat renders a full-screen fixed overlay — clear the slot header only
-            screenHeader.innerHTML = '';
-          } else {
-            const h = container.querySelector('.header');
-            screenHeader.innerHTML = '';
-            if (h) screenHeader.appendChild(h);
-          }
+          const h = container.querySelector('.header');
+          screenHeader.innerHTML = '';
+          if (h) screenHeader.appendChild(h);
         }
+        // Chat manages its own internal scroll — lock the outer container
+        container.style.overflow = (name === 'chat') ? 'hidden' : '';
         this.bindScreenEvents(name, data);
       };
 
@@ -2318,7 +2312,7 @@ const App = {
 
     const noHistory = !this._currentChatMessages || this._currentChatMessages.length === 0;
     return `
-      <div style="position:fixed; top:0; left:0; right:0; bottom:calc(56px + var(--safe-bottom, 0px)); display:flex; flex-direction:column; z-index:10;">
+      <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
         <div class="header" style="flex-shrink:0;">
           <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
           <span class="header-title">Coach</span>
