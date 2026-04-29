@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v62';
+const APP_VERSION = 'v63';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -5218,9 +5218,11 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
           if (!hits.length) { suggestBox.style.display = 'none'; return; }
           suggestBox.style.display = 'block';
           suggestBox.innerHTML = hits.map(h =>
-            `<div class="edit-ex-suggestion" style="padding:10px 14px;cursor:pointer;font-size:0.85rem;color:var(--text-main);border-bottom:1px solid var(--glass-border);">${this.escapeHtml(h)}</div>`
+            `<div class="edit-ex-suggestion" style="padding:10px 14px;cursor:pointer;font-size:0.85rem;color:#e8f4ff;border-bottom:1px solid rgba(255,255,255,0.10);">${this.escapeHtml(h)}</div>`
           ).join('');
           suggestBox.querySelectorAll('.edit-ex-suggestion').forEach(el => {
+            el.addEventListener('mouseenter', () => { el.style.background = 'rgba(0,180,255,0.12)'; });
+            el.addEventListener('mouseleave', () => { el.style.background = ''; });
             el.addEventListener('click', () => {
               exInput.value = el.textContent;
               suggestBox.style.display = 'none';
