@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v71';
+const APP_VERSION = 'v72';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3099,6 +3099,26 @@ const App = {
       }
     }
 
+    // Compute their muscle heatmap data
+    let muscleData = {};
+    const recentExercises = u.recentExercises || [];
+    recentExercises.forEach(jsonStr => {
+      try {
+        const exercises = JSON.parse(jsonStr);
+        exercises.forEach(ex => {
+          const mg = this.getMuscleGroupsForExercise(ex);
+          // Only count sets that have data, or all if we can't tell easily
+          const count = ex.sets ? (ex.sets.filter(s => s.completed || s.weight || s.reps).length || ex.sets.length) : 0;
+          if (count > 0) {
+            mg.forEach(m => {
+              if (!muscleData[m]) muscleData[m] = 0;
+              muscleData[m] += count;
+            });
+          }
+        });
+      } catch(e) {}
+    });
+
     return `
       <div class="header">
         <button class="header-back" id="btn-back-social">${this.Icons.back}</button>
@@ -3134,6 +3154,17 @@ const App = {
             <div class="text-xl text-extra-bold text-sunset">${streak}</div>
             <div class="text-xs text-sea mt-2">Streak</div>
           </div>
+        </div>
+
+        <!-- Muscle activity heatmap -->
+        <div class="section-header"><span class="section-title">Muscle Heatmap</span></div>
+        <div class="card" style="padding:16px 12px;margin-bottom:16px;">
+          ${Object.keys(muscleData).length === 0 ? `
+            <div class="text-sm text-sea" style="padding:8px;text-align:center;">No workouts in the last 30 days</div>
+          ` : `
+            <div class="text-xs text-sea" style="margin-bottom:12px;">Last 30 days · brighter = more sets</div>
+            ${this._buildBodyHeatmap(muscleData)}
+          `}
         </div>
 
         <!-- Heatmap -->

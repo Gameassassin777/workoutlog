@@ -170,11 +170,19 @@ async function handleUserGet(path, env) {
     SELECT logged_at FROM workouts WHERE user_id = ? ORDER BY logged_at DESC
   `).bind(id).all();
 
+  // Get exercises from the last 30 days for the muscle heatmap
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const recentWorkouts = await env.DB.prepare(`
+    SELECT exercises_json FROM workouts WHERE user_id = ? AND logged_at >= ?
+  `).bind(id, thirtyDaysAgo.toISOString()).all();
+
   return json({
     ...user,
     totalVolume: stats.totalVolume,
     sessions: stats.sessions,
-    history: dates.results.map(d => d.logged_at)
+    history: dates.results.map(d => d.logged_at),
+    recentExercises: recentWorkouts.results.map(r => r.exercises_json)
   });
 }
 
