@@ -31,6 +31,9 @@ export default {
       if (path === '/api/user/update' && request.method === 'POST') {
         return handleUserUpdate(request, env);
       }
+      if (path === '/api/user/nudge' && request.method === 'POST') {
+        return handleUserNudge(request, env);
+      }
 
       // ── Workout ───────────────────────────────────────────
       if (path === '/api/workout/log' && request.method === 'POST') {
@@ -173,6 +176,30 @@ async function handleUserGet(path, env) {
     sessions: stats.sessions,
     history: dates.results.map(d => d.logged_at)
   });
+}
+
+async function handleUserNudge(request, env) {
+  const { target_id, nudger_name } = await request.json();
+  if (!target_id || !nudger_name) return json({ error: 'Missing fields' }, 400);
+
+  // Send 3 pushes rapidly as requested by user
+  if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+    const payload1 = { title: 'NUDGE!', body: `${nudger_name} noticed you haven't worked out in a while.`, url: '/workoutlog/', tag: 'nudge' };
+    const payload2 = { title: 'Get to the gym!', body: `Seriously, ${nudger_name} is waiting for your next log.`, url: '/workoutlog/', tag: 'nudge' };
+    const payload3 = { title: 'Time to lift.', body: `No excuses. Log a workout today.`, url: '/workoutlog/', tag: 'nudge' };
+    
+    // We reuse broadcastPush but modify it to only hit target_id.
+    // However, broadcastPush is global. Let's just query push_subs for target_id.
+    const subs = await env.DB.prepare('SELECT * FROM push_subs WHERE user_id = ?').bind(target_id).all();
+    if (subs.results.length > 0) {
+      for (const sub of subs.results) {
+        try { await sendWebPush(env, sub, JSON.stringify(payload1)); } catch(e){}
+        try { await sendWebPush(env, sub, JSON.stringify(payload2)); } catch(e){}
+        try { await sendWebPush(env, sub, JSON.stringify(payload3)); } catch(e){}
+      }
+    }
+  }
+  return json({ ok: true });
 }
 
 // ── Workout Log ──────────────────────────────────────────────────

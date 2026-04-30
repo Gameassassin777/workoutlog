@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v69';
+const APP_VERSION = 'v70';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3142,6 +3142,16 @@ const App = {
           ${this._buildCalendarHTML(true, history)}
         </div>
         
+        <!-- Nudge -->
+        ${streak === 0 && history.length > 0 && ((new Date() - new Date(history[0])) / 86400000 > 2) ? `
+          <div style="padding: 0 16px 16px;">
+            <button id="btn-nudge-user" class="btn btn-accent" style="width:100%;">
+              Nudge to Workout
+            </button>
+            <div class="text-xs text-center text-sea mt-8">Send them a push notification to get back in the gym.</div>
+          </div>
+        ` : ''}
+
         <div style="height:24px;"></div>
       </div>
     `;
@@ -3702,6 +3712,19 @@ const App = {
 
       case 'userProfile':
         // back handled universally via btn-back-social
+        this.bindClick('btn-nudge-user', async () => {
+          if (!data || !data.user) return;
+          const btn = document.getElementById('btn-nudge-user');
+          if (btn) { btn.disabled = true; btn.textContent = 'Nudging...'; }
+          try {
+            await this.apiPost('/api/user/nudge', { target_id: data.user.id, nudger_name: this.profile.username });
+            this.showToast('Nudge sent!');
+            if (btn) { btn.textContent = 'Nudged!'; btn.style.background = 'var(--lagoon)'; btn.style.color = '#fff'; }
+          } catch(e) {
+            this.showToast('Failed to nudge');
+            if (btn) { btn.disabled = false; btn.textContent = 'Nudge to Workout'; }
+          }
+        });
         break;
 
       case 'social':
