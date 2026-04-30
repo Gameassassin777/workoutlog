@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v70';
+const APP_VERSION = 'v71';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3780,10 +3780,15 @@ const App = {
               data.messages.forEach(m => seenIds.add(m.id));
               this._bindReactionBars();
               this._bindBubbleInteractions(msgs);
-              // Double-rAF: wait for _positionChatFrame to finish settling before scrolling
-              requestAnimationFrame(() => requestAnimationFrame(() => {
-                msgs.scrollTop = msgs.scrollHeight;
-              }));
+              
+              // Force auto-scroll to the bottom always (initial load)
+              const forceScroll = () => { msgs.scrollTop = msgs.scrollHeight; };
+              requestAnimationFrame(() => {
+                forceScroll();
+                requestAnimationFrame(forceScroll);
+                setTimeout(forceScroll, 50); // Catch late image layout shifts
+              });
+              
               // Load real reaction counts from server
               const msgIds = data.messages.map(m => m.id).filter(Boolean);
               if (msgIds.length) this._fetchReactionsBulk(msgIds);
@@ -3810,7 +3815,14 @@ const App = {
             });
             this._bindReactionBars();
             this._bindBubbleInteractions(msgs);
-            if (atBottom) msgs.scrollTop = msgs.scrollHeight;
+            
+            // Force auto-scroll to the bottom always
+            const forceScroll = () => { msgs.scrollTop = msgs.scrollHeight; };
+            requestAnimationFrame(() => {
+              forceScroll();
+              requestAnimationFrame(forceScroll);
+              setTimeout(forceScroll, 50); // Catch late image layout shifts
+            });
           };
 
           if (this._chatPollTimer) clearInterval(this._chatPollTimer);
