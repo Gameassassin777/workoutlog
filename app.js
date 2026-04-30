@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v67';
+const APP_VERSION = 'v68';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4431,6 +4431,33 @@ const App = {
     this.profile = p;
   },
 
+  // Recalculates total lifetime profile stats (XP, Volume, Level) from all historical workouts.
+  // Useful when a past workout is edited.
+  async _recalculateProfileStats() {
+    const p = this.profile;
+    p.xp = 0;
+    p.totalVolume = 0;
+    
+    for (const w of this.workouts) {
+      const totalSets = w.exercises.reduce((s, e) => s + e.sets.length, 0);
+      const totalVolume = w.exercises.reduce((sum, ex) => sum + this._exVol(ex), 0);
+      
+      // Update workout's internal XP record
+      w.xpEarned = Math.round(totalSets * 10 + totalVolume * 0.01 + 50);
+      DB.saveWorkout(w); // Save the fixed xpEarned back to DB silently
+      
+      p.xp += w.xpEarned;
+      p.totalVolume += totalVolume;
+    }
+    
+    const levelInfo = this.getLevelInfo(p.xp);
+    p.level = levelInfo.level;
+    p.levelTitle = levelInfo.title;
+    
+    await DB.saveProfile(p);
+    this.profile = p;
+  },
+
   // ─── TIMER LOGIC ──────────────────────────────────────────
   startRestTimer(data) {
     const seconds = data.seconds || this.settings.defaultRestBetweenSets;
@@ -5341,6 +5368,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     const editState = w.exercises.map(ex => ({
       name: ex.name,
       notes: ex.notes || '',
+      bilateral: ex.bilateral ?? this._detectBilateral(ex.name) === true,
       sets: ex.sets.map(s => ({
         weight: s.weight ?? '',
         reps:   s.reps   ?? '',
@@ -5361,9 +5389,18 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       container.innerHTML = editState.map((ex, exIdx) => `
         <div class="edit-ex-block" data-ex-idx="${exIdx}" style="margin-bottom:16px;padding:14px;background:rgba(255,255,255,0.04);border-radius:var(--radius-md);border:1px solid var(--glass-border);">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div class="text-bold text-white" style="font-size:0.9rem;">${this.escapeHtml(ex.name)}</div>
-            <button class="btn-remove-ex" data-ex="${exIdx}"
-              style="background:none;border:none;color:rgba(255,100,100,0.7);cursor:pointer;font-size:1.1rem;padding:2px 6px;line-height:1;" title="Remove exercise">✕</button>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="text-bold text-white" style="font-size:0.9rem;">${this.escapeHtml(ex.name)}</div>
+              ${ex.bilateral ? `<span style="font-size:0.6rem;font-weight:800;letter-spacing:0.04em;color:#021628;background:var(--aqua);border-radius:4px;padding:2px 4px;line-height:1;">×2</span>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <button class="btn-toggle-bilateral" data-ex="${exIdx}"
+                style="background:none;border:none;color:${ex.bilateral ? 'var(--aqua)' : 'var(--text-muted)'};cursor:pointer;padding:2px;display:flex;align-items:center;" title="Toggle Two Dumbbells (×2 weight)">
+                ${this.Icons.dumbbell}
+              </button>
+              <button class="btn-remove-ex" data-ex="${exIdx}"
+                style="background:none;border:none;color:rgba(255,100,100,0.7);cursor:pointer;font-size:1.1rem;padding:2px 6px;line-height:1;" title="Remove exercise">✕</button>
+            </div>
           </div>
           <div class="edit-sets-list" data-ex="${exIdx}">
             ${ex.sets.map((s, sIdx) => `
@@ -5419,6 +5456,16 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     const _bindExerciseContainerEvents = () => {
       const container = document.getElementById('edit-exercises-container');
       if (!container) return;
+
+      // Toggle Bilateral
+      container.querySelectorAll('.btn-toggle-bilateral').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _flushInputs();
+          const exIdx = parseInt(btn.dataset.ex);
+          editState[exIdx].bilateral = !editState[exIdx].bilateral;
+          renderExercises();
+        });
+      });
 
       // Remove exercise
       container.querySelectorAll('.btn-remove-ex').forEach(btn => {
@@ -5554,6 +5601,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       // Write editState back to the workout object
       w.exercises = editState.map(ex => ({
         ...ex,
+        bilateral: ex.bilateral,
         sets: ex.sets.map(s => ({
           weight: parseFloat(s.weight) || 0,
           reps:   parseFloat(s.reps)   || 0,
@@ -5570,6 +5618,9 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       await DB.saveWorkout(w);
       const idx = this.workouts.findIndex(wk => wk.id === w.id);
       if (idx >= 0) this.workouts[idx] = w;
+
+      // Retroactively update overall profile stats based on edit
+      await this._recalculateProfileStats();
 
       document.getElementById('modal-container').innerHTML = '';
       this.showToast('Workout updated!');
