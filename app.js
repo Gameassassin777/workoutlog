@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v66';
+const APP_VERSION = 'v67';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -76,6 +76,35 @@ const EXERCISE_MUSCLE_MAP = {
   'farmer carry':['Forearms','Traps','Full Body'],'farmer walk':['Forearms','Traps','Full Body'],
   'box jump':['Quads','Glutes','Calves'],'jump squat':['Quads','Glutes'],
 };
+
+// ─── Known bilateral dumbbell exercises (weight entered = per-hand) ───────────
+// Any exercise here automatically gets bilateral=true (weight×2 in volume).
+// "Unilateral" words in the name (single, one arm) bypass this and prompt user.
+const BILATERAL_EXERCISES = new Set([
+  // Chest
+  'dumbbell bench press','incline dumbbell press','incline dumbbell bench press',
+  'decline dumbbell press','decline dumbbell bench press','dumbbell fly',
+  'incline dumbbell fly','decline dumbbell fly','chest fly',
+  // Shoulders
+  'dumbbell shoulder press','dumbbell overhead press','arnold press',
+  'lateral raise','side lateral raise','dumbbell lateral raise',
+  'front raise','dumbbell front raise',
+  'rear delt fly','reverse fly','dumbbell rear delt fly','dumbbell reverse fly',
+  // Biceps / Triceps
+  'hammer curl','dumbbell curl','dumbbell bicep curl','dumbbell biceps curl',
+  'incline dumbbell curl','zottman curl',
+  'dumbbell skullcrusher','dumbbell overhead extension',
+  'dumbbell tricep extension','dumbbell overhead tricep extension',
+  // Back (bilateral variants)
+  'dumbbell shrug','dumbbell deadlift',
+  // Legs
+  'dumbbell squat','dumbbell goblet squat','dumbbell lunge','dumbbell step up',
+  'dumbbell calf raise','dumbbell romanian deadlift','dumbbell rdl',
+]);
+
+// Unilateral keywords — if the name contains these, skip bilateral auto-detect
+const UNILATERAL_KEYWORDS = ['single','one arm','one-arm','unilateral','single-arm'];
+
 
 const App = {
   currentScreen: 'home',
@@ -213,6 +242,10 @@ const App = {
     // Silently fill in missing muscle groups from local map (no API call)
     setTimeout(() => this._autoFillMissingMuscleGroups(), 500);
     this.chatLogs = await DB.getAllChatLogs();
+
+    // Load bilateral preferences (persisted across sessions)
+    try { this._bilateralCache = JSON.parse(localStorage.getItem('bilateralCache') || '{}'); }
+    catch { this._bilateralCache = {}; }
 
     // Restore most recent chat session into memory
     if (this.chatLogs && this.chatLogs.length > 0) {
@@ -530,10 +563,101 @@ const App = {
     document.getElementById('notif-close-btn')?.addEventListener('click', () => dismiss(false));
   },
 
+  // ─── BILATERAL DUMBBELL VOLUME HELPERS ────────────────────
+  // Returns effective volume for one set (bilateral multiplies weight × 2)
+  _setVol(ex, set) {
+    return (set.weight || 0) * (ex?.bilateral ? 2 : 1) * (set.reps || 0);
+  },
+
+  // Total volume for one exercise block
+  _exVol(ex) {
+    return ex.sets.reduce((s, set) => s + this._setVol(ex, set), 0);
+  },
+
+  // Total volume for a whole workout object
+  _workoutVol(w) {
+    return w.exercises.reduce((sum, ex) => sum + this._exVol(ex), 0);
+  },
+
+  // Detect bilateral status for an exercise name.
+  // Returns: true = definitely bilateral, false = definitely not, null = unknown (prompt user)
+  _detectBilateral(name) {
+    const key = name.toLowerCase().trim();
+    // 1. Cached user preference wins
+    if (key in this._bilateralCache) return this._bilateralCache[key];
+    // 2. Contains unilateral keyword → not bilateral
+    if (UNILATERAL_KEYWORDS.some(w => key.includes(w))) return false;
+    // 3. Explicit lookup
+    if (BILATERAL_EXERCISES.has(key)) return true;
+    // 4. Heuristic: contains "dumbbell" or " db " or starts with "db " → ask
+    if (/\bdumbbells?\b|\bdb\b/.test(key)) return null; // unknown, prompt
+    // 5. No dumbbell indicator → assume not bilateral (barbell, cable, machine, bodyweight)
+    return false;
+  },
+
+  _saveBilateralPref(name, val) {
+    this._bilateralCache[name.toLowerCase().trim()] = val;
+    try { localStorage.setItem('bilateralCache', JSON.stringify(this._bilateralCache)); } catch {}
+  },
+
+  // Shows a quick "two dumbbells?" modal for ambiguous exercises, then resolves
+  _promptBilateral(workoutEx) {
+    return new Promise(resolve => {
+      const mc = document.getElementById('modal-container');
+      if (!mc) { resolve(false); return; }
+      mc.innerHTML = `
+        <div class="modal-overlay" id="bilateral-overlay" style="align-items:center;">
+          <div class="modal-sheet" style="border-radius:var(--radius-xl);max-width:340px;margin:auto;text-align:center;">
+            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--aqua),var(--teal));display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+              ${this.Icons.dumbbell}
+            </div>
+            <div class="text-bold text-white" style="font-size:1.05rem;margin-bottom:6px;">${this.escapeHtml(workoutEx.name)}</div>
+            <div class="text-xs text-sea" style="margin-bottom:20px;line-height:1.5;">Are you using <strong>two dumbbells</strong> (one in each hand)?<br>If yes, weight you enter counts ×2 in your volume.</div>
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-ghost flex-1" id="btn-bilateral-no">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                One hand
+              </button>
+              <button class="btn btn-primary flex-1" id="btn-bilateral-yes">
+                ${this.Icons.dumbbell} Both hands ×2
+              </button>
+            </div>
+            <button style="background:none;border:none;color:var(--text-muted);font-size:0.75rem;margin-top:12px;cursor:pointer;" id="btn-bilateral-skip">Ask me every time</button>
+          </div>
+        </div>
+      `;
+
+      const close = (val, save) => {
+        mc.innerHTML = '';
+        if (save && val !== null) this._saveBilateralPref(workoutEx.name, val);
+        resolve(val ?? false);
+      };
+
+      document.getElementById('btn-bilateral-yes').addEventListener('click', () => {
+        workoutEx.bilateral = true; close(true, true);
+      });
+      document.getElementById('btn-bilateral-no').addEventListener('click', () => {
+        workoutEx.bilateral = false; close(false, true);
+      });
+      document.getElementById('btn-bilateral-skip').addEventListener('click', () => close(null, false));
+    });
+  },
+
+  // Update live header stats during workout without a full re-render
+  _updateLiveStats() {
+    if (!this.activeWorkout) return;
+    const vol = this._workoutVol(this.activeWorkout);
+    const volEl = document.getElementById('workout-volume');
+    if (volEl) volEl.textContent = vol.toLocaleString();
+    const sets = this.activeWorkout.exercises.reduce((s, e) => s + e.sets.filter(st => st.completed).length, 0);
+    const setsEl = document.getElementById('workout-sets');
+    if (setsEl) setsEl.textContent = sets;
+  },
+
   async _logWorkoutToServer(w) {
     if (!this.settings.serverId || !this.API_BASE.startsWith('http')) return;
     const totalVolume = w.exercises.reduce((sum, ex) =>
-      sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+      sum + this._exVol(ex), 0);
     const totalSets = w.exercises.reduce((s, e) => s + e.sets.length, 0);
 
     // Collect any PRs set during this workout
@@ -1607,7 +1731,7 @@ const App = {
     const w = this.activeWorkout;
     const elapsed = Math.round((Date.now() - new Date(w.date).getTime()) / 1000);
     const totalVolume = w.exercises.reduce((sum, ex) =>
-      sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+      sum + this._exVol(ex), 0);
 
     return `
       <div class="header">
@@ -1660,12 +1784,13 @@ const App = {
     return `
       <div class="card slide-up" style="animation-delay: ${exIdx * 0.05}s">
         <div class="flex flex-between" style="align-items: center; margin-bottom: 12px;">
-          <div style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:36px;height:36px;border-radius:8px;background:var(--glass-mid);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;position:relative;color:var(--text-muted);">
               ${this.Icons.person}
               ${iconUrl ? `<img src="${iconUrl}" alt="${ex.name}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.3s;border-radius:8px;" onload="this.style.opacity=1" onerror="this.remove()">` : ''}
             </div>
             <div class="text-bold text-white" style="font-size: 1.05rem;" data-rename-ex="${exIdx}">${ex.name}</div>
+            ${ex.bilateral ? `<span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;color:#021628;background:var(--aqua);border-radius:4px;padding:2px 5px;flex-shrink:0;">×2</span>` : ''}
           </div>
           <button class="btn btn-small btn-ghost" data-exercise-menu="${exIdx}" style="padding: 4px;">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
@@ -1677,7 +1802,7 @@ const App = {
           <div class="set-number" style="background:none; color: var(--sea-foam); font-size: 0.7rem;">SET</div>
           <div class="set-input" style="gap: 4px;">
             <span class="flex-1 text-center text-xs text-sea">PREV</span>
-            <span class="flex-1 text-center text-xs text-sea">${this.settings.defaultWeightUnit.toUpperCase()}</span>
+            <span class="flex-1 text-center text-xs text-sea">${ex.bilateral ? 'EACH HAND' : this.settings.defaultWeightUnit.toUpperCase()}</span>
             <span class="flex-1 text-center text-xs text-sea">REPS</span>
           </div>
           <div style="width:44px; text-align:center;" class="text-xs text-sea">${this.Icons.check}</div>
@@ -1771,7 +1896,7 @@ const App = {
     if (!w) return this.renderHome();
 
     const totalVolume = w.exercises.reduce((sum, ex) =>
-      sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+      sum + this._exVol(ex), 0);
     const totalSets = w.exercises.reduce((s, e) => s + e.sets.length, 0);
     const durationMin = w.duration ? Math.round(w.duration / 60) : 0;
 
@@ -2774,7 +2899,7 @@ const App = {
     const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     const totalVolume = w.exercises.reduce((sum, ex) =>
-      sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+      sum + this._exVol(ex), 0);
 
     return `
       <div class="header">
@@ -3901,12 +4026,15 @@ const App = {
       });
     }
 
+    const bilateral = this._detectBilateral(exercise.name);
+
     this.activeWorkout.exercises.push({
       exerciseId: exercise.id,
       name: exercise.name,
       notes: '',
       order: this.activeWorkout.exercises.length,
       customFields: {},
+      bilateral: bilateral === true, // false/null → false initially
       sets
     });
 
@@ -3916,6 +4044,12 @@ const App = {
     DB.saveExercise(exercise);
 
     this.showScreen('activeWorkout');
+
+    // If detection was ambiguous (null), prompt AFTER render so modal appears over the screen
+    if (bilateral === null) {
+      const newEx = this.activeWorkout.exercises[this.activeWorkout.exercises.length - 1];
+      this._promptBilateral(newEx).then(() => this.showScreen('activeWorkout'));
+    }
   },
 
   bindSetInputs() {
@@ -4008,6 +4142,10 @@ const App = {
           <div class="modal-handle"></div>
           <div class="text-bold text-white text-lg mb-16">${ex.name}</div>
           <button class="btn btn-ghost btn-large mb-8" id="btn-ex-rename">${this.Icons.notes} Rename Exercise</button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-bilateral" style="${ex.bilateral ? 'color:var(--aqua);' : ''}">
+            ${this.Icons.dumbbell}
+            ${ex.bilateral ? 'Two dumbbells (×2 on) — tap to disable' : 'Two dumbbells? Count weight ×2'}
+          </button>
           <button class="btn btn-ghost btn-large mb-8" id="btn-ex-rest">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             Rest Time: ${restTime}s
@@ -4023,6 +4161,14 @@ const App = {
 
     document.getElementById('ex-menu-overlay').addEventListener('click', (e) => {
       if (e.target.id === 'ex-menu-overlay') document.getElementById('modal-container').innerHTML = '';
+    });
+
+    // ── Bilateral toggle ──
+    document.getElementById('btn-ex-bilateral').addEventListener('click', () => {
+      ex.bilateral = !ex.bilateral;
+      this._saveBilateralPref(ex.name, ex.bilateral);
+      document.getElementById('modal-container').innerHTML = '';
+      this.showScreen('activeWorkout');
     });
 
     // ── Rename ──
@@ -4229,7 +4375,7 @@ const App = {
     // Calculate XP
     const totalSets = w.exercises.reduce((s, e) => s + e.sets.length, 0);
     const totalVolume = w.exercises.reduce((sum, ex) =>
-      sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+      sum + this._exVol(ex), 0);
     w.xpEarned = Math.round(totalSets * 10 + totalVolume * 0.01 + 50); // Base 50 XP per workout
 
     // Save workout
@@ -4256,7 +4402,7 @@ const App = {
     p.totalWorkouts += 1;
 
     const totalVolume = workout.exercises.reduce((sum, ex) =>
-      sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+      sum + this._exVol(ex), 0);
     p.totalVolume += totalVolume;
 
     // Update streak — each workout adds 1, up to 4-day grace window
@@ -4336,7 +4482,7 @@ const App = {
       if (el) el.textContent = Timer.formatTime(elapsed);
 
       const totalVolume = this.activeWorkout.exercises.reduce((sum, ex) =>
-        sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+        sum + this._exVol(ex), 0);
       const volEl = document.getElementById('workout-volume');
       if (volEl) volEl.textContent = totalVolume.toLocaleString();
 
@@ -4483,7 +4629,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
         // Calculate XP
         const totalSets = workout.exercises.reduce((s, e) => s + e.sets.length, 0);
         const totalVolume = workout.exercises.reduce((sum, ex) =>
-          sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+          sum + this._exVol(ex), 0);
         workout.xpEarned = Math.round(totalSets * 10 + totalVolume * 0.01 + 50);
 
         await DB.saveWorkout(workout);
@@ -5419,7 +5565,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
 
       // Recalculate total volume for profile stat accuracy
       w._editedVolume = w.exercises.reduce((sum, ex) =>
-        sum + ex.sets.reduce((s, set) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+        sum + this._exVol(ex), 0);
 
       await DB.saveWorkout(w);
       const idx = this.workouts.findIndex(wk => wk.id === w.id);
@@ -5588,7 +5734,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       const dayWorkouts = this.workouts.filter(w => new Date(w.date).toDateString() === dateStr);
       const volume = dayWorkouts.reduce((sum, w) =>
         sum + w.exercises.reduce((s, ex) =>
-          s + ex.sets.reduce((ss, set) => ss + ((set.weight || 0) * (set.reps || 0)), 0), 0), 0);
+        sum + this._exVol(ex), 0), 0);
 
       if (volume > maxVolume) maxVolume = volume;
 
@@ -5625,7 +5771,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       })
       .reduce((sum, w) =>
         sum + w.exercises.reduce((s, ex) =>
-          s + ex.sets.reduce((ss, set) => ss + ((set.weight || 0) * (set.reps || 0)), 0), 0), 0);
+          s + this._exVol(ex), 0), 0);
   },
 
   getVolumeHistory(weeks) {
