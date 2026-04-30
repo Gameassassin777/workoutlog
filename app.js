@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v65';
+const APP_VERSION = 'v66';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1665,7 +1665,7 @@ const App = {
               ${this.Icons.person}
               ${iconUrl ? `<img src="${iconUrl}" alt="${ex.name}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.3s;border-radius:8px;" onload="this.style.opacity=1" onerror="this.remove()">` : ''}
             </div>
-            <div class="text-bold text-white" style="font-size: 1.05rem;">${ex.name}</div>
+            <div class="text-bold text-white" style="font-size: 1.05rem;" data-rename-ex="${exIdx}">${ex.name}</div>
           </div>
           <button class="btn btn-small btn-ghost" data-exercise-menu="${exIdx}" style="padding: 4px;">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
@@ -1681,6 +1681,7 @@ const App = {
             <span class="flex-1 text-center text-xs text-sea">REPS</span>
           </div>
           <div style="width:44px; text-align:center;" class="text-xs text-sea">${this.Icons.check}</div>
+          <div style="width:30px;"></div>
         </div>
 
         <!-- Sets -->
@@ -3099,6 +3100,7 @@ const App = {
         this.bindSetInputs();
         this.bindSetCompleteButtons();
         this.bindAddSetButtons();
+        this.bindRemoveSetButtons();
         this.bindExerciseMenus();
         this.startElapsedTimer();
         break;
@@ -3926,7 +3928,22 @@ const App = {
         const value = parseFloat(e.target.value) || null;
         if (this.activeWorkout?.exercises[exIdx]?.sets[setIdx]) {
           this.activeWorkout.exercises[exIdx].sets[setIdx][field] = value;
+          this._updateLiveStats();
         }
+      });
+    });
+  },
+
+  bindRemoveSetButtons() {
+    document.querySelectorAll('[data-remove-set]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const exIdx = parseInt(btn.dataset.removeSet);
+        const setIdx = parseInt(btn.dataset.removeSetIdx);
+        const ex = this.activeWorkout?.exercises[exIdx];
+        if (!ex) return;
+        if (ex.sets.length <= 1) { this.showToast('Need at least one set'); return; }
+        ex.sets.splice(setIdx, 1);
+        this.showScreen('activeWorkout');
       });
     });
   },
@@ -3936,7 +3953,16 @@ const App = {
       btn.addEventListener('click', (e) => {
         const exIdx = parseInt(btn.dataset.ex);
         const setIdx = parseInt(btn.dataset.set);
-        this.completeSet(exIdx, setIdx);
+        const set = this.activeWorkout?.exercises[exIdx]?.sets[setIdx];
+        if (!set) return;
+        if (set.completed) {
+          // Un-complete: toggle back to editable
+          set.completed = false;
+          set.timestamp = null;
+          this.showScreen('activeWorkout');
+        } else {
+          this.completeSet(exIdx, setIdx);
+        }
       });
     });
   },
@@ -3975,12 +4001,18 @@ const App = {
 
   showExerciseMenu(exIdx) {
     const ex = this.activeWorkout.exercises[exIdx];
+    const restTime = ex.restSeconds ?? this.settings.defaultRestBetweenSets;
     const html = `
       <div class="modal-overlay" id="ex-menu-overlay">
         <div class="modal-sheet">
           <div class="modal-handle"></div>
           <div class="text-bold text-white text-lg mb-16">${ex.name}</div>
-          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-notes">${this.Icons.notes} Add Notes</button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-rename">${this.Icons.notes} Rename Exercise</button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-rest">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Rest Time: ${restTime}s
+          </button>
+          <button class="btn btn-ghost btn-large mb-8" id="btn-ex-notes">${this.Icons.notes} Exercise Notes</button>
           <button class="btn btn-ghost btn-large mb-8" id="btn-ex-reorder-up">${this.Icons.up} Move Up</button>
           <button class="btn btn-ghost btn-large mb-8" id="btn-ex-reorder-down">${this.Icons.down} Move Down</button>
           <button class="btn btn-danger btn-large" id="btn-ex-remove">${this.Icons.trash} Remove Exercise</button>
@@ -3993,12 +4025,79 @@ const App = {
       if (e.target.id === 'ex-menu-overlay') document.getElementById('modal-container').innerHTML = '';
     });
 
+    // ── Rename ──
+    document.getElementById('btn-ex-rename').addEventListener('click', () => {
+      document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay" id="rename-overlay">
+          <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <div class="text-bold text-white text-lg mb-16">Rename Exercise</div>
+            <input class="input" id="rename-input" value="${this.escapeHtml(ex.name)}" placeholder="Exercise name">
+            <button class="btn btn-accent btn-large mt-16" id="btn-save-rename">Save</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('rename-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'rename-overlay') document.getElementById('modal-container').innerHTML = '';
+      });
+      const inp = document.getElementById('rename-input');
+      requestAnimationFrame(() => { inp?.focus(); inp?.select(); });
+      document.getElementById('btn-save-rename').addEventListener('click', () => {
+        const newName = document.getElementById('rename-input')?.value.trim();
+        if (!newName) { this.showToast('Enter a name'); return; }
+        ex.name = newName;
+        document.getElementById('modal-container').innerHTML = '';
+        this.showScreen('activeWorkout');
+      });
+    });
+
+    // ── Rest time ──
+    document.getElementById('btn-ex-rest').addEventListener('click', () => {
+      const cur = ex.restSeconds ?? this.settings.defaultRestBetweenSets;
+      document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay" id="rest-overlay">
+          <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <div class="text-bold text-white text-lg mb-8">Rest Time</div>
+            <div class="text-xs text-sea mb-16">Overrides global default for this exercise only</div>
+            <div style="display:flex;align-items:center;gap:12px;justify-content:center;">
+              <button id="btn-rest-minus" style="width:44px;height:44px;border-radius:50%;border:1.5px solid var(--glass-border);background:var(--glass-mid);color:var(--text-main);font-size:1.4rem;cursor:pointer;">−</button>
+              <span id="rest-val" style="font-size:2rem;font-weight:900;color:var(--aqua);min-width:70px;text-align:center;">${cur}s</span>
+              <button id="btn-rest-plus" style="width:44px;height:44px;border-radius:50%;border:1.5px solid var(--glass-border);background:var(--glass-mid);color:var(--text-main);font-size:1.4rem;cursor:pointer;">+</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:16px 0;">
+              ${[30,60,90,120,180].map(s => `<button class="tag rest-preset" data-s="${s}" style="cursor:pointer;${cur===s?'background:var(--lagoon);color:#021628;':''}"> ${s}s</button>`).join('')}
+            </div>
+            <button class="btn btn-accent btn-large" id="btn-save-rest">Set Rest Time</button>
+          </div>
+        </div>
+      `;
+      let restVal = cur;
+      const valEl = () => document.getElementById('rest-val');
+      const update = (v) => { restVal = Math.max(10, Math.min(600, v)); if (valEl()) valEl().textContent = restVal + 's'; };
+      document.getElementById('rest-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'rest-overlay') document.getElementById('modal-container').innerHTML = '';
+      });
+      document.getElementById('btn-rest-minus').addEventListener('click', () => update(restVal - 15));
+      document.getElementById('btn-rest-plus').addEventListener('click',  () => update(restVal + 15));
+      document.querySelectorAll('.rest-preset').forEach(btn => {
+        btn.addEventListener('click', () => update(parseInt(btn.dataset.s)));
+      });
+      document.getElementById('btn-save-rest').addEventListener('click', () => {
+        ex.restSeconds = restVal;
+        document.getElementById('modal-container').innerHTML = '';
+        this.showToast(`Rest set to ${restVal}s for ${ex.name}`);
+      });
+    });
+
+    // ── Remove ──
     document.getElementById('btn-ex-remove').addEventListener('click', () => {
       this.activeWorkout.exercises.splice(exIdx, 1);
       document.getElementById('modal-container').innerHTML = '';
       this.showScreen('activeWorkout');
     });
 
+    // ── Reorder ──
     document.getElementById('btn-ex-reorder-up').addEventListener('click', () => {
       if (exIdx > 0) {
         [this.activeWorkout.exercises[exIdx - 1], this.activeWorkout.exercises[exIdx]] =
@@ -4017,6 +4116,7 @@ const App = {
       this.showScreen('activeWorkout');
     });
 
+    // ── Notes ──
     document.getElementById('btn-ex-notes').addEventListener('click', () => {
       document.getElementById('modal-container').innerHTML = `
         <div class="modal-overlay" id="notes-overlay">
@@ -4063,6 +4163,8 @@ const App = {
     const ex = this.activeWorkout.exercises[exIdx];
     const allDone = ex.sets.every(s => s.completed);
     const nextUncompletedSet = ex.sets.find(s => !s.completed);
+    const restSecs    = ex.restSeconds ?? this.settings.defaultRestBetweenSets;
+    const restBetweenEx = this.settings.defaultRestBetweenExercises;
 
     if (allDone) {
       // Check if there are more exercises
@@ -4070,7 +4172,7 @@ const App = {
       if (nextExIdx < this.activeWorkout.exercises.length) {
         // Rest between exercises
         this.showScreen('restTimer', {
-          seconds: this.settings.defaultRestBetweenExercises,
+          seconds: restBetweenEx,
           label: `Rest before ${this.activeWorkout.exercises[nextExIdx].name}`,
           onComplete: () => this.showScreen('activeWorkout')
         });
@@ -4080,7 +4182,7 @@ const App = {
     } else if (nextUncompletedSet) {
       // Rest between sets
       this.showScreen('restTimer', {
-        seconds: this.settings.defaultRestBetweenSets,
+        seconds: restSecs,
         label: `Rest — ${exName} Set ${setIdx + 2} next`,
         onComplete: () => this.showScreen('activeWorkout')
       });
