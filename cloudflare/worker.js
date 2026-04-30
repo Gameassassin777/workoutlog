@@ -156,13 +156,23 @@ async function handleUserGet(path, env) {
   const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
   if (!user) return json({ error: 'Not found' }, 404);
 
-  // Get this week's volume
-  const week = weekStart();
-  const vol  = await env.DB.prepare(
-    'SELECT COALESCE(SUM(volume), 0) as total FROM workouts WHERE user_id = ? AND week_start = ?'
-  ).bind(id, week).first();
+  // Get total volume and sessions
+  const stats = await env.DB.prepare(`
+    SELECT COALESCE(SUM(volume), 0) as totalVolume, COUNT(id) as sessions
+    FROM workouts WHERE user_id = ?
+  `).bind(id).first();
 
-  return json({ ...user, weekVolume: vol.total });
+  // Get all workout dates for heatmap
+  const dates = await env.DB.prepare(`
+    SELECT logged_at FROM workouts WHERE user_id = ? ORDER BY logged_at DESC
+  `).bind(id).all();
+
+  return json({
+    ...user,
+    totalVolume: stats.totalVolume,
+    sessions: stats.sessions,
+    history: dates.results.map(d => d.logged_at)
+  });
 }
 
 // ── Workout Log ──────────────────────────────────────────────────

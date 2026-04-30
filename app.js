@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v68';
+const APP_VERSION = 'v69';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1609,8 +1609,8 @@ const App = {
   },
 
   // ── Consistency calendar HTML (reusable) ─────────────────
-  _buildCalendarHTML(showAll) {
-    const cells = this._buildStreakCalendar(showAll);
+  _buildCalendarHTML(showAll = false, customDates = null) {
+    const cells = this._buildStreakCalendar(showAll, customDates);
     return `
       <div style="display:flex;justify-content:space-around;margin-bottom:5px;">
         ${['S','M','T','W','T','F','S'].map(d =>
@@ -1636,14 +1636,15 @@ const App = {
       </div>`;
   },
 
-  _buildStreakCalendar(showAll = false) {
-    const workoutDates = new Set(this.workouts.map(w => new Date(w.date).toDateString()));
+  _buildStreakCalendar(showAll = false, customDates = null) {
+    const datesArray = customDates || this.workouts.map(w => w.date);
+    const workoutDates = new Set(datesArray.map(d => new Date(d).toDateString()));
     const today = new Date();
     let startDate;
 
-    if (showAll && this.workouts.length > 0) {
+    if (showAll && datesArray.length > 0) {
       // Start from first workout date (capped at 90 days back)
-      const earliest = new Date(Math.min(...this.workouts.map(w => new Date(w.date).getTime())));
+      const earliest = new Date(Math.min(...datesArray.map(d => new Date(d).getTime())));
       startDate = new Date(earliest);
       startDate.setDate(startDate.getDate() - startDate.getDay()); // align to Sunday
       const cap = new Date(today);
@@ -3072,10 +3073,31 @@ const App = {
   renderUserProfile(data = {}) {
     const u = data.user || {};
     const av = u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username || 'unknown'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
-    const levelInfo = this.getLevelInfo((u.level || 1) * 500);
-    const weekVol = u.volume || 0;
+    const levelInfo = this.getLevelInfo((u.level || 1) * 500); // Or use their actual XP if we passed it
+    const totalVol = u.totalVolume || 0;
     const fmt = (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v);
-    const rankLabel = u.rank ? `#${u.rank} this week` : '';
+    
+    // Calculate their streak
+    let streak = 0;
+    const history = u.history || [];
+    if (history.length > 0) {
+      const dates = [...new Set(history.map(d => new Date(d).toDateString()))].sort((a,b) => new Date(b) - new Date(a));
+      let current = new Date();
+      current.setHours(0,0,0,0);
+      let dayCheck = new Date(dates[0]);
+      dayCheck.setHours(0,0,0,0);
+      
+      const diff = (current - dayCheck) / 86400000;
+      if (diff <= 4) { // allow grace period
+        streak = 1;
+        for (let i = 1; i < dates.length; i++) {
+          const d1 = new Date(dates[i-1]); d1.setHours(0,0,0,0);
+          const d2 = new Date(dates[i]);   d2.setHours(0,0,0,0);
+          if ((d1 - d2) / 86400000 <= 4) streak++;
+          else break;
+        }
+      }
+    }
 
     return `
       <div class="header">
@@ -3095,29 +3117,31 @@ const App = {
           <div style="text-align:center;">
             <div class="text-xl text-extra-bold text-white">${u.username || 'Unknown'}</div>
             <div class="text-sm text-aqua mt-2">${u.levelTitle || levelInfo.title}</div>
-            ${rankLabel ? `<div class="text-xs text-sunset mt-4">${rankLabel}</div>` : ''}
           </div>
         </div>
 
         <!-- Stats -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px 16px;">
           <div class="card" style="padding:12px 8px;text-align:center;">
-            <div class="text-xl text-extra-bold text-white">${fmt(weekVol)}</div>
-            <div class="text-xs text-sea mt-2">lbs / week</div>
+            <div class="text-xl text-extra-bold text-white">${fmt(totalVol)}</div>
+            <div class="text-xs text-sea mt-2">Lifetime Lbs</div>
           </div>
           <div class="card" style="padding:12px 8px;text-align:center;">
-            <div class="text-xl text-extra-bold text-aqua">${u.sessions || '—'}</div>
+            <div class="text-xl text-extra-bold text-aqua">${u.sessions || 0}</div>
             <div class="text-xs text-sea mt-2">Sessions</div>
           </div>
           <div class="card" style="padding:12px 8px;text-align:center;">
-            <div class="text-xl text-extra-bold text-sunset">${u.streak || '—'}</div>
+            <div class="text-xl text-extra-bold text-sunset">${streak}</div>
             <div class="text-xs text-sea mt-2">Streak</div>
           </div>
         </div>
 
-        <div class="text-center text-xs text-muted" style="padding:16px 0 8px;">
-          Stats update when they log workouts
+        <!-- Heatmap -->
+        <div class="section-header" style="margin-top:8px;"><span class="section-title">Consistency Heatmap</span></div>
+        <div class="card" style="overflow:hidden;margin-bottom:24px;">
+          ${this._buildCalendarHTML(true, history)}
         </div>
+        
         <div style="height:24px;"></div>
       </div>
     `;
