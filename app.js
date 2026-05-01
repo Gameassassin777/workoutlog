@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v74';
+const APP_VERSION = 'v75';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1295,8 +1295,8 @@ const App = {
     if (ex.iconUrl && !force) return ex.iconUrl;
     
     const seed = Math.floor(Math.random() * 1000000);
-    // highly descriptive prompt for a polished 3D icon
-    const prompt = encodeURIComponent(`3D app icon for ${ex.name} gym workout, fitness app icon, premium vibrant tropical color palette, dark blue background, highly detailed, clean edges`);
+    // highly descriptive prompt for anime/beach themed icon
+    const prompt = encodeURIComponent(`Anime illustration of ${ex.name} gym workout on a tropical beach, fitness app icon style, vibrant colors, highly detailed, clear subject`);
     
     // Use flux-schnell for fast generations
     const url = `https://image.pollinations.ai/prompt/${prompt}?width=128&height=128&nologo=true&model=flux-schnell&seed=${seed}`;
@@ -2907,11 +2907,13 @@ const App = {
         <span class="header-title">Exercise Library</span>
         <button class="header-action" id="btn-add-exercise-lib">${this.Icons.plus}</button>
       </div>
-      <div class="search-bar">
-        <span class="search-bar-icon" style="padding-left:12px;">${this.Icons.stats}</span>
-        <input type="text" class="input" placeholder="Search exercises..." id="exercise-search">
-      </div>
-      <div id="exercise-list">
+      <div class="screen-content">
+        <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 24px;">
+          <div class="search-bar" style="margin: 0; border-radius: 0; border-bottom: 1px solid var(--glass-border);">
+            <span class="search-bar-icon" style="padding-left:12px;">${this.Icons.stats}</span>
+            <input type="text" class="input" placeholder="Search exercises..." id="exercise-search" style="border: none; background: transparent; box-shadow: none;">
+          </div>
+          <div id="exercise-list">
         ${sorted.length === 0 ? `
           <div class="empty-state">
             <div class="empty-state-icon">${this.Icons.dumbbell}</div>
@@ -2933,6 +2935,8 @@ const App = {
             <span class="exercise-item-arrow">›</span>
           </div>
         `).join('')}
+          </div>
+        </div>
       </div>
     `;
   },

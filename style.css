@@ -80,6 +80,7 @@
   --shadow-btn:   0 6px 20px rgba(0,0,0,0.40);
   --deep-keys:    var(--text-main);
   --text-sea:     rgba(180, 230, 255, 0.85);
+  --input-focus-bg: rgba(0, 30, 70, 0.60);
   --white:        #ffffff;
 }
 
@@ -105,6 +106,7 @@ body.theme-light {
   --bg:              #C8EAF8;
   --sea-foam:        rgba(0, 80, 140, 0.82);
   --text-sea:        rgba(0, 80, 140, 0.82);
+  --input-focus-bg:  rgba(255, 255, 255, 0.90);
   --sand-light:      rgba(0, 140, 200, 0.06);
   --clear-water:     rgba(0, 160, 220, 0.07);
 }
@@ -121,6 +123,7 @@ body.theme-light {
     --shadow-glass:    0 8px 32px rgba(0,100,160,0.14), inset 0 1px 0 rgba(255,255,255,0.70);
     --sea-foam:        rgba(0, 80, 140, 0.82);
     --text-sea:        rgba(0, 80, 140, 0.82);
+    --input-focus-bg:  rgba(255, 255, 255, 0.90);
   }
 }
 
@@ -470,7 +473,7 @@ body.theme-light .nav-item { color: rgba(2, 20, 60, 0.80); text-shadow: none; }
 .input:focus {
   outline: none;
   border-color: rgba(0,200,255,0.58);
-  background: rgba(0,30,70,0.60);
+  background: var(--input-focus-bg);
   box-shadow: 0 0 0 3px rgba(0,180,255,0.10), var(--glow-aqua);
 }
 .input::placeholder { color: var(--text-muted); }
@@ -620,7 +623,7 @@ select.input {
   50%       { box-shadow: 0 0 20px rgba(255,200,80,0.68); }
 }
 .set-input { flex: 1; display: flex; gap: 6px; align-items: center; }
-.set-input .input { padding: 8px; text-align: center; font-size: 1.1rem; font-weight: 700; }
+.set-input .input { padding: 8px; text-align: center; font-size: 1.1rem; font-weight: 700; height: 44px; min-height: 44px; line-height: normal; box-sizing: border-box; }
 .set-check {
   width: 44px; height: 44px; border-radius: 50%;
   border: 2px solid var(--glass-border-hi);
@@ -806,7 +809,7 @@ select.input {
 .text-sunset  { color: var(--gold); text-shadow: 0 0 12px rgba(255,200,80,0.38); }
 .text-coral   { color: var(--coral); }
 .text-green   { color: var(--palm); text-shadow: 0 0 12px rgba(46,200,120,0.32); }
-.text-sea     { color: rgba(180,230,255,0.85); }
+.text-sea     { color: var(--text-sea); }
 .text-sand    { color: var(--text-sub); }
 .text-white   { color: var(--text-main); }
 .text-sm      { font-size: 0.82rem; }
