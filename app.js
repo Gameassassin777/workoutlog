@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v76';
+const APP_VERSION = 'v77';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -927,12 +927,14 @@ const App = {
     return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=0a1628,0d2340`;
   },
 
-  // ─── EXERCISE ICON VIA POLLINATIONS ───────────────────────
-  _getExerciseIconUrl(name) {
+  _getExerciseIconUrl(name, exObj = null) {
+    if (exObj && exObj.iconUrl) return exObj.iconUrl;
+    if (exObj && exObj.icon && exObj.icon.startsWith('http')) return exObj.icon;
+    
     // Deterministic seed from name so same name = same icon every time
     const seed = name.toLowerCase().split('').reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0);
     const safeSeed = Math.abs(seed) % 999983;
-    const prompt = encodeURIComponent(`minimalist flat icon ${name} exercise gym fitness white background simple vector clean`);
+    const prompt = encodeURIComponent(`Anime illustration of ${name} gym workout on a tropical beach, fitness app icon style, vibrant colors, highly detailed, clear subject`);
     return `https://image.pollinations.ai/prompt/${prompt}?width=128&height=128&nologo=true&model=flux-schnell&seed=${safeSeed}`;
   },
 
@@ -2920,10 +2922,12 @@ const App = {
             <div class="empty-state-title">No Exercises Yet</div>
             <div class="empty-state-text">Exercises are added automatically when you work out, or add them manually.</div>
           </div>
-        ` : sorted.map(ex => `
+        ` : sorted.map(ex => {
+          const iconUrl = this._getExerciseIconUrl(ex.name, ex);
+          return `
           <div class="exercise-item" data-exercise-id="${ex.id}">
-            <div class="exercise-item-icon" id="icon-${ex.id}" style="${ex.iconUrl ? 'background:transparent;' : ''}">
-              ${ex.iconUrl ? `<img src="${ex.iconUrl}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">` : this.Icons.dumbbell}
+            <div class="exercise-item-icon" id="icon-${ex.id}" style="${iconUrl ? 'background:transparent;' : ''}">
+              ${iconUrl ? `<img src="${iconUrl}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">` : this.Icons.dumbbell}
             </div>
             <div class="exercise-item-info">
               <div class="exercise-item-name">${ex.name}</div>
@@ -2934,7 +2938,7 @@ const App = {
             </div>
             <span class="exercise-item-arrow">›</span>
           </div>
-        `).join('')}
+        `}).join('')}
           </div>
         </div>
       </div>
@@ -4015,11 +4019,13 @@ const App = {
               <div class="exercise-item-icon" style="background: transparent; color: var(--aqua); width: auto; height: auto;">${this.Icons.plus}</div>
               <div class="exercise-item-name" style="color: var(--aqua);">Create Custom Exercise</div>
             </div>
-            ${sorted.map(ex => `
+            ${sorted.map(ex => {
+              const iconUrl = this._getExerciseIconUrl(ex.name, ex);
+              return `
               <div class="exercise-item" data-pick-exercise="${ex.id}">
-                <div class="exercise-item-icon" style="${ex.iconUrl ? 'background:transparent;' : ''}">
-                  ${ex.iconUrl 
-                    ? `<img src="${ex.iconUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" alt="icon">` 
+                <div class="exercise-item-icon" style="${iconUrl ? 'background:transparent;' : ''}">
+                  ${iconUrl 
+                    ? `<img src="${iconUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" alt="icon">` 
                     : this.Icons.dumbbell}
                 </div>
                 <div class="exercise-item-info">
@@ -4027,7 +4033,7 @@ const App = {
                   <div class="exercise-item-meta">${ex.muscleGroups && ex.muscleGroups.length ? ex.muscleGroups.join(', ') : 'Custom'}</div>
                 </div>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </div>
       </div>
