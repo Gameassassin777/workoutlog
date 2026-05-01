@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v82';
+const APP_VERSION = 'v83';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1892,8 +1892,8 @@ const App = {
     const circumference = 2 * Math.PI * 95;
 
     return `
-      <div class="fade-in" style="text-align: center; padding-top: 40px;">
-        <div class="text-sm text-sea mb-8">${label}</div>
+      <div class="fade-in" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 75vh; padding: 0 16px; text-align: center;">
+        <div class="text-lg text-white text-bold mb-24" style="font-size: 1.2rem;">${label}</div>
 
         <div class="timer-display">
           <div class="timer-ring">
@@ -1908,19 +1908,19 @@ const App = {
           </div>
         </div>
 
-        <div class="timer-label" id="timer-label">${seconds}s remaining</div>
+        <div class="text-white text-bold mt-16 mb-32" id="timer-label" style="font-size: 1.15rem; letter-spacing: 0.5px;">${seconds}s remaining</div>
 
-        <div class="flex gap-12 mx-16 mt-16">
+        <div class="flex gap-12 mb-32" style="width: 100%; max-width: 360px;">
           <button class="btn btn-ghost flex-1" id="btn-timer-minus15">-15s</button>
           <button class="btn btn-accent flex-1" id="btn-timer-skip">Skip →</button>
           <button class="btn btn-ghost flex-1" id="btn-timer-plus15">+15s</button>
         </div>
 
-        <div class="card mt-24 mx-16">
+        <div class="card" style="width: 100%; max-width: 360px; background: var(--glass-mid); border-color: var(--glass-border);">
           <div class="text-sm text-sand" style="font-style: italic;">
             "${this._getRestQuote()}"
           </div>
-          <div class="text-xs text-sea mt-4">— ${this._getRestQuoteAuthor()}</div>
+          <div class="text-xs text-sea mt-8">— ${this._getRestQuoteAuthor()}</div>
         </div>
       </div>
     `;
