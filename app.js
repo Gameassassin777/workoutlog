@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v72';
+const APP_VERSION = 'v73';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2791,10 +2791,13 @@ const App = {
         <!-- Exercise Library -->
         <div class="section-header">
           <span class="section-title">Exercise Library</span>
-          <button class="section-action" id="btn-manage-exercises">Manage</button>
         </div>
         <div class="card">
-          <div class="text-sm text-sea">${this.exercises.length} exercises saved</div>
+          <div class="flex flex-between" style="align-items: center; margin-bottom: 12px;">
+            <div class="text-sm text-sea">${this.exercises.length} exercises saved</div>
+            <button class="btn btn-small btn-ghost" id="btn-manage-exercises" style="color: var(--aqua); border: 1px solid var(--aqua-dim);">Combine Duplicates</button>
+          </div>
+          <div class="text-xs text-muted">Merge duplicate exercises to clean up your history and stats.</div>
         </div>
 
         <!-- Custom Fields -->
@@ -3961,18 +3964,16 @@ const App = {
             <input type="text" class="input" placeholder="Search or type new..." id="exercise-picker-search">
           </div>
           <div id="exercise-picker-list" style="max-height: 50vh; overflow-y: auto;">
-            <div class="exercise-item" id="btn-add-new-exercise">
-              <div class="exercise-item-icon" style="background: linear-gradient(135deg, var(--sunset), var(--sunrise));">${this.Icons.plus}</div>
-              <div class="exercise-item-info">
-                <div class="exercise-item-name">Add New Exercise</div>
-              </div>
+            <div class="exercise-item" id="btn-add-new-exercise" style="border: 1px dashed var(--glass-border-hi); background: var(--clear-water); justify-content: center; margin-bottom: 8px; border-radius: var(--radius-md);">
+              <div class="exercise-item-icon" style="background: transparent; color: var(--aqua); width: auto; height: auto;">${this.Icons.plus}</div>
+              <div class="exercise-item-name" style="color: var(--aqua);">Create Custom Exercise</div>
             </div>
             ${sorted.map(ex => `
               <div class="exercise-item" data-pick-exercise="${ex.id}">
-                <div class="exercise-item-icon">${this.Icons.palm}</div>
+                <div class="exercise-item-icon">${this.Icons.dumbbell}</div>
                 <div class="exercise-item-info">
                   <div class="exercise-item-name">${ex.name}</div>
-                  <div class="exercise-item-meta">${ex.muscleGroups ? ex.muscleGroups.join(', ') : ''}</div>
+                  <div class="exercise-item-meta">${ex.muscleGroups && ex.muscleGroups.length ? ex.muscleGroups.join(', ') : 'Custom'}</div>
                 </div>
               </div>
             `).join('')}
@@ -4016,6 +4017,94 @@ const App = {
         });
       });
     }
+  },
+
+  showCombineExercisesModal() {
+    const sorted = [...this.exercises].sort((a, b) => a.name.localeCompare(b.name));
+    const optionsHtml = sorted.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+
+    const html = `
+      <div class="modal-overlay" id="combine-exercises-overlay">
+        <div class="modal-sheet" style="padding-bottom: 24px;">
+          <div class="modal-handle"></div>
+          <div class="text-bold text-white text-lg mb-8">Combine Exercises</div>
+          <div class="text-sm text-sea mb-16">Merge a duplicate exercise into another. The duplicate will be deleted and all its history will be moved to the target exercise.</div>
+          
+          <div class="input-group">
+            <label class="input-label">Target Exercise (Keep this one)</label>
+            <select class="input" id="combine-target">
+              <option value="" disabled selected>Select target...</option>
+              ${optionsHtml}
+            </select>
+          </div>
+          
+          <div class="input-group" style="margin-top: 16px;">
+            <label class="input-label">Duplicate Exercise (Merge and delete this)</label>
+            <select class="input" id="combine-duplicate">
+              <option value="" disabled selected>Select duplicate...</option>
+              ${optionsHtml}
+            </select>
+          </div>
+
+          <button class="btn btn-accent mt-24" id="btn-confirm-combine" style="width: 100%;">Merge Exercises</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modal-container').innerHTML = html;
+
+    document.getElementById('combine-exercises-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'combine-exercises-overlay') {
+        document.getElementById('modal-container').innerHTML = '';
+      }
+    });
+
+    document.getElementById('btn-confirm-combine').addEventListener('click', async () => {
+      const targetId = document.getElementById('combine-target').value;
+      const dupId = document.getElementById('combine-duplicate').value;
+
+      if (!targetId || !dupId) {
+        this.showToast('Please select both exercises');
+        return;
+      }
+      if (targetId === dupId) {
+        this.showToast('Cannot combine an exercise with itself');
+        return;
+      }
+
+      const targetEx = this.exercises.find(e => e.id === targetId);
+      const dupEx = this.exercises.find(e => e.id === dupId);
+
+      if (confirm(`Merge "${dupEx.name}" into "${targetEx.name}"? This cannot be undone.`)) {
+        // Rewrite workouts
+        let mergedSets = 0;
+        this.workouts.forEach(w => {
+          w.exercises.forEach(ex => {
+            if (ex.exerciseId === dupId) {
+              ex.exerciseId = targetId;
+              ex.name = targetEx.name;
+              mergedSets += ex.sets.length;
+            }
+          });
+        });
+
+        // Delete duplicate exercise
+        this.exercises = this.exercises.filter(e => e.id !== dupId);
+
+        // Update target usage
+        targetEx.timesUsed = (targetEx.timesUsed || 0) + (dupEx.timesUsed || 0);
+        
+        await DB.saveWorkouts(this.workouts);
+        await DB.saveExercises(this.exercises);
+        
+        // Recalculate stats for safety
+        await this._recalculateProfileStats();
+
+        document.getElementById('modal-container').innerHTML = '';
+        this.showToast(`Merged successfully! Updated ${mergedSets} sets.`);
+        this.showScreen('settings'); // Refresh settings UI to show updated count
+      }
+    });
   },
 
   showAddExerciseForWorkout() {
@@ -5128,7 +5217,10 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       });
     }
 
-    this.bindClick('btn-manage-exercises', () => this.showScreen('exerciseLibrary'));
+    this.bindClick('btn-manage-exercises', () => {
+      this.showCombineExercisesModal();
+    });
+    this.bindClick('btn-show-exercise-library', () => this.showScreen('exerciseLibrary'));
 
     this.bindClick('btn-export-json', () => ExportImport.exportJSON());
     this.bindClick('btn-export-csv', () => ExportImport.exportCSV());

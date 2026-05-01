@@ -85,12 +85,12 @@
 
 /* ─── Light Mode ────────────────────────────────────────────── */
 body.theme-light {
-  --glass-deep:      rgba(255, 255, 255, 0.28);
-  --glass-mid:       rgba(255, 255, 255, 0.18);
-  --glass-light:     rgba(255, 255, 255, 0.10);
-  --glass-white:     rgba(255, 255, 255, 0.50);
-  --glass-border:    rgba(255, 255, 255, 0.55);
-  --glass-border-hi: rgba(255, 255, 255, 0.85);
+  --glass-deep:      rgba(255, 255, 255, 0.70);
+  --glass-mid:       rgba(255, 255, 255, 0.85);
+  --glass-light:     rgba(255, 255, 255, 0.60);
+  --glass-white:     rgba(255, 255, 255, 0.95);
+  --glass-border:    rgba(0, 40, 80, 0.12);
+  --glass-border-hi: rgba(0, 40, 80, 0.22);
   --teal:            #007BAA;
   --aqua:            #00AACC;
   --lagoon:          #00C896;
@@ -590,19 +590,18 @@ select.input {
 
 /* ─── Exercise List ─────────────────────────────────────────── */
 .exercise-item {
-  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
-  background: var(--glass-mid);
-  backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm);
-  border-bottom: 1px solid var(--glass-border); cursor: pointer; transition: background 0.18s;
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  background: transparent;
+  border-bottom: 1px solid var(--glass-border); 
+  cursor: pointer; transition: background 0.18s, transform 0.1s;
 }
-.exercise-item:active { background: var(--glass-light); }
+.exercise-item:last-child { border-bottom: none; }
+.exercise-item:active { background: var(--glass-light); transform: scale(0.98); }
 .exercise-item-icon {
-  width: 44px; height: 44px; border-radius: var(--radius-md);
-  background: linear-gradient(135deg, rgba(0,160,200,0.42), rgba(0,100,160,0.52));
-  border: 1px solid rgba(0,200,255,0.22);
+  width: 42px; height: 42px; border-radius: 10px;
+  background: var(--clear-water);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; color: var(--aqua);
-  box-shadow: 0 0 14px rgba(0,180,255,0.18);
 }
 .exercise-item-info { flex: 1; min-width: 0; }
 .exercise-item-name { font-size: 0.95rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
