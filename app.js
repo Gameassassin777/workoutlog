@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v79';
+const APP_VERSION = 'v80';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4530,7 +4530,8 @@ const App = {
   },
 
   async completeSet(exIdx, setIdx) {
-    const set = this.activeWorkout.exercises[exIdx].sets[setIdx];
+    const ex = this.activeWorkout.exercises[exIdx];
+    const set = ex.sets[setIdx];
     if (!set.weight || !set.reps) {
       this.showToast('Enter weight and reps first');
       return;
@@ -4538,6 +4539,14 @@ const App = {
 
     set.completed = true;
     set.timestamp = new Date().toISOString();
+
+    // Autofill future empty sets with this set's weight and reps
+    for (let i = setIdx + 1; i < ex.sets.length; i++) {
+      if (!ex.sets[i].completed && !ex.sets[i].weight && !ex.sets[i].reps) {
+        ex.sets[i].weight = set.weight;
+        ex.sets[i].reps = set.reps;
+      }
+    }
 
     // Check for PR
     const exName = this.activeWorkout.exercises[exIdx].name;
@@ -4551,7 +4560,6 @@ const App = {
     }
 
     // Check if this was the last uncompleted set for this exercise
-    const ex = this.activeWorkout.exercises[exIdx];
     const allDone = ex.sets.every(s => s.completed);
     const nextUncompletedSet = ex.sets.find(s => !s.completed);
     const restSecs    = ex.restSeconds ?? this.settings.defaultRestBetweenSets;
