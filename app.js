@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v81';
+const APP_VERSION = 'v82';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -242,7 +242,7 @@ const App = {
     // Silently fill in missing muscle groups from local map (no API call)
     setTimeout(() => this._autoFillMissingMuscleGroups(), 500);
     // Background task to ensure all custom exercises have an AI generated icon
-    setTimeout(() => this._ensureExerciseIcons(), 1000);
+
     this.chatLogs = await DB.getAllChatLogs();
 
     // Load bilateral preferences (persisted across sessions)
@@ -1282,16 +1282,7 @@ const App = {
     }
   },
 
-  async _ensureExerciseIcons() {
-    const missing = this.exercises.filter(ex => !ex.iconUrl);
-    if (!missing.length) return;
-    
-    // We process them one by one with a small delay so we don't bombard pollinations
-    for (const ex of missing) {
-      await this._generateExerciseIcon(ex);
-      await new Promise(r => setTimeout(r, 600)); // Delay to be polite
-    }
-  },
+
 
   async _generateExerciseIcon(ex, force = false) {
     if (ex.iconUrl && !force) return ex.iconUrl;
@@ -3675,7 +3666,7 @@ const App = {
         document.querySelectorAll('[data-exercise-id]').forEach(el => {
           el.addEventListener('click', () => this.showEditExerciseModal(el.dataset.exerciseId));
         });
-        this.triggerMissingIconGeneration();
+
         break;
 
       case 'workoutDetail':
@@ -6323,35 +6314,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     return 'Night owl gains';
   },
 
-  async triggerMissingIconGeneration() {
-    if (this._isGeneratingIcons) return;
-    this._isGeneratingIcons = true;
-    try {
-      for (const ex of this.exercises) {
-        if (!ex.icon) {
-          let icon = null;
-          if (this.settings.geminiApiKey) {
-            // Use Gemini SVG generation if key available
-            icon = await AI.generateExerciseIcon(ex.name, ex.muscleGroups);
-            await new Promise(r => setTimeout(r, 4500)); // respect rate limit
-          } else {
-            // Fall back to Pollinations URL (no key needed, deterministic)
-            icon = this._getExerciseIconUrl(ex.name);
-          }
-          if (icon) {
-            ex.icon = icon;
-            await DB.saveExercise(ex);
-            const iconEl = document.getElementById(`icon-${ex.id}`);
-            if (iconEl) {
-              iconEl.innerHTML = `<img src="${icon}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" class="fade-in" loading="lazy">`;
-            }
-          }
-        }
-      }
-    } finally {
-      this._isGeneratingIcons = false;
-    }
-  }
+
 };
 
 // ─── Boot ────────────────────────────────────────────────────
