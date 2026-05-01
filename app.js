@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v80';
+const APP_VERSION = 'v81';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -591,8 +591,8 @@ const App = {
     if (UNILATERAL_KEYWORDS.some(w => key.includes(w))) return false;
     // 3. Explicit lookup
     if (BILATERAL_EXERCISES.has(key)) return true;
-    // 4. Heuristic: contains "dumbbell" or " db " or starts with "db " → ask
-    if (/\bdumbbells?\b|\bdb\b/.test(key)) return null; // unknown, prompt
+    // 4. Heuristic: contains "dumbbell" or " db " or starts with "db " → auto bilateral
+    if (/\bdumbbells?\b|\bdb\b/.test(key)) return true;
     // 5. No dumbbell indicator → assume not bilateral (barbell, cable, machine, bodyweight)
     return false;
   },
