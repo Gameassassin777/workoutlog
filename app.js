@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v77';
+const APP_VERSION = 'v78';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -934,7 +934,7 @@ const App = {
     // Deterministic seed from name so same name = same icon every time
     const seed = name.toLowerCase().split('').reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0);
     const safeSeed = Math.abs(seed) % 999983;
-    const prompt = encodeURIComponent(`Anime illustration of ${name} gym workout on a tropical beach, fitness app icon style, vibrant colors, highly detailed, clear subject`);
+    const prompt = encodeURIComponent(`Anime illustration of a strong muscular person actively performing the exercise "${name}", tropical beach gym setting, focus on the athlete in motion, fitness app icon style, vibrant colors, highly detailed`);
     return `https://image.pollinations.ai/prompt/${prompt}?width=128&height=128&nologo=true&model=flux-schnell&seed=${safeSeed}`;
   },
 
@@ -1298,7 +1298,7 @@ const App = {
     
     const seed = Math.floor(Math.random() * 1000000);
     // highly descriptive prompt for anime/beach themed icon
-    const prompt = encodeURIComponent(`Anime illustration of ${ex.name} gym workout on a tropical beach, fitness app icon style, vibrant colors, highly detailed, clear subject`);
+    const prompt = encodeURIComponent(`Anime illustration of a strong muscular person actively performing the exercise "${ex.name}", tropical beach gym setting, focus on the athlete in motion, fitness app icon style, vibrant colors, highly detailed`);
     
     // Use flux-schnell for fast generations
     const url = `https://image.pollinations.ai/prompt/${prompt}?width=128&height=128&nologo=true&model=flux-schnell&seed=${seed}`;
