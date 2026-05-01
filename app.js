@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v75';
+const APP_VERSION = 'v76';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4129,14 +4129,18 @@ const App = {
       if (confirm(`Merge "${dupEx.name}" into "${targetEx.name}"? This cannot be undone.`)) {
         // Rewrite workouts
         let mergedSets = 0;
+        let modifiedWorkouts = [];
         this.workouts.forEach(w => {
+          let modified = false;
           w.exercises.forEach(ex => {
             if (ex.exerciseId === dupId) {
               ex.exerciseId = targetId;
               ex.name = targetEx.name;
               mergedSets += ex.sets.length;
+              modified = true;
             }
           });
+          if (modified) modifiedWorkouts.push(w);
         });
 
         // Delete duplicate exercise
@@ -4145,8 +4149,12 @@ const App = {
         // Update target usage
         targetEx.timesUsed = (targetEx.timesUsed || 0) + (dupEx.timesUsed || 0);
         
-        await DB.saveWorkouts(this.workouts);
-        await DB.saveExercises(this.exercises);
+        // Save precisely what changed
+        for (const w of modifiedWorkouts) {
+          await DB.saveWorkout(w);
+        }
+        await DB.deleteExercise(dupId);
+        await DB.saveExercise(targetEx);
         
         // Recalculate stats for safety
         await this._recalculateProfileStats();
