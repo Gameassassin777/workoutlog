@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v73';
+const APP_VERSION = 'v74';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -241,6 +241,8 @@ const App = {
     this.workouts = await DB.getAllWorkouts();
     // Silently fill in missing muscle groups from local map (no API call)
     setTimeout(() => this._autoFillMissingMuscleGroups(), 500);
+    // Background task to ensure all custom exercises have an AI generated icon
+    setTimeout(() => this._ensureExerciseIcons(), 1000);
     this.chatLogs = await DB.getAllChatLogs();
 
     // Load bilateral preferences (persisted across sessions)
@@ -1276,6 +1278,46 @@ const App = {
         }
       }
     }
+  },
+
+  async _ensureExerciseIcons() {
+    const missing = this.exercises.filter(ex => !ex.iconUrl);
+    if (!missing.length) return;
+    
+    // We process them one by one with a small delay so we don't bombard pollinations
+    for (const ex of missing) {
+      await this._generateExerciseIcon(ex);
+      await new Promise(r => setTimeout(r, 600)); // Delay to be polite
+    }
+  },
+
+  async _generateExerciseIcon(ex, force = false) {
+    if (ex.iconUrl && !force) return ex.iconUrl;
+    
+    const seed = Math.floor(Math.random() * 1000000);
+    // highly descriptive prompt for a polished 3D icon
+    const prompt = encodeURIComponent(`3D app icon for ${ex.name} gym workout, fitness app icon, premium vibrant tropical color palette, dark blue background, highly detailed, clean edges`);
+    
+    // Use flux-schnell for fast generations
+    const url = `https://image.pollinations.ai/prompt/${prompt}?width=128&height=128&nologo=true&model=flux-schnell&seed=${seed}`;
+    
+    ex.iconUrl = url;
+    await DB.saveExercise(ex);
+    
+    // Update live UI if the picker or library is currently open
+    const pickerIcon = document.querySelector(`[data-pick-exercise="${ex.id}"] .exercise-item-icon`);
+    if (pickerIcon) {
+      pickerIcon.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+      pickerIcon.style.background = 'transparent';
+    }
+    
+    const libIcon = document.querySelector(`[data-ex-id="${ex.id}"] .exercise-list-icon`);
+    if (libIcon) {
+      libIcon.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+      libIcon.style.background = 'transparent';
+    }
+    
+    return url;
   },
 
   // AI suggest muscle groups for one exercise (used by edit modal button)
@@ -2791,6 +2833,7 @@ const App = {
         <!-- Exercise Library -->
         <div class="section-header">
           <span class="section-title">Exercise Library</span>
+          <button class="section-action" id="btn-show-exercise-library">View All</button>
         </div>
         <div class="card">
           <div class="flex flex-between" style="align-items: center; margin-bottom: 12px;">
@@ -2877,8 +2920,8 @@ const App = {
           </div>
         ` : sorted.map(ex => `
           <div class="exercise-item" data-exercise-id="${ex.id}">
-            <div class="exercise-item-icon" id="icon-${ex.id}">
-              ${ex.icon ? `<img src="${ex.icon}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : this.Icons.person}
+            <div class="exercise-item-icon" id="icon-${ex.id}" style="${ex.iconUrl ? 'background:transparent;' : ''}">
+              ${ex.iconUrl ? `<img src="${ex.iconUrl}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">` : this.Icons.dumbbell}
             </div>
             <div class="exercise-item-info">
               <div class="exercise-item-name">${ex.name}</div>
@@ -3970,7 +4013,11 @@ const App = {
             </div>
             ${sorted.map(ex => `
               <div class="exercise-item" data-pick-exercise="${ex.id}">
-                <div class="exercise-item-icon">${this.Icons.dumbbell}</div>
+                <div class="exercise-item-icon" style="${ex.iconUrl ? 'background:transparent;' : ''}">
+                  ${ex.iconUrl 
+                    ? `<img src="${ex.iconUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" alt="icon">` 
+                    : this.Icons.dumbbell}
+                </div>
                 <div class="exercise-item-info">
                   <div class="exercise-item-name">${ex.name}</div>
                   <div class="exercise-item-meta">${ex.muscleGroups && ex.muscleGroups.length ? ex.muscleGroups.join(', ') : 'Custom'}</div>
@@ -4182,6 +4229,7 @@ const App = {
       if (!exercise.muscleGroups.length) {
         this._autoFillMissingMuscleGroups();
       }
+      this._generateExerciseIcon(exercise);
       document.getElementById('modal-container').innerHTML = '';
       this.addExerciseToWorkout(exercise);
     });
@@ -5438,6 +5486,14 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
         <div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
           <div class="modal-handle"></div>
           <div class="text-bold text-white text-lg mb-16">Edit Exercise</div>
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+            <div id="edit-ex-icon-preview" style="width:64px;height:64px;border-radius:10px;background:var(--clear-water);display:flex;align-items:center;justify-content:center;color:var(--aqua);">
+              ${ex.iconUrl ? `<img src="${ex.iconUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">` : this.Icons.dumbbell}
+            </div>
+            <button class="btn btn-small btn-ghost" id="btn-regenerate-icon" style="color:var(--aqua); border:1px solid var(--aqua-dim); display:flex; align-items:center; gap:6px;">
+              ${this.Icons.sparkle.replace('width="20" height="20"','width="16" height="16"')} Regenerate AI Icon
+            </button>
+          </div>
           <div class="input-group">
             <label class="input-label">Name</label>
             <input type="text" class="input" value="${this.escapeHtml(ex.name)}" id="edit-ex-name">
@@ -5512,6 +5568,25 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
       } else {
         this.showToast('No suggestion found — try typing the name more specifically');
       }
+    });
+
+    // Regenerate Icon button
+    document.getElementById('btn-regenerate-icon').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-regenerate-icon');
+      btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;">${this.Icons.hourglassIcon.replace('width="20" height="20"','width="16" height="16"')} Generating...</span>`;
+      btn.disabled = true;
+      
+      const newUrl = await this._generateExerciseIcon(ex, true);
+      
+      const preview = document.getElementById('edit-ex-icon-preview');
+      preview.innerHTML = `<img src="${newUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+      preview.style.background = 'transparent';
+      
+      btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;">${this.Icons.check.replace('width="24" height="24"','width="16" height="16"')} Done</span>`;
+      setTimeout(() => {
+        btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;">${this.Icons.sparkle.replace('width="20" height="20"','width="16" height="16"')} Regenerate AI Icon</span>`;
+        btn.disabled = false;
+      }, 2000);
     });
 
     document.getElementById('edit-ex-overlay').addEventListener('click', (e) => {
