@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v88';
+const APP_VERSION = 'v89';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2769,8 +2769,12 @@ const App = {
     if (!this._profileDataCache) this._profileDataCache = {};
     (users || []).forEach(u => {
       if (u.username) {
-        // Normalize snake_case from server to camelCase used in renderer
+        // Normalize server keys (snake_case or different names) to app keys (camelCase)
         if (u.avatar_url && !u.avatarUrl) u.avatarUrl = u.avatar_url;
+        if (u.volume !== undefined && u.totalVolume === undefined) u.totalVolume = u.volume;
+        if (u.history && !u.workoutHistory) u.workoutHistory = u.history;
+        if (u.exercises && !u.recentExercises) u.recentExercises = u.exercises;
+        
         this._profileDataCache[u.username] = u;
       }
     });
@@ -3511,7 +3515,8 @@ const App = {
     const u = data.user || {};
     const av = u.avatarUrl || u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username || 'unknown'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
     const levelInfo = this.getLevelInfo((u.level || 1) * 500); // Or use their actual XP if we passed it
-    const totalVol = u.totalVolume || 0;
+    const totalVol = u.totalVolume !== undefined ? u.totalVolume : (u.volume || 0);
+    const history = u.workoutHistory || u.history || [];
     const fmt = (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v);
     
     // Use actual streak if provided, else attempt to fallback to history array (which may be empty)
@@ -3538,7 +3543,7 @@ const App = {
 
     // Compute their muscle heatmap data
     let muscleData = {};
-    const recentExercises = u.recentExercises || [];
+    const recentExercises = u.recentExercises || u.exercises || [];
     recentExercises.forEach(jsonStr => {
       try {
         const exercises = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
