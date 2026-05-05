@@ -2857,7 +2857,6 @@ const App = {
     return `
       <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
         <div class="header" style="flex-shrink:0;">
-          <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
           <span class="header-title">Coach</span>
         </div>
         <div class="chat-messages" id="chat-messages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; -webkit-overflow-scrolling:touch;">
@@ -2892,7 +2891,6 @@ const App = {
 
     return `
       <div class="header">
-        <button class="header-back" id="btn-back-home">${this.Icons.back}</button>
         <span class="header-title">Config</span>
       </div>
       <div class="fade-in">
