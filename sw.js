@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v85';
+const CACHE_NAME = 'tropical-fit-v86';
 const ASSETS = [
   '/workoutlog/',
   '/workoutlog/index.html',
@@ -67,9 +67,16 @@ self.addEventListener('notificationclick', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Do not cache non-GET requests or backend API requests
+  if (event.request.method !== 'GET' || event.request.url.includes('workers.dev')) return;
+
   event.respondWith(
     caches.match(event.request).then(cached => {
       return cached || fetch(event.request).then(response => {
+        // Only cache valid HTTP responses
+        if (!response || response.status !== 200 || response.type === 'error') {
+          return response;
+        }
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         return response;

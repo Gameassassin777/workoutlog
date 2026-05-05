@@ -6,18 +6,18 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TropicalFit">
-  <meta name="theme-color" content="#0B3954">
+  <meta name="theme-color" content="#0B3954" id="theme-color-meta">
   <meta name="description" content="Track your gains, island style">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=83">
+  <link rel="stylesheet" href="style.css?v=84">
   <title>TropicalFit</title>
 </head>
 <body>
-  <video id="bg-video" autoplay muted playsinline>
+  <video id="bg-video" autoplay muted playsinline loop>
     <source src="bg.mp4" type="video/mp4">
   </video>
   <script>
@@ -25,9 +25,10 @@
     (function () {
       const v = document.getElementById('bg-video');
       function play() { v.play().catch(() => {}); }
-      v.addEventListener('ended', () => { v.currentTime = 0; play(); });
-      // Only restart if the pause wasn't triggered by a source-switch
-      v.addEventListener('pause', () => { if (!v.ended && !v._switching) play(); });
+      // Only restart if the pause wasn't triggered by a source-switch or battery saver
+      v.addEventListener('pause', () => { 
+        if (!v.ended && !v._switching && !document.body.classList.contains('battery-saver')) play(); 
+      });
       document.addEventListener('visibilitychange', () => { if (!document.hidden) play(); });
       window.addEventListener('pageshow', play);
       play();
@@ -81,13 +82,13 @@
   <div id="modal-container"></div>
   <div id="celebration-container"></div>
 
-  <script src="db.js?v=83"></script>
-  <script src="shader.js?v=83"></script>
-  <script src="palm.js?v=83"></script>
-  <script src="transition.js?v=83"></script>
-  <script src="timer.js?v=83"></script>
-  <script src="ai.js?v=83"></script>
-  <script src="export.js?v=83"></script>
-  <script src="app.js?v=83"></script>
+  <script src="db.js?v=84"></script>
+  <script src="shader.js?v=84"></script>
+  <script src="palm.js?v=84"></script>
+  <script src="transition.js?v=84"></script>
+  <script src="timer.js?v=84"></script>
+  <script src="ai.js?v=84"></script>
+  <script src="export.js?v=84"></script>
+  <script src="app.js?v=84"></script>
 </body>
 </html>

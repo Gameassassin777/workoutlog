@@ -222,9 +222,61 @@ const App = {
 
   // ─── Initialize ────────────────────────────────────────────
   async init() {
+    // Android PWA History API routing
+    window.addEventListener('popstate', (e) => {
+      if (this._ignoreNextPopstate) {
+        this._ignoreNextPopstate = false;
+        return;
+      }
+      if (this._modalOpenState) {
+        this._modalOpenState = false;
+        const mc = document.getElementById('modal-container');
+        if (mc) mc.innerHTML = '';
+        return;
+      }
+      const celeb = document.getElementById('celebration-container');
+      if (celeb && celeb.innerHTML.trim() !== '') {
+        celeb.innerHTML = '';
+      }
+      if (e.state && e.state.screen) {
+        this.showScreen(e.state.screen, e.state.data, false);
+      } else {
+        this.showScreen('home', {}, false);
+      }
+    });
+
+    const mc = document.getElementById('modal-container');
+    if (mc) {
+      new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          if (m.type === 'childList') {
+            if (mc.children.length > 0 && !this._modalOpenState) {
+              this._modalOpenState = true;
+              history.pushState({ modal: true, screen: this.currentScreen }, "", window.location.hash);
+            } else if (mc.children.length === 0 && this._modalOpenState) {
+              this._modalOpenState = false;
+              if (history.state && history.state.modal) {
+                this._ignoreNextPopstate = true;
+                history.back();
+              }
+            }
+          }
+        }
+      }).observe(mc, { childList: true });
+    }
+
+    // Android PWA Install Prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.deferredPrompt = e;
+      if (this.currentScreen === 'settings') {
+        this.showScreen('settings', {}, false);
+      }
+    });
+
     await this.loadData();
     this.setupNavigation();
-    this.showScreen('home');
+    this.showScreen('home', {}, false);
     this.registerSW();
     this.registerWithServer();
     this._scheduleLocalNotifications();
@@ -286,6 +338,11 @@ const App = {
       const isLight = theme === 'light' ||
         (theme === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches);
       window.setBgVideo(isLight ? 'bg-day.mp4' : 'bg.mp4');
+      
+      const themeMeta = document.getElementById('theme-color-meta');
+      if (themeMeta) {
+        themeMeta.content = isLight ? '#C8EAF8' : '#0B3954';
+      }
     }
 
     if (this.settings.batterySaver) {
@@ -381,6 +438,9 @@ const App = {
   _syncTimer: null,
 
   syncSession() {
+    if (this.activeWorkout) {
+      try { localStorage.setItem('tf_active_workout', JSON.stringify(this.activeWorkout)); } catch(e) {}
+    }
     const serverId = this.settings?.serverId;
     if (!serverId || !this.activeWorkout) return;
     clearTimeout(this._syncTimer);
@@ -393,6 +453,7 @@ const App = {
   },
 
   async clearCloudSession() {
+    try { localStorage.removeItem('tf_active_workout'); } catch(e) {}
     const serverId = this.settings?.serverId;
     if (!serverId) return;
     clearTimeout(this._syncTimer);
@@ -401,6 +462,18 @@ const App = {
   },
 
   async checkCloudSession() {
+    // Check local offline storage first
+    try {
+      const local = localStorage.getItem('tf_active_workout');
+      if (local) {
+        const session = JSON.parse(local);
+        if (session && session.exercises) {
+          this.showResumeModal(session, session.date);
+          return;
+        }
+      }
+    } catch(e) {}
+
     const serverId = this.settings?.serverId;
     if (!serverId) return;
     try {
@@ -824,6 +897,49 @@ const App = {
         }
       });
     });
+    this._bindSwipeNavigation();
+  },
+
+  _bindSwipeNavigation() {
+    const container = document.getElementById('screen-container');
+    if (!container) return;
+    
+    let startX = 0, startY = 0, isSwiping = false, startTime = 0;
+    
+    container.addEventListener('touchstart', (e) => {
+      // Don't swipe if touching a range input, textarea, map, or scrolling horizontally
+      if (e.target.closest('input, textarea, .horizontal-scroll, canvas')) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isSwiping = true;
+      startTime = Date.now();
+    }, { passive: true });
+
+    container.addEventListener('touchend', (e) => {
+      if (!isSwiping) return;
+      isSwiping = false;
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      
+      // Ensure horizontal swipe is dominant and intentional
+      if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 60 && Date.now() - startTime < 400) {
+        const mainTabs = ['home', 'logs', 'social', 'settings'];
+        
+        // Only allow swiping if we are currently on one of the main root tabs
+        if (mainTabs.includes(this.currentScreen)) {
+          const currentIdx = mainTabs.indexOf(this.currentScreen);
+          if (dx < 0 && currentIdx < mainTabs.length - 1) {
+            // Swipe left -> go to next tab
+            this.showScreen(mainTabs[currentIdx + 1]);
+          } else if (dx > 0 && currentIdx > 0) {
+            // Swipe right -> go to previous tab
+            this.showScreen(mainTabs[currentIdx - 1]);
+          }
+        }
+      }
+    }, { passive: true });
   },
 
   setActiveNav(screen) {
@@ -843,7 +959,10 @@ const App = {
   },
 
   // ─── Screen Router ─────────────────────────────────────────
-  async showScreen(name, data = {}) {
+  async showScreen(name, data = {}, pushHistory = true) {
+    if (pushHistory) {
+      history.pushState({ screen: name, data }, "", "#" + name);
+    }
     // Kill background timers when navigating away
     if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
     if (this._chatVisibilityHandler) { document.removeEventListener('visibilitychange', this._chatVisibilityHandler); this._chatVisibilityHandler = null; }
@@ -2173,6 +2292,18 @@ const App = {
       }
       return;
     }
+    
+    // Deduplicate users to fix duplicate entries bug
+    const uniqueUsers = [];
+    const seenIds = new Set();
+    users.forEach(u => {
+      if (!seenIds.has(u.user_id || u.username)) {
+        seenIds.add(u.user_id || u.username);
+        uniqueUsers.push(u);
+      }
+    });
+    users = uniqueUsers;
+
     const myRank = myVolume > 0 ? users.filter(u => u.volume > myVolume).length + 1 : '—';
     const badge = document.getElementById('my-rank-badge');
     if (badge) badge.textContent = myRank;
@@ -2180,7 +2311,7 @@ const App = {
       ${users.map(u => {
         const av = u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.user_id}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
         return `
-          <div class="leaderboard-row card-tappable" data-lb-username="${u.username}" data-lb-avatar="${encodeURIComponent(av)}" data-lb-level="${u.level || 1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}">
+          <div class="leaderboard-row card-tappable" data-lb-username="${u.username}" data-lb-avatar="${encodeURIComponent(av)}" data-lb-level="${u.level || 1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}" data-lb-streak="${u.streak || 0}" data-lb-sessions="${u.sessions || 0}">
             <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
             <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
             <div class="leaderboard-info">
@@ -2203,7 +2334,8 @@ const App = {
             level: parseInt(el.dataset.lbLevel) || 1,
             volume: parseInt(el.dataset.lbVolume) || 0,
             rank: parseInt(el.dataset.lbRank) || null,
-            streak: null, sessions: null,
+            streak: parseInt(el.dataset.lbStreak) || 0,
+            sessions: parseInt(el.dataset.lbSessions) || 0,
           }
         });
       });
@@ -2315,22 +2447,53 @@ const App = {
       if (bubble.dataset.interBound) return;
       bubble.dataset.interBound = '1';
       let startX, startY, moved;
+      let lastTapTime = 0;
+      
       bubble.addEventListener('touchstart', e => {
         if (e.target.closest('.reaction-btn, .reaction-bar, .bubble-avatar, a')) return;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         moved = false;
       }, { passive: true });
+      
       bubble.addEventListener('touchmove', e => {
         if (Math.abs(e.touches[0].clientX - startX) > 8 || Math.abs(e.touches[0].clientY - startY) > 8) moved = true;
       }, { passive: true });
-      bubble.addEventListener('touchend', e => {
+      
+      bubble.addEventListener('touchend', async e => {
         if (moved) return;
         if (e.target.closest('.reaction-btn, .reaction-bar, .bubble-avatar, a')) return;
-        const textEl = bubble.querySelector('.bubble-text, .feed-text');
-        const text = textEl?.textContent?.trim() || '';
+        
+        const now = Date.now();
         const barEl = bubble.querySelector('.reaction-bar');
-        this._showBubbleActions(startX, startY, barEl?.dataset.itemId, barEl?.dataset.itemType, text);
+        
+        if (now - lastTapTime < 300) {
+          // Double Tap -> React with 🔥
+          lastTapTime = 0; // reset
+          if (barEl) {
+            // Visual feedback
+            bubble.style.transform = 'scale(0.97)';
+            setTimeout(() => bubble.style.transform = '', 100);
+            navigator.vibrate?.(50);
+            
+            await this._toggleReaction(barEl.dataset.itemId, barEl.dataset.itemType, '🔥');
+            
+            // Re-fetch to update UI
+            await this._fetchReactionsBulk([barEl.dataset.itemId]);
+            this._bindReactionBars();
+          }
+          return;
+        }
+        lastTapTime = now;
+        
+        // Single tap -> Open context menu (wait a tiny bit to ensure it's not a double tap)
+        setTimeout(() => {
+          if (lastTapTime === now) {
+            const textEl = bubble.querySelector('.bubble-text, .feed-text');
+            const text = textEl?.textContent?.trim() || '';
+            this._showBubbleActions(startX, startY, barEl?.dataset.itemId, barEl?.dataset.itemType, text);
+          }
+        }, 300);
       }, { passive: true });
     });
   },
@@ -2354,6 +2517,65 @@ const App = {
         this._showBubbleActions(startX, startY, null, null, text);
       }, { passive: true });
     });
+  },
+
+  _bindPullToRefresh(element, onRefresh) {
+    if (!element) return;
+    let startY = 0, currentY = 0, isPulling = false;
+    const threshold = 80; // pixels to pull before triggering
+    
+    // Create pull indicator
+    let indicator = element.querySelector('.pull-refresh-indicator');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'pull-refresh-indicator text-xs text-aqua text-bold text-center';
+      indicator.style.cssText = 'height: 0; overflow: hidden; transition: height 0.2s; display: flex; align-items: center; justify-content: center; width: 100%;';
+      indicator.innerHTML = '<span>↓ Pull to refresh</span>';
+      element.insertBefore(indicator, element.firstChild);
+    }
+    const span = indicator.querySelector('span');
+
+    element.addEventListener('touchstart', (e) => {
+      if (element.scrollTop > 5) return; // Only pull if at the top
+      startY = e.touches[0].clientY;
+      isPulling = true;
+      indicator.style.transition = 'none';
+    }, { passive: true });
+
+    element.addEventListener('touchmove', (e) => {
+      if (!isPulling) return;
+      currentY = e.touches[0].clientY;
+      const pullDist = currentY - startY;
+      
+      if (pullDist > 0) {
+        // Resistance factor
+        const h = Math.min(pullDist * 0.4, threshold + 20);
+        indicator.style.height = h + 'px';
+        if (h >= threshold) {
+          span.textContent = '↻ Release to refresh';
+        } else {
+          span.textContent = '↓ Pull to refresh';
+        }
+      }
+    }, { passive: true });
+
+    element.addEventListener('touchend', async () => {
+      if (!isPulling) return;
+      isPulling = false;
+      const pullDist = currentY - startY;
+      
+      indicator.style.transition = 'height 0.3s ease';
+      if (pullDist * 0.4 >= threshold) {
+        span.textContent = 'Refreshing...';
+        indicator.style.height = '40px';
+        try {
+          await onRefresh();
+        } catch(e) {}
+        indicator.style.height = '0';
+      } else {
+        indicator.style.height = '0';
+      }
+    }, { passive: true });
   },
 
   // Fetch reaction counts + current user's reactions for a batch of items
@@ -2410,7 +2632,7 @@ const App = {
       ${items.map((f, i) => `
         <div class="feed-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
           <div style="display:flex;align-items:center;gap:10px;width:100%;">
-            <img class="feed-avatar" src="${makeAv(f.avatar_url, f.user_id)}" alt="${f.username || 'athlete'}">
+            <img class="feed-avatar" style="cursor:pointer;" src="${makeAv(f.avatar_url, f.user_id)}" alt="${f.username || 'athlete'}" data-lb-username="${f.username}" data-lb-avatar="${encodeURIComponent(makeAv(f.avatar_url, f.user_id))}">
             <div class="feed-content" style="flex:1;">
               <div class="feed-user">${f.username || 'athlete'}</div>
               <div class="feed-text">${f.text || f.description || ''}</div>
@@ -2422,6 +2644,17 @@ const App = {
     </div>`;
     this._bindReactionBars();
     this._bindBubbleInteractions(list);
+    list.querySelectorAll('.feed-avatar').forEach(img => {
+      img.addEventListener('click', () => {
+        const av = img.dataset.lbAvatar ? decodeURIComponent(img.dataset.lbAvatar) : '';
+        this.showScreen('userProfile', {
+          user: {
+            username: img.dataset.lbUsername, avatarUrl: av,
+            level: 1, volume: 0, rank: null, streak: 0, sessions: 0
+          }
+        });
+      });
+    });
     const feedIds = items.map(f => f.id).filter(Boolean);
     if (feedIds.length) this._fetchReactionsBulk(feedIds);
   },
@@ -2430,11 +2663,23 @@ const App = {
   _populateHomeLb(users) {
     const list = document.getElementById('home-lb-list');
     if (!list) return;
+    
+    // Deduplicate users to fix duplicate entries bug
+    const uniqueUsers = [];
+    const seenIds = new Set();
+    (users || []).forEach(u => {
+      if (!seenIds.has(u.user_id || u.username)) {
+        seenIds.add(u.user_id || u.username);
+        uniqueUsers.push(u);
+      }
+    });
+    users = uniqueUsers;
+
     const fmt = (v) => v >= 1000 ? (v/1000).toFixed(1)+'k' : v;
     const rankClass = (r) => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
     const makeAv = (url, seed) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'user'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
     const myVolume = this.getWeekVolume();
-    const top3 = (users || []).slice(0, 3);
+    const top3 = users.slice(0, 3);
     const myRank = myVolume > 0 && users.length
       ? users.filter(u => u.volume > myVolume).length + 1
       : (myVolume > 0 ? 1 : null);
@@ -2450,7 +2695,7 @@ const App = {
       const av = makeAv(u.avatar_url, u.user_id);
       html += `<div class="leaderboard-row card-tappable" style="padding:10px 14px;"
           data-lb-username="${u.username}" data-lb-avatar="${encodeURIComponent(av)}"
-          data-lb-level="${u.level||1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}">
+          data-lb-level="${u.level||1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}" data-lb-streak="${u.streak||0}" data-lb-sessions="${u.sessions||0}">
         <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
         <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
         <div class="leaderboard-info">
@@ -2859,6 +3104,21 @@ const App = {
         </div>
 
         <!-- Workout Defaults -->
+        ${this.deferredPrompt ? `
+        <div class="section-header">
+          <span class="section-title">App</span>
+        </div>
+        <div class="card" style="padding: 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div class="text-sm text-white text-bold">Install TropicalFit</div>
+              <div class="text-xs text-sea mt-1">Get the native app experience</div>
+            </div>
+            <button id="btn-install-app" class="btn btn-primary btn-small">Install</button>
+          </div>
+        </div>
+        ` : ''}
+
         <div class="section-header">
           <span class="section-title">Workout Defaults</span>
         </div>
@@ -3212,10 +3472,10 @@ const App = {
     const totalVol = u.totalVolume || 0;
     const fmt = (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v);
     
-    // Calculate their streak
-    let streak = 0;
+    // Use actual streak if provided, else attempt to fallback to history array (which may be empty)
+    let streak = u.streak || 0;
     const history = u.history || [];
-    if (history.length > 0) {
+    if (!streak && history.length > 0) {
       const dates = [...new Set(history.map(d => new Date(d).toDateString()))].sort((a,b) => new Date(b) - new Date(a));
       let current = new Date();
       current.setHours(0,0,0,0);
@@ -3295,7 +3555,7 @@ const App = {
         <div class="section-header"><span class="section-title">Muscle Heatmap</span></div>
         <div class="card" style="padding:16px 12px;margin-bottom:16px;">
           ${Object.keys(muscleData).length === 0 ? `
-            <div class="text-sm text-sea" style="padding:8px;text-align:center;">No workouts in the last 30 days</div>
+            <div class="text-sm text-sea" style="padding:8px;text-align:center;">Heatmap data is private or unavailable.</div>
           ` : `
             <div class="text-xs text-sea" style="margin-bottom:12px;">Last 30 days · brighter = more sets</div>
             ${this._buildBodyHeatmap(muscleData)}
@@ -3305,7 +3565,9 @@ const App = {
         <!-- Heatmap -->
         <div class="section-header" style="margin-top:8px;"><span class="section-title">Consistency Heatmap</span></div>
         <div class="card" style="overflow:hidden;margin-bottom:24px;">
-          ${this._buildCalendarHTML(true, history)}
+          ${history.length === 0 ? `
+            <div class="text-sm text-sea" style="padding:16px;text-align:center;">History is private or unavailable.</div>
+          ` : this._buildCalendarHTML(true, history)}
         </div>
         
         <!-- Nudge -->
@@ -3382,8 +3644,18 @@ const App = {
         this.bindClick('btn-notif', () => this._showNotifPanel());
 
         // Load mini leaderboard + feed for home screen
-        this._fetchLeaderboard().then(d => this._populateHomeLb(d?.users || d || []));
-        this._fetchFeed().then(d => this._populateHomeFeed(d?.items || d || []));
+        const loadHomeData = async () => {
+          await Promise.all([
+            this._fetchLeaderboard().then(d => this._populateHomeLb(d?.users || d || [])),
+            this._fetchFeed().then(d => this._populateHomeFeed(d?.items || d || []))
+          ]);
+        };
+        loadHomeData();
+
+        // Bind pull-to-refresh on the entire home screen
+        this._bindPullToRefresh(document.getElementById('screen-container'), async () => {
+          await loadHomeData();
+        });
 
         // Tappable stats → AI chat
         this.bindClick('tap-streak', () => this.openAIChat(`I have a ${this.profile.currentStreak} day workout streak. Give me motivation and evidence-based recovery tips to keep going!`));
@@ -4087,14 +4359,23 @@ const App = {
       return bDate - aDate;
     });
 
+    const filterChips = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio'];
+
     const html = `
       <div class="modal-overlay" id="exercise-picker-overlay">
         <div class="modal-sheet">
           <div class="modal-handle"></div>
           <div class="text-bold text-white text-lg mb-16">Select Exercise</div>
-          <div class="search-bar" style="margin: 0 0 12px 0;">
+          <div class="search-bar" style="margin: 0 0 10px 0;">
             <span class="search-bar-icon" style="padding-left:12px;">${this.Icons.stats}</span>
             <input type="text" class="input" placeholder="Search or type new..." id="exercise-picker-search">
+          </div>
+          <div id="exercise-filter-chips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+            ${filterChips.map((chip, i) => `
+              <button class="filter-chip${i === 0 ? ' active' : ''}" data-chip="${chip}"
+                style="flex-shrink:0;padding:5px 13px;border-radius:20px;border:1px solid ${i === 0 ? 'var(--aqua)' : 'var(--glass-border)'};background:${i === 0 ? 'rgba(0,200,255,0.15)' : 'var(--glass-dark)'};color:${i === 0 ? 'var(--aqua)' : 'var(--text-muted)'};font-size:0.75rem;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all 0.15s;">
+                ${chip}
+              </button>`).join('')}
           </div>
           <div id="exercise-picker-list" style="max-height: 50vh; overflow-y: auto;">
             <div class="exercise-item" id="btn-add-new-exercise" style="border: 1px dashed var(--glass-border-hi); background: var(--clear-water); justify-content: center; margin-bottom: 8px; border-radius: var(--radius-md);">
@@ -4104,7 +4385,7 @@ const App = {
             ${sorted.map(ex => {
               const iconUrl = this._getExerciseIconUrl(ex.name, ex);
               return `
-              <div class="exercise-item" data-pick-exercise="${ex.id}">
+              <div class="exercise-item" data-pick-exercise="${ex.id}" data-muscle-groups="${(ex.muscleGroups || []).join(',').toLowerCase()}">
                 <div class="exercise-item-icon" style="${iconUrl ? 'background:transparent;' : ''}">
                   ${iconUrl 
                     ? `<img src="${iconUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" alt="icon">` 
@@ -4123,7 +4404,7 @@ const App = {
 
     document.getElementById('modal-container').innerHTML = html;
 
-    // Bind events
+    // Bind overlay dismiss
     document.getElementById('exercise-picker-overlay').addEventListener('click', (e) => {
       if (e.target.id === 'exercise-picker-overlay') {
         document.getElementById('modal-container').innerHTML = '';
@@ -4145,16 +4426,38 @@ const App = {
       });
     });
 
+    // Combined filter+search function
+    let activeChip = 'All';
+    const applyFilters = (query = '') => {
+      query = query.toLowerCase();
+      document.querySelectorAll('[data-pick-exercise]').forEach(el => {
+        const name = el.querySelector('.exercise-item-name').textContent.toLowerCase();
+        const muscles = el.dataset.muscleGroups || '';
+        const chipMatch = activeChip === 'All' || muscles.includes(activeChip.toLowerCase());
+        const searchMatch = !query || name.includes(query);
+        el.style.display = chipMatch && searchMatch ? '' : 'none';
+      });
+    };
+
+    // Filter chip bindings
+    document.querySelectorAll('[data-chip]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        activeChip = chip.dataset.chip;
+        document.querySelectorAll('[data-chip]').forEach(c => {
+          const isActive = c === chip;
+          c.style.background = isActive ? 'rgba(0,200,255,0.15)' : 'var(--glass-dark)';
+          c.style.borderColor = isActive ? 'var(--aqua)' : 'var(--glass-border)';
+          c.style.color = isActive ? 'var(--aqua)' : 'var(--text-muted)';
+        });
+        const q = document.getElementById('exercise-picker-search')?.value || '';
+        applyFilters(q);
+      });
+    });
+
     const searchInput = document.getElementById('exercise-picker-search');
     if (searchInput) {
       searchInput.focus();
-      searchInput.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase();
-        document.querySelectorAll('[data-pick-exercise]').forEach(el => {
-          const name = el.querySelector('.exercise-item-name').textContent.toLowerCase();
-          el.style.display = name.includes(query) ? '' : 'none';
-        });
-      });
+      searchInput.addEventListener('input', (e) => applyFilters(e.target.value));
     }
   },
 
@@ -4810,20 +5113,24 @@ const App = {
       seconds,
       // onTick
       (remaining, total) => {
-        const display = document.getElementById('timer-display');
-        const label = document.getElementById('timer-label');
-        const circle = document.getElementById('timer-ring-circle');
-        if (display) display.textContent = Timer.formatTime(remaining);
-        if (label) label.textContent = `${remaining}s remaining`;
-        if (circle) {
-          const progress = Timer.getProgress(remaining, total);
-          const offset = circumference * (1 - progress);
-          circle.style.strokeDashoffset = offset;
+        if (this.currentScreen === 'restTimer') {
+          const display = document.getElementById('timer-display');
+          const label = document.getElementById('timer-label');
+          const circle = document.getElementById('timer-ring-circle');
+          if (display) display.textContent = Timer.formatTime(remaining);
+          if (label) label.textContent = `${remaining}s remaining`;
+          if (circle) {
+            const progress = Timer.getProgress(remaining, total);
+            const offset = circumference * (1 - progress);
+            circle.style.strokeDashoffset = offset;
+          }
         }
+        this._updateMiniTimer(remaining, total);
       },
       // onComplete
       () => {
         navigator.vibrate?.([100, 60, 100, 60, 100]);
+        this._updateMiniTimer(0, 0, true); // hide
         if (data.onComplete) {
           data.onComplete();
         } else {
@@ -4831,6 +5138,54 @@ const App = {
         }
       }
     );
+  },
+
+  _updateMiniTimer(remaining, total, hide = false) {
+    let miniTimer = document.getElementById('mini-rest-timer');
+    
+    // Hide logic
+    if (hide || remaining <= 0 || this.currentScreen === 'restTimer') {
+      if (miniTimer) miniTimer.style.display = 'none';
+      return;
+    }
+
+    // Create if missing
+    if (!miniTimer) {
+      miniTimer = document.createElement('div');
+      miniTimer.id = 'mini-rest-timer';
+      miniTimer.className = 'card-tappable';
+      miniTimer.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--glass-dark);
+        border: 1px solid var(--glass-border);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 20px;
+        padding: 6px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      `;
+      miniTimer.innerHTML = `
+        <span style="color:var(--aqua);">${this.Icons.sun}</span>
+        <span id="mini-timer-text" class="text-white text-bold text-sm"></span>
+      `;
+      
+      miniTimer.addEventListener('click', () => {
+        // When clicking the mini timer, go back to the full rest timer screen
+        this.showScreen('restTimer', { seconds: remaining });
+      });
+      document.body.appendChild(miniTimer);
+    }
+
+    miniTimer.style.display = 'flex';
+    const textEl = document.getElementById('mini-timer-text');
+    if (textEl) textEl.textContent = Timer.formatTime(remaining);
   },
 
   adjustTimer(delta) {
@@ -5378,6 +5733,17 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
         this.applyTheme();
       });
     }
+
+    this.bindClick('btn-install-app', async () => {
+      if (this.deferredPrompt) {
+        this.deferredPrompt.prompt();
+        const { outcome } = await this.deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          this.deferredPrompt = null;
+          this.showScreen('settings', {}, false);
+        }
+      }
+    });
 
     this.bindClick('btn-manage-exercises', () => {
       this.showCombineExercisesModal();
