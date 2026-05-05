@@ -233,6 +233,9 @@ const App = {
     // Re-apply theme if OS dark/light preference changes while app is open
     window.matchMedia('(prefers-color-scheme: light)')
       .addEventListener('change', () => this.applyTheme());
+
+    // Check for an orphaned live session in the cloud (non-blocking)
+    this.checkCloudSession();
   },
 
   async loadData() {
@@ -372,6 +375,77 @@ const App = {
       username: this.settings.username,
       avatar_url: this._getAvatarUrl(),
     }).catch(() => {});
+  },
+
+  // ─── Live Session Cloud Sync ───────────────────────────────
+  _syncTimer: null,
+
+  syncSession() {
+    const serverId = this.settings?.serverId;
+    if (!serverId || !this.activeWorkout) return;
+    clearTimeout(this._syncTimer);
+    this._syncTimer = setTimeout(async () => {
+      await this.apiPost('/api/session/save', {
+        user_id: serverId,
+        session: this.activeWorkout,
+      });
+    }, 800);
+  },
+
+  async clearCloudSession() {
+    const serverId = this.settings?.serverId;
+    if (!serverId) return;
+    clearTimeout(this._syncTimer);
+    this._syncTimer = null;
+    await this.apiPost('/api/session/clear', { user_id: serverId });
+  },
+
+  async checkCloudSession() {
+    const serverId = this.settings?.serverId;
+    if (!serverId) return;
+    try {
+      const data = await this.apiGet(`/api/session/load?user_id=${encodeURIComponent(serverId)}`);
+      if (data?.session) {
+        this.showResumeModal(data.session, data.updated_at);
+      }
+    } catch (e) {
+      console.warn('[Cloud] Session check failed:', e.message);
+    }
+  },
+
+  showResumeModal(session, updatedAt) {
+    const when = updatedAt
+      ? new Date(updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : 'earlier';
+    const exerciseCount = session?.exercises?.length || 0;
+    const setCount = session?.exercises?.reduce((s, ex) => s + ex.sets.filter(st => st.completed).length, 0) || 0;
+
+    const html = `
+      <div class="modal-overlay" id="resume-overlay" style="z-index:2000;">
+        <div class="modal-sheet" style="border-top:3px solid var(--sunset);">
+          <div class="modal-handle"></div>
+          <div style="font-size:1.8rem; text-align:center; margin-bottom:8px;">🌊</div>
+          <div class="text-bold text-white text-lg" style="text-align:center; margin-bottom:6px;">Resume Workout?</div>
+          <div class="text-sm text-sea" style="text-align:center; margin-bottom:20px;">
+            You left a session at ${when} with ${exerciseCount} exercise${exerciseCount !== 1 ? 's' : ''} and ${setCount} completed set${setCount !== 1 ? 's' : ''}.
+          </div>
+          <button class="btn btn-accent btn-large mb-8" id="btn-resume-yes">Resume Session</button>
+          <button class="btn btn-ghost btn-large" id="btn-resume-discard">Discard &amp; Start Fresh</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-container').innerHTML = html;
+
+    document.getElementById('btn-resume-yes').addEventListener('click', () => {
+      document.getElementById('modal-container').innerHTML = '';
+      this.activeWorkout = session;
+      Timer.startWorkoutSession().then(() => this.showScreen('activeWorkout'));
+    });
+
+    document.getElementById('btn-resume-discard').addEventListener('click', async () => {
+      document.getElementById('modal-container').innerHTML = '';
+      await this.clearCloudSession();
+    });
   },
 
   // Subscribe to Web Push and send subscription to server
@@ -1540,7 +1614,7 @@ const App = {
 
   // ── Volume per-session SVG line graph ─────────────────────
   _buildVolumeLineGraph(limit) {
-    const allSorted = [...this.workouts].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const allSorted = [...this.workouts].sort((a, b) => new Date(w.date) - new Date(b.date));
     if (allSorted.length === 0) {
       return `<div class="text-sm text-sea" style="padding:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;"><span style="color:var(--aqua);">${this.Icons.beachUmbrella}</span>No sessions yet — get lifting!</div>`;
     }
@@ -3986,6 +4060,7 @@ const App = {
 
     navigator.vibrate?.([60]);
     await Timer.startWorkoutSession();
+    this.syncSession();
     this.showExercisePicker();
   },
 
@@ -4279,6 +4354,7 @@ const App = {
     exercise.timesUsed = (exercise.timesUsed || 0) + 1;
     DB.saveExercise(exercise);
 
+    this.syncSession();
     this.showScreen('activeWorkout');
 
     // If detection was ambiguous (null), prompt AFTER render so modal appears over the screen
@@ -4299,6 +4375,7 @@ const App = {
         if (this.activeWorkout?.exercises[exIdx]?.sets[setIdx]) {
           this.activeWorkout.exercises[exIdx].sets[setIdx][field] = value;
           this._updateLiveStats();
+          this.syncSession();
         }
       });
     });
@@ -4354,6 +4431,7 @@ const App = {
           timestamp: null,
           completed: false
         });
+        this.syncSession();
         this.showScreen('activeWorkout');
       });
     });
@@ -4531,6 +4609,8 @@ const App = {
     set.completed = true;
     set.timestamp = new Date().toISOString();
 
+    this.syncSession();
+
     // Autofill future empty sets with this set's weight and reps
     for (let i = setIdx + 1; i < ex.sets.length; i++) {
       if (!ex.sets[i].completed && !ex.sets[i].weight && !ex.sets[i].reps) {
@@ -4585,6 +4665,7 @@ const App = {
     if (confirm('Cancel this workout? All progress will be lost.')) {
       Timer.endWorkoutSession();
       this.activeWorkout = null;
+      this.clearCloudSession();
       this.showScreen('home');
     }
   },
