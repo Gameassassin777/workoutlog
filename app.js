@@ -1749,7 +1749,7 @@ const App = {
 
   // ── Volume per-session SVG line graph ─────────────────────
   _buildVolumeLineGraph(limit) {
-    const allSorted = [...this.workouts].sort((a, b) => new Date(w.date) - new Date(b.date));
+    const allSorted = [...this.workouts].sort((a, b) => new Date(a.date) - new Date(b.date));
     if (allSorted.length === 0) {
       return `<div class="text-sm text-sea" style="padding:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;"><span style="color:var(--aqua);">${this.Icons.beachUmbrella}</span>No sessions yet — get lifting!</div>`;
     }
@@ -2504,10 +2504,11 @@ const App = {
       img.dataset.avatarBound = '1';
       img.addEventListener('click', () => {
         const username = img.dataset.chatUsername;
+        const cached = this._profileDataCache?.[username];
         const av = img.dataset.chatAvatar ? decodeURIComponent(img.dataset.chatAvatar) : '';
         if (!username) return;
         this.showScreen('userProfile', {
-          user: { username, avatarUrl: av, level: 1, volume: 0, rank: null, streak: 0, sessions: 0 }
+          user: cached || { username, avatarUrl: av, level: 1, volume: 0, rank: null, streak: 0, sessions: 0 }
         });
       });
     });
@@ -2664,10 +2665,13 @@ const App = {
     this._bindBubbleInteractions(list);
     list.querySelectorAll('.feed-avatar').forEach(img => {
       img.addEventListener('click', () => {
+        const username = img.dataset.lbUsername;
+        // Find full data in cache if possible
+        const cached = this._profileDataCache?.[username];
         const av = img.dataset.lbAvatar ? decodeURIComponent(img.dataset.lbAvatar) : '';
         this.showScreen('userProfile', {
-          user: {
-            username: img.dataset.lbUsername, avatarUrl: av,
+          user: cached || {
+            username: username, avatarUrl: av,
             level: 1, volume: 0, rank: null, streak: 0, sessions: 0
           }
         });
@@ -2675,6 +2679,8 @@ const App = {
     });
     const feedIds = items.map(f => f.id).filter(Boolean);
     if (feedIds.length) this._fetchReactionsBulk(feedIds);
+    // Cache for profile viewing
+    this._updatePeerCache(items);
   },
 
   // ─── HOME MINI LEADERBOARD ────────────────────────────────
@@ -2738,17 +2744,31 @@ const App = {
     // Bind row taps → user profile
     list.querySelectorAll('[data-lb-username]').forEach(el => {
       el.addEventListener('click', () => {
+        const username = el.dataset.lbUsername;
+        // Find full data in cache if possible
+        const cached = this._profileDataCache?.[username];
         const av = el.dataset.lbAvatar
           ? decodeURIComponent(el.dataset.lbAvatar)
           : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
         this.showScreen('userProfile', {
-          user: { username: el.dataset.lbUsername, avatarUrl: av,
+          user: cached || {
+            username: username, avatarUrl: av,
             level: parseInt(el.dataset.lbLevel)||1, volume: parseInt(el.dataset.lbVolume)||0,
             rank: parseInt(el.dataset.lbRank)||null,
             streak: parseInt(el.dataset.lbStreak)||0,
-            sessions: parseInt(el.dataset.lbSessions)||0 }
+            sessions: parseInt(el.dataset.lbSessions)||0
+          }
         });
       });
+    });
+    // Cache for profile viewing
+    this._updatePeerCache(users);
+  },
+
+  _updatePeerCache(users) {
+    if (!this._profileDataCache) this._profileDataCache = {};
+    (users || []).forEach(u => {
+      if (u.username) this._profileDataCache[u.username] = u;
     });
   },
 
@@ -3519,9 +3539,9 @@ const App = {
     const recentExercises = u.recentExercises || [];
     recentExercises.forEach(jsonStr => {
       try {
-        const exercises = JSON.parse(jsonStr);
+        const exercises = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
         exercises.forEach(ex => {
-          const mg = this.getMuscleGroupsForExercise(ex);
+          const mg = this._getMuscleGroups(ex.name, ex.exerciseId);
           // Only count sets that have data, or all if we can't tell easily
           const count = ex.sets ? (ex.sets.filter(s => s.completed || s.weight || s.reps).length || ex.sets.length) : 0;
           if (count > 0) {
@@ -3533,6 +3553,12 @@ const App = {
         });
       } catch(e) {}
     });
+
+    // Normalize Peer Heatmap to 1-5 scale to prevent color array overflow
+    const maxSets = Math.max(1, ...Object.values(muscleData));
+    for (const key of Object.keys(muscleData)) {
+      muscleData[key] = Math.min(5, Math.ceil((muscleData[key] / maxSets) * 5));
+    }
 
     return `
       <div class="header">
