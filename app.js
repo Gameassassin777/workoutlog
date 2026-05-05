@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v91';
+const APP_VERSION = 'v92';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2769,13 +2769,20 @@ const App = {
     if (!this._profileDataCache) this._profileDataCache = {};
     (users || []).forEach(u => {
       if (u.username) {
-        // Normalize server keys (snake_case or different names) to app keys (camelCase)
-        if (u.avatar_url && !u.avatarUrl) u.avatarUrl = u.avatar_url;
-        if (u.volume !== undefined && u.totalVolume === undefined) u.totalVolume = u.volume;
-        if (u.history && !u.workoutHistory) u.workoutHistory = u.history;
-        if (u.exercises && !u.recentExercises) u.recentExercises = u.exercises;
+        // Smart merge: don't let partial data (from chat/feed) overwrite full data (from leaderboard)
+        const existing = this._profileDataCache[u.username] || {};
         
-        this._profileDataCache[u.username] = u;
+        // Normalize server keys (snake_case) to app keys (camelCase)
+        const normalized = {
+          ...existing,
+          ...u,
+          avatarUrl: u.avatar_url || u.avatarUrl || existing.avatarUrl,
+          totalVolume: u.total_volume || u.totalVolume || existing.totalVolume,
+          workoutHistory: u.history || u.workoutHistory || existing.workoutHistory,
+          recentExercises: u.exercises || u.recentExercises || existing.recentExercises
+        };
+        
+        this._profileDataCache[u.username] = normalized;
       }
     });
   },
@@ -3514,8 +3521,13 @@ const App = {
   renderUserProfile(data = {}) {
     const u = data.user || {};
     const av = u.avatarUrl || u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username || 'unknown'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
-    const levelInfo = this.getLevelInfo((u.level || 1) * 500); // Or use their actual XP if we passed it
-    const totalVol = u.totalVolume !== undefined ? u.totalVolume : (u.volume || 0);
+    const levelInfo = this.getLevelInfo((u.level || 1) * 500); 
+    const totalVol = u.totalVolume || u.total_volume || 0;
+    const weeklyVol = u.volume || 0;
+    // If we have totalVolume, label as Lifetime, otherwise Weekly to be accurate
+    const volLabel = (u.totalVolume || u.total_volume) ? 'Lifetime Lbs' : 'Weekly Lbs';
+    const displayVol = (u.totalVolume || u.total_volume) ? totalVol : weeklyVol;
+    
     const history = u.workoutHistory || u.history || [];
     const fmt = (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v);
     
@@ -3590,8 +3602,8 @@ const App = {
         <!-- Stats -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px 16px;">
           <div class="card" style="padding:12px 8px;text-align:center;">
-            <div class="text-xl text-extra-bold text-white">${fmt(totalVol)}</div>
-            <div class="text-xs text-sea mt-2">Lifetime Lbs</div>
+            <div class="text-xl text-extra-bold text-white">${fmt(displayVol)}</div>
+            <div class="text-xs text-sea mt-2">${volLabel}</div>
           </div>
           <div class="card" style="padding:12px 8px;text-align:center;">
             <div class="text-xl text-extra-bold text-aqua">${u.sessions || 0}</div>
