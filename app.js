@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v87';
+const APP_VERSION = 'v88';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4305,13 +4305,15 @@ const App = {
             this._bindBubbleInteractions(msgs);
             this._bindChatAvatarTaps(msgs);
             
-            // Force auto-scroll to the bottom always
-            const forceScroll = () => { msgs.scrollTop = msgs.scrollHeight; };
-            requestAnimationFrame(() => {
-              forceScroll();
-              requestAnimationFrame(forceScroll);
-              setTimeout(forceScroll, 50); // Catch late image layout shifts
-            });
+            // Smart auto-scroll: only jump if user was already at bottom or if it's the first load
+            if (atBottom) {
+              const forceScroll = () => { msgs.scrollTop = msgs.scrollHeight; };
+              requestAnimationFrame(() => {
+                forceScroll();
+                requestAnimationFrame(forceScroll);
+                setTimeout(forceScroll, 60); // Catch late image layout shifts
+              });
+            }
           };
 
           if (this._chatPollTimer) clearInterval(this._chatPollTimer);
