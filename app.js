@@ -2536,6 +2536,9 @@ const App = {
 
   _bindPullToRefresh(element, onRefresh) {
     if (!element) return;
+    // Guard: only bind once per element to prevent stacking on re-renders
+    if (element._pullRefreshBound) return;
+    element._pullRefreshBound = true;
     let startY = 0, currentY = 0, isPulling = false;
     const threshold = 80; // pixels to pull before triggering
     
@@ -2741,7 +2744,9 @@ const App = {
         this.showScreen('userProfile', {
           user: { username: el.dataset.lbUsername, avatarUrl: av,
             level: parseInt(el.dataset.lbLevel)||1, volume: parseInt(el.dataset.lbVolume)||0,
-            rank: parseInt(el.dataset.lbRank)||null, streak: null, sessions: null }
+            rank: parseInt(el.dataset.lbRank)||null,
+            streak: parseInt(el.dataset.lbStreak)||0,
+            sessions: parseInt(el.dataset.lbSessions)||0 }
         });
       });
     });
@@ -5195,8 +5200,11 @@ const App = {
       `;
       
       miniTimer.addEventListener('click', () => {
-        // When clicking the mini timer, go back to the full rest timer screen
-        this.showScreen('restTimer', { seconds: remaining });
+        // Read live remaining from Timer so the restored screen shows the correct value
+        const liveRemaining = Timer.isRunning
+          ? Math.max(0, Math.round((Timer.targetEnd - Date.now()) / 1000))
+          : 0;
+        this.showScreen('restTimer', { seconds: liveRemaining || 1 });
       });
       document.body.appendChild(miniTimer);
     }
