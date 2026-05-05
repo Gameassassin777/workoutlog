@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v89';
+const APP_VERSION = 'v90';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3521,7 +3521,6 @@ const App = {
     
     // Use actual streak if provided, else attempt to fallback to history array (which may be empty)
     let streak = u.streak || 0;
-    const history = u.history || [];
     if (!streak && history.length > 0) {
       const dates = [...new Set(history.map(d => new Date(d).toDateString()))].sort((a,b) => new Date(b) - new Date(a));
       let current = new Date();
