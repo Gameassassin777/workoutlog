@@ -453,11 +453,27 @@ const App = {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     try {
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
-      });
-      if (this.settings.serverId) {
+      let sub;
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
+        });
+      } catch (err) {
+        // If the applicationServerKey changed, the browser throws an error. Unsubscribe first.
+        const existingSub = await reg.pushManager.getSubscription();
+        if (existingSub) {
+          await existingSub.unsubscribe();
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
+          });
+        } else {
+          throw err;
+        }
+      }
+      
+      if (this.settings.serverId && sub) {
         await this.apiPost('/api/push/subscribe', {
           user_id: this.settings.serverId,
           subscription: sub.toJSON(),
