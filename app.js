@@ -2498,6 +2498,21 @@ const App = {
     });
   },
 
+  _bindChatAvatarTaps(container) {
+    container.querySelectorAll('img.bubble-avatar[data-chat-username]').forEach(img => {
+      if (img.dataset.avatarBound) return;
+      img.dataset.avatarBound = '1';
+      img.addEventListener('click', () => {
+        const username = img.dataset.chatUsername;
+        const av = img.dataset.chatAvatar ? decodeURIComponent(img.dataset.chatAvatar) : '';
+        if (!username) return;
+        this.showScreen('userProfile', {
+          user: { username, avatarUrl: av, level: 1, volume: 0, rank: null, streak: 0, sessions: 0 }
+        });
+      });
+    });
+  },
+
   _bindAiChatCopy(container) {
     container.querySelectorAll('.chat-bubble').forEach(el => {
       if (el.dataset.interBound) return;
@@ -4187,8 +4202,9 @@ const App = {
           const mkBubble = (m, idx) => {
             const mine = m.user_id === this.settings.serverId;
             const myAv = this._getAvatarUrl();
+            const avSrc = makeAv(m.avatar_url);
             return `<div class="chat-global-bubble ${mine ? 'mine' : ''}">
-              ${!mine ? `<img class="bubble-avatar" src="${makeAv(m.avatar_url)}" alt="${m.username || 'athlete'}">` : ''}
+              ${!mine ? `<img class="bubble-avatar" style="cursor:pointer;" src="${avSrc}" alt="${m.username || 'athlete'}" data-chat-username="${m.username || ''}" data-chat-avatar="${encodeURIComponent(avSrc)}">` : ''}
               <div class="bubble-body">
                 ${!mine ? `<div class="bubble-name">${m.username || 'athlete'}</div>` : ''}
                 <div class="bubble-text">${this.escapeHtml(m.text)}</div>
@@ -4218,6 +4234,7 @@ const App = {
               data.messages.forEach(m => seenIds.add(m.id));
               this._bindReactionBars();
               this._bindBubbleInteractions(msgs);
+              this._bindChatAvatarTaps(msgs);
               
               // Force auto-scroll to the bottom always (initial load)
               const forceScroll = () => { msgs.scrollTop = msgs.scrollHeight; };
@@ -4253,6 +4270,7 @@ const App = {
             });
             this._bindReactionBars();
             this._bindBubbleInteractions(msgs);
+            this._bindChatAvatarTaps(msgs);
             
             // Force auto-scroll to the bottom always
             const forceScroll = () => { msgs.scrollTop = msgs.scrollHeight; };
