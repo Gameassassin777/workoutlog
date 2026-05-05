@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v85';
+const APP_VERSION = 'v87';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2768,7 +2768,11 @@ const App = {
   _updatePeerCache(users) {
     if (!this._profileDataCache) this._profileDataCache = {};
     (users || []).forEach(u => {
-      if (u.username) this._profileDataCache[u.username] = u;
+      if (u.username) {
+        // Normalize snake_case from server to camelCase used in renderer
+        if (u.avatar_url && !u.avatarUrl) u.avatarUrl = u.avatar_url;
+        this._profileDataCache[u.username] = u;
+      }
     });
   },
 
@@ -3505,7 +3509,7 @@ const App = {
   // ─── USER PROFILE VIEWER (other users) ────────────────────
   renderUserProfile(data = {}) {
     const u = data.user || {};
-    const av = u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username || 'unknown'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
+    const av = u.avatarUrl || u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username || 'unknown'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
     const levelInfo = this.getLevelInfo((u.level || 1) * 500); // Or use their actual XP if we passed it
     const totalVol = u.totalVolume || 0;
     const fmt = (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v);
