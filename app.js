@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v94';
+const APP_VERSION = 'v95';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3575,7 +3575,8 @@ const App = {
     // Normalize Peer Heatmap to 1-5 scale to prevent color array overflow
     const maxSets = Math.max(1, ...Object.values(muscleData));
     for (const key of Object.keys(muscleData)) {
-      muscleData[key] = Math.min(5, Math.ceil((muscleData[key] / maxSets) * 5));
+      const intensity = Math.min(5, Math.ceil((muscleData[key] / maxSets) * 5));
+      muscleData[key] = isNaN(intensity) ? 0 : intensity;
     }
 
     return `
@@ -4247,19 +4248,20 @@ const App = {
         if (document.getElementById('global-chat-messages')) {
           requestAnimationFrame(() => this._positionChatFrame());
           const globalInput = document.getElementById('global-chat-input');
-          const makeAv = (url) => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
           const mkBubble = (m, idx) => {
             const mine = m.user_id === this.settings.serverId;
             const myAv = this._getAvatarUrl();
-            const avSrc = makeAv(m.avatar_url);
+            const avSrc = url => url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(m.username || m.user_id || 'athlete')}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
+            const displayAv = mine ? myAv : avSrc(m.avatar_url);
+            
             return `<div class="chat-global-bubble ${mine ? 'mine' : ''}">
-              ${!mine ? `<img class="bubble-avatar" style="cursor:pointer;" src="${avSrc}" alt="${m.username || 'athlete'}" data-chat-username="${m.username || ''}" data-chat-avatar="${encodeURIComponent(avSrc)}">` : ''}
+              ${!mine ? `<img class="bubble-avatar" style="cursor:pointer;" src="${displayAv}" alt="${m.username || 'athlete'}" data-chat-username="${m.username || ''}" data-chat-avatar="${encodeURIComponent(displayAv)}">` : ''}
               <div class="bubble-body">
                 ${!mine ? `<div class="bubble-name">${m.username || 'athlete'}</div>` : ''}
                 <div class="bubble-text">${this.escapeHtml(m.text)}</div>
                 ${this._reactionBarHtml(m.id || `chat-srv-${idx}`, 'chat')}
               </div>
-              ${mine ? `<img class="bubble-avatar" src="${myAv}" alt="you">` : ''}
+              ${mine ? `<img class="bubble-avatar" style="cursor:pointer;" src="${myAv}" alt="you" data-chat-username="${this.settings.username}" data-chat-avatar="${encodeURIComponent(myAv)}">` : ''}
             </div>`;
           };
 

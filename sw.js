@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v94';
+const CACHE_NAME = 'tropical-fit-v95';
 const ASSETS = [
   '/workoutlog/',
   '/workoutlog/index.html',
