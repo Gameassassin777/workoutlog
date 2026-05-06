@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v93';
+const APP_VERSION = 'v94';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1074,7 +1074,7 @@ const App = {
           <div class="hero-stat-pill">
             <div class="hero-stat-pill-icon">${this.Icons.stats}</div>
             <span class="hero-stat-pill-val">${this.formatVolume(p.totalVolume || 0)}</span>
-            <div class="hero-stat-pill-label">Volume</div>
+            <div class="hero-stat-pill-label">${this.settings.defaultWeightUnit === 'kg' ? 'Total Kg' : 'Total Lbs'}</div>
           </div>
         </div>
 
@@ -2318,7 +2318,7 @@ const App = {
               <div class="leaderboard-name">${u.username}</div>
               <div class="leaderboard-sub">Lv ${u.level || 1}</div>
             </div>
-            <div class="leaderboard-volume">${fmt(u.volume)} lbs</div>
+            <div class="leaderboard-volume">${this.formatVolume(u.volume)} ${this.settings.defaultWeightUnit}</div>
           </div>`;
       }).join('')}
     </div>`;
@@ -2726,7 +2726,7 @@ const App = {
           <div class="leaderboard-name">${u.username}</div>
           <div class="leaderboard-sub">Lv ${u.level||1}</div>
         </div>
-        <div class="leaderboard-volume">${fmt(u.volume)} lbs</div>
+        <div class="leaderboard-volume">${this.formatVolume(u.volume)} ${this.settings.defaultWeightUnit}</div>
       </div>`;
     });
     if (myRank) {
@@ -6835,9 +6835,10 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
   },
 
   formatVolume(vol) {
-    if (vol >= 1000000) return (vol / 1000000).toFixed(1) + 'M';
-    if (vol >= 1000) return (vol / 1000).toFixed(1) + 'K';
-    return vol.toString();
+    const val = (vol >= 1000000) ? (vol / 1000000).toFixed(1) + 'M' :
+                (vol >= 1000) ? (vol / 1000).toFixed(1) + 'K' :
+                vol.toString();
+    return val;
   },
 
   getGreeting() {
