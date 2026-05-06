@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v109';
+const APP_VERSION = 'v110';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -534,25 +534,13 @@ const App = {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     try {
       const reg = await navigator.serviceWorker.ready;
-      let sub;
-      try {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
-        });
-      } catch (err) {
-        // If the applicationServerKey changed, the browser throws an error. Unsubscribe first.
-        const existingSub = await reg.pushManager.getSubscription();
-        if (existingSub) {
-          await existingSub.unsubscribe();
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
-          });
-        } else {
-          throw err;
-        }
-      }
+      const existingSub = await reg.pushManager.getSubscription();
+      if (existingSub) await existingSub.unsubscribe();
+      
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
+      });
       
       if (this.settings.serverId && sub) {
         await this.apiPost('/api/push/subscribe', {

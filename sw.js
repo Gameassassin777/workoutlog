@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v109';
+const CACHE_NAME = 'tropical-fit-v110';
 const ASSETS = [
   './',
   './index.html',
@@ -40,30 +40,29 @@ self.addEventListener('activate', event => {
 
 // ─── Push Notifications ────────────────────────────────────
 self.addEventListener('push', event => {
-  console.log('[SW] Push Received', event);
-  let data = { title: 'TropicalFit', body: 'Beach update!', url: '/workoutlog/' };
-  
-  if (event.data) {
-    try {
-      const json = event.data.json();
-      data = { ...data, ...json };
-    } catch (e) {
-      // Fallback to text if not JSON
-      data.body = event.data.text();
-    }
-  }
+  event.waitUntil(
+    (async () => {
+      let data = { title: 'TropicalFit 🌴', body: 'New island update!', url: './' };
+      if (event.data) {
+        try {
+          const json = event.data.json();
+          data = { ...data, ...json };
+        } catch (e) {
+          data.body = event.data.text() || data.body;
+        }
+      }
 
-    event.waitUntil(
-      self.registration.showNotification(data.title || 'TropicalFit', {
-        body: data.body || 'New message!',
+      return self.registration.showNotification(data.title, {
+        body: data.body,
         icon: 'icons/icon-192.png',
         badge: 'icons/icon-192.png',
-        tag: data.tag || 'tropicalfit',
+        tag: data.tag || 'tropicalfit-push',
         data: { url: data.url || './' },
         vibrate: [100, 50, 100],
-      })
-    );
-  });
+      });
+    })()
+  );
+});
   
   self.addEventListener('notificationclick', event => {
     event.notification.close();
