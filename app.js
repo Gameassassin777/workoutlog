@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v100';
+const APP_VERSION = 'v101';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -372,9 +372,14 @@ const App = {
 
   registerSW() {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(err => {
-        console.warn('SW registration failed:', err);
-      });
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => {
+          console.log('SW registered:', reg.scope);
+          reg.update(); // Force check for sw.js updates
+        })
+        .catch(err => {
+          console.warn('SW registration failed:', err);
+        });
     }
   },
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v100';
+const CACHE_NAME = 'tropical-fit-v101';
 const ASSETS = [
   '/workoutlog/',
   '/workoutlog/index.html',
@@ -40,8 +40,19 @@ self.addEventListener('activate', event => {
 
 // ─── Push Notifications ────────────────────────────────────
 self.addEventListener('push', event => {
-  let data = { title: 'TropicalFit', body: 'Something happened on the island 🏖️', url: '/workoutlog/' };
-  try { data = { ...data, ...event.data.json() }; } catch(e) {}
+  console.log('[SW] Push Received', event);
+  let data = { title: 'TropicalFit', body: 'Beach update!', url: '/workoutlog/' };
+  
+  if (event.data) {
+    try {
+      const json = event.data.json();
+      data = { ...data, ...json };
+    } catch (e) {
+      // Fallback to text if not JSON
+      data.body = event.data.text();
+    }
+  }
+
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
