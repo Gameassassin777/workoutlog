@@ -637,7 +637,7 @@ async function sendWebPush(env, sub, payloadStr) {
   const vapidHeaders = await buildVapidHeaders(
     env.VAPID_PUBLIC_KEY,
     env.VAPID_PRIVATE_KEY,
-    env.VAPID_SUBJECT,
+    env.VAPID_SUBJECT || 'mailto:admin@tropicalfit.app',
     sub.endpoint
   );
 
@@ -648,6 +648,8 @@ async function sendWebPush(env, sub, payloadStr) {
       'Content-Type': 'application/octet-stream',
       'Content-Encoding': 'aes128gcm',
       'TTL': '86400',
+      'Urgency': 'high',
+      'Topic': payloadStr.includes('test') ? 'test' : 'update'
     },
     body: await encryptPayload(payloadStr, sub.p256dh, sub.auth),
   });
@@ -663,7 +665,7 @@ async function sendWebPush(env, sub, payloadStr) {
 // ── VAPID JWT builder (no dependencies, pure Web Crypto) ─────────
 async function buildVapidHeaders(publicKey, privateKey, subject, endpoint) {
   const audience = new URL(endpoint).origin;
-  const exp = Math.floor(Date.now() / 1000) + 12 * 3600;
+  const exp = Math.floor(Date.now() / 1000) + 3600; // 1 hour expiration for max compatibility
 
   const header  = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
   const payload = b64url(JSON.stringify({ aud: audience, exp, sub: subject }));
