@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v92';
+const CACHE_NAME = 'tropical-fit-v93';
 const ASSETS = [
   '/workoutlog/',
   '/workoutlog/index.html',
@@ -71,7 +71,7 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || event.request.url.includes('workers.dev')) return;
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
+    caches.match(event.request, { ignoreSearch: true }).then(cached => {
       return cached || fetch(event.request).then(response => {
         // Only cache valid HTTP responses
         if (!response || response.status !== 200 || response.type === 'error') {
