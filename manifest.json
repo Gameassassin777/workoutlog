@@ -2,7 +2,7 @@
   "name": "Tropical Workout Tracker",
   "short_name": "TropicalFit",
   "description": "Track your gains, island style",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0B3954",

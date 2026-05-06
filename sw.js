@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v112';
+const CACHE_NAME = 'tropical-fit-v113';
 const ASSETS = [
   './',
   './index.html',
@@ -40,28 +40,27 @@ self.addEventListener('activate', event => {
 
 // ─── Push Notifications ────────────────────────────────────
 self.addEventListener('push', event => {
-  event.waitUntil(
-    (async () => {
-      let data = { title: 'TropicalFit 🌴', body: 'New island update!', url: './' };
-      if (event.data) {
-        try {
-          const json = event.data.json();
-          data = { ...data, ...json };
-        } catch (e) {
-          data.body = event.data.text() || data.body;
-        }
-      }
+  let data = { title: 'TropicalFit 🌴', body: 'New island update!', url: './' };
+  
+  if (event.data) {
+    try {
+      const json = event.data.json();
+      data = Object.assign(data, json);
+    } catch (e) {
+      data.body = event.data.text() || data.body;
+    }
+  }
 
-      return self.registration.showNotification(data.title, {
-        body: data.body,
-        icon: 'icons/icon-192.png',
-        badge: 'icons/icon-192.png',
-        tag: data.tag || 'tropicalfit-push',
-        data: { url: data.url || './' },
-        vibrate: [100, 50, 100],
-      });
-    })()
-  );
+  const promiseChain = self.registration.showNotification(data.title, {
+    body: data.body,
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    tag: data.tag || ('tf-' + Date.now()),
+    data: { url: data.url || './' },
+    vibrate: [100, 50, 100],
+  });
+
+  event.waitUntil(promiseChain);
 });
   
   self.addEventListener('notificationclick', event => {
