@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v113';
+const APP_VERSION = 'v114';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -561,9 +561,9 @@ const App = {
   },
 
   _urlB64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const raw     = atob(base64);
+    const base64 = base64String.trim().replace(/-/g, '+').replace(/_/g, '/');
+    const padding = '='.repeat((4 - base64.length % 4) % 4);
+    const raw = atob(base64 + padding);
     return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
   },
 
@@ -4170,10 +4170,19 @@ const App = {
             const subId = newSub.endpoint.slice(-8);
             this.showToast(`New Token ID: ...${subId}`);
             
+            // 2. HEARTBEAT: Quick server-side account check
+            this.showToast('Heartbeat: Checking server account...');
+            const pong = await this.apiPost('/api/push/status', { user_id: this.settings.serverId });
+            if (!pong || pong.error) {
+              this.showToast('Heartbeat failed: ' + (pong?.error || 'Account inactive'));
+            } else {
+              this.showToast('Heartbeat OK: Server ready.');
+            }
+
             btn.textContent = 'Triggering...';
             this.showToast('Firing test signal...');
             
-            // 2. Trigger Server Push (delayed 5s)
+            // 3. Trigger Server Push (delayed 5s)
             const res = await this.apiPost('/api/push/test', {
               user_id: this.settings.serverId,
               delay: 5000
