@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v117';
+const APP_VERSION = 'v118';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4188,13 +4188,15 @@ const App = {
               delay: 5000
             });
             
-            if (res && !res.error) {
-              this.showToast('Server signal sent! Close the app NOW.');
+            if (res && res.ok) {
+              this.showToast(`Success! Sent to ${res.sent}/${res.total} devices. Close app now.`, 8000);
               setTimeout(() => {
-                this._fireLocalNotif('Test Echo 🌴', 'Browser is ready. Waiting for server...', 'test-echo');
+                this._fireLocalNotif('Test Echo 🌴', 'Browser ready. Awaiting server...', 'test-echo');
               }, 1200);
             } else {
-              throw new Error(res?.error || 'Server rejected request');
+              const detail = res?.errors?.join(', ') || res?.error || 'Unknown Error';
+              this.showToast(`Server Failed: ${detail} (VAPID: ${res?.vapid_status})`, 12000);
+              throw new Error(detail);
             }
           } catch (e) {
             this.showToast('Reset failed: ' + e.message);

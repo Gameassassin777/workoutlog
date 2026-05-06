@@ -390,8 +390,18 @@ async function handlePushTest(request, env) {
     subs.results.map(sub => sendWebPush(env, sub, payload))
   );
   
+  const failures = results
+    .filter(r => r.status === 'rejected')
+    .map(r => r.reason?.message || 'Unknown Error');
+
   const successCount = results.filter(r => r.status === 'fulfilled').length;
-  return json({ ok: true, sent: successCount, total: subs.results.length });
+  return json({ 
+    ok: successCount > 0, 
+    sent: successCount, 
+    total: subs.results.length,
+    errors: failures.slice(0, 3),
+    vapid_status: !!env.VAPID_PRIVATE_KEY ? 'Set' : 'MISSING'
+  });
 }
 
 async function savePushSub(env, userId, sub) {
@@ -654,7 +664,8 @@ async function sendWebPush(env, sub, payloadStr) {
   });
 
   if (!response.ok) {
-    const err = new Error(`Push failed: ${response.status}`);
+    const body = await response.text().catch(() => 'No body');
+    const err = new Error(`Push Service Error (${response.status}): ${body}`);
     err.status = response.status;
     throw err;
   }
@@ -729,7 +740,7 @@ async function encryptPayload(plaintext, p256dhB64, authB64) {
 
   // Build RFC 8291 body: salt(16) + rs(4) + keyid_len(1) + keyid + ciphertext
   const rs = new Uint8Array(4);
-  new DataView(rs.buffer).setUint32(0, ciphertext.length + 16 + 1, false);
+  new DataView(rs.buffer).setUint32(0, 4096, false); // Use standard 4096 record size
   return concat(salt, rs, new Uint8Array([serverPublicKey.length]), serverPublicKey, ciphertext);
 }
 
