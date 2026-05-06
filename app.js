@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v98';
+const APP_VERSION = 'v100';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1066,7 +1066,7 @@ const App = {
 
         <div class="hero-stat-row">
           <div class="hero-stat-pill">
-            <div class="hero-stat-pill-icon">${this.Icons.palm}</div>
+            <div class="hero-stat-pill-icon">${this.Icons.flame}</div>
             <span class="hero-stat-pill-val">${p.currentStreak}</span>
             <div class="hero-stat-pill-label">Streak</div>
           </div>
@@ -1373,7 +1373,9 @@ const App = {
 
   _showNotifPanel() {
     localStorage.setItem('tf_last_notif_clear_day', new Date().toDateString());
-    this.renderNavBar(); // Refresh badge state
+    // Immediately hide the badge in the DOM if it exists
+    const badge = document.querySelector('.notif-badge');
+    if (badge) badge.style.display = 'none';
 
     const streak = this.profile?.currentStreak || 0;
     const todayStr = new Date().toDateString();
