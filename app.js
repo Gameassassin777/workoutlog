@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v106';
+const APP_VERSION = 'v107';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4066,54 +4066,44 @@ const App = {
         const notifToggle = document.getElementById('setting-notifications');
         if (notifToggle) {
           notifToggle.addEventListener('change', async (e) => {
-            if (e.target.checked) {
-              // If already denied in browser, warn user — requestPermission won't re-prompt
+            const enabled = e.target.checked;
+            this.settings.notificationsEnabled = enabled;
+            DB.saveSetting('notificationsEnabled', enabled);
+
+            if (enabled) {
               if (Notification.permission === 'denied') {
                 e.target.checked = false;
-                this.showToast('Notifications blocked — go to your browser/OS Settings and allow TropicalFit notifications, then try again.');
+                this.settings.notificationsEnabled = false;
+                this.showToast('Notifications blocked — please enable them in browser settings.');
                 return;
               }
               const perm = await Notification.requestPermission();
-              const val = perm === 'granted';
-              e.target.checked = val;
-              this.settings.notificationsEnabled = val;
-              DB.saveSetting('notificationsEnabled', val);
-              if (val) {
-                // Enable default sub-types on first grant so something actually fires
+              if (perm === 'granted') {
+                // Enable defaults on first grant
                 if (!this.settings.notifDailyReminder && !this.settings.notifStreakAtRisk) {
-                  ['notifDailyReminder','notifStreakAtRisk','notifBoardReset'].forEach(k => {
-                    this.settings[k] = true;
-                    DB.saveSetting(k, true);
-                  });
-                  if (!this.settings.notifDailyReminderTime) {
-                    this.settings.notifDailyReminderTime = '08:00';
-                    DB.saveSetting('notifDailyReminderTime', '08:00');
-                  }
-                  // Reflect in visible checkboxes without re-rendering
+                  this.settings.notifDailyReminder = true;
+                  this.settings.notifStreakAtRisk = true;
+                  this.settings.notifBoardReset = true;
+                  this.settings.notifDailyReminderTime = '08:00';
+                  ['notifDailyReminder','notifStreakAtRisk','notifBoardReset','notifDailyReminderTime'].forEach(k => DB.saveSetting(k, this.settings[k]));
+                  
+                  // Update UI checkmarks
                   ['notif-daily','notif-streak','notif-board'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.checked = true;
                   });
-                  const tr = document.getElementById('notif-time-row');
-                  if (tr) tr.style.display = '';
                 }
                 await this.subscribeToPush();
                 this._scheduleLocalNotifications();
-                // Fire a test notification immediately so user sees it worked
-                setTimeout(() => this._fireLocalNotif(
-                  'TropicalFit Notifications On',
-                  'Streak alerts and daily reminders are now active.',
-                  'notif-test'
-                ), 500);
+                this._fireLocalNotif('TropicalFit Notifications On', 'Streak alerts and reminders active!', 'notif-on');
+              } else {
+                e.target.checked = false;
+                this.settings.notificationsEnabled = false;
               }
-              const rows = document.getElementById('notif-detail-rows');
-              if (rows) rows.style.cssText = val ? '' : 'opacity:0.4;pointer-events:none;';
-            } else {
-              this.settings.notificationsEnabled = false;
-              DB.saveSetting('notificationsEnabled', false);
-              const rows = document.getElementById('notif-detail-rows');
-              if (rows) rows.style.cssText = 'opacity:0.4;pointer-events:none;';
             }
+            const rows = document.getElementById('notif-detail-rows');
+            if (rows) rows.style.cssText = this.settings.notificationsEnabled ? '' : 'opacity:0.4;pointer-events:none;';
+            setTimeout(_updatePermPill, 100);
           });
         }
         // Per-type notification toggles
@@ -4151,42 +4141,39 @@ const App = {
           if (perm === 'granted') pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(0,220,120,0.15);border:1px solid rgba(0,220,120,0.35);font-size:0.72rem;color:#00dc78;font-weight:700;">✓ Browser permission granted</span>`;
           else if (perm === 'denied') pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,80,60,0.15);border:1px solid rgba(255,80,60,0.35);font-size:0.72rem;color:#ff6050;font-weight:700;">✗ Blocked — enable in browser/OS settings</span>`;
         };
-        // Observe permission changes (fires after requestPermission resolves)
-        const notifToggleEl = document.getElementById('setting-notifications');
-        if (notifToggleEl) {
-          notifToggleEl.addEventListener('change', async (e) => {
-            const enabled = e.target.checked;
-            this.settings.notificationsEnabled = enabled;
-            DB.saveSetting('notificationsEnabled', enabled);
-            if (enabled) {
-              const granted = await Notification.requestPermission();
-              if (granted === 'granted') {
-                this.subscribeToPush();
-              } else {
-                e.target.checked = false;
-                this.settings.notificationsEnabled = false;
-              }
-            }
-          });
-        }
+
 
         this.bindClick('btn-test-notif', async () => {
           const btn = document.getElementById('btn-test-notif');
           const originalText = btn.textContent;
-          btn.textContent = 'Sending...';
+          btn.textContent = 'Triggering...';
           btn.disabled = true;
           try {
             if (Notification.permission !== 'granted') {
                const granted = await Notification.requestPermission();
-               if (granted !== 'granted') throw new Error('Permission denied');
+               if (granted !== 'granted') throw new Error('Permission required');
             }
-            // Trigger a 3-second delayed push from the server to test background reception
-            const res = await this.apiPost('/api/push/test', {
-              user_id: this.settings.serverId,
-              delay: 3000
-            });
-            if (res.error) throw new Error(res.error);
-            this.showToast('Test signal sent. Close the app now to test background!');
+            this.showToast('Firing test signal...');
+            
+            // 1. Try Server Push (delayed)
+            if (this.settings.serverId) {
+              const res = await this.apiPost('/api/push/test', {
+                user_id: this.settings.serverId,
+                delay: 4000
+              });
+              if (res && !res.error) {
+                this.showToast('Signal sent! Close the app NOW to test background reception.');
+                return;
+              }
+            }
+            
+            // 2. Fallback to Local if server is unavailable
+            this.showToast('Server test failed — firing local fallback...');
+            await this._fireLocalNotif(
+              'TropicalFit Test 🏖️',
+              'Local notification system is working perfectly!',
+              'notif-local-test'
+            );
           } catch (e) {
             this.showToast('Test failed: ' + e.message);
           } finally {
