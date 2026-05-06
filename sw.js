@@ -1,25 +1,25 @@
-const CACHE_NAME = 'tropical-fit-v105';
+const CACHE_NAME = 'tropical-fit-v106';
 const ASSETS = [
-  '/workoutlog/',
-  '/workoutlog/index.html',
-  '/workoutlog/style.css',
-  '/workoutlog/app.js',
-  '/workoutlog/db.js',
-  '/workoutlog/shader.js',
-  '/workoutlog/palm.js',
-  '/workoutlog/transition.js',
-  '/workoutlog/timer.js',
-  '/workoutlog/ai.js',
-  '/workoutlog/export.js',
-  '/workoutlog/manifest.json',
-  '/workoutlog/icons/icon-192.png',
-  '/workoutlog/icons/icon-512.png',
-  '/workoutlog/bg.mp4',
-  '/workoutlog/bg-day.mp4',
-  '/workoutlog/bg.jpg',
-  '/workoutlog/bg2.jpg',
-  '/workoutlog/bg-night-saver.jpg',
-  '/workoutlog/bg-day-saver.jpg'
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './db.js',
+  './shader.js',
+  './palm.js',
+  './transition.js',
+  './timer.js',
+  './ai.js',
+  './export.js',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './bg.mp4',
+  './bg-day.mp4',
+  './bg.jpg',
+  './bg2.jpg',
+  './bg-night-saver.jpg',
+  './bg-day-saver.jpg'
 ];
 
 self.addEventListener('install', event => {

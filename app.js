@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v105';
+const APP_VERSION = 'v106';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1286,7 +1286,6 @@ const App = {
       // Save and sync to server so other users see the updated avatar
       this.settings.pollinationsPortrait = url;
       DB.saveSetting('pollinationsPortrait', url);
-      this._syncProfileToServer();
 
       // Update upload area preview
       const uploadArea = document.getElementById('selfie-upload-area');
@@ -1304,7 +1303,6 @@ const App = {
       const headerAv = document.getElementById('avatar-preview-img');
       if (headerAv) headerAv.src = url;
 
-      this._syncAvatarToServer(url);
       setStatus('Looking sharp! Tap Regenerate any time for a fresh look.');
       if (genBtn) { genBtn.disabled = false; genBtn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;">${this.Icons.refreshIcon.replace('width="20" height="20"','width="16" height="16"')} Regenerate</span>`; }
 
@@ -2972,7 +2970,7 @@ const App = {
             </div>
           `).join('') : ''}
         </div>
-        ${noHistory ? `
+        ${noHistory && !this._aiIsThinking ? `
           <div class="ai-chips">
             <button class="ai-chip" data-chip="Analyze my last workout">Last workout</button>
             <button class="ai-chip" data-chip="What should I train today?">What to train</button>
@@ -5600,6 +5598,8 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
 
     input.value = '';
     input.disabled = true; // prevent double-send
+    this._aiIsThinking = true;
+    this.showScreen('chat'); // Refresh to hide chips if needed
     this._currentChatMessages.push({ role: 'user', content: message });
 
     const msgsContainer = document.getElementById('chat-messages');
@@ -5626,30 +5626,23 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
 
     const typingEl = document.getElementById('ai-typing');
     if (typingEl) typingEl.remove();
-    input.disabled = false;
-
-    const aiBubble = document.createElement('div');
-    aiBubble.className = 'chat-bubble ai';
     if (result.error) {
+      const aiBubble = document.createElement('div');
+      aiBubble.className = 'chat-bubble ai';
       aiBubble.style.color = 'var(--coral)';
       aiBubble.textContent = result.error;
       // If free tier error, show helpful hint
       if (result.error.includes('Join the community') || result.error.includes('Register')) {
         aiBubble.innerHTML = `<span style="color:var(--coral)">${this.escapeHtml(result.error)}</span><br><small style="color:var(--text-muted)">Set a username in Config → Profile to unlock the free AI Coach.</small>`;
       }
+      msgsContainer.appendChild(aiBubble);
     } else {
       this._currentChatMessages.push({ role: 'ai', content: result.text });
-      aiBubble.textContent = result.text;
     }
-    msgsContainer.appendChild(aiBubble);
-    this._bindAiChatCopy(msgsContainer);
-    msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
-    // Re-focus input so user can type the next message without tapping
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const inp = document.getElementById('chat-input');
-      if (inp) inp.focus();
-    }));
+    // Finally, refresh UI to show the new message and update chips
+    this._aiIsThinking = false;
+    this.showScreen('chat');
 
     // Execute any app action the AI requested
     if (!result.error && result.action) {
