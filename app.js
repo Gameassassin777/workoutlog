@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v108';
+const APP_VERSION = 'v109';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4152,36 +4152,47 @@ const App = {
         this.bindClick('btn-test-notif', async () => {
           const btn = document.getElementById('btn-test-notif');
           const originalText = btn.textContent;
-          btn.textContent = 'Triggering...';
+          btn.textContent = 'Syncing...';
           btn.disabled = true;
           try {
+            if (!this.settings.serverId) {
+              this.showToast('Please set a username in Profile first to register with the server.');
+              return;
+            }
             if (Notification.permission !== 'granted') {
                const granted = await Notification.requestPermission();
                if (granted !== 'granted') throw new Error('Permission required');
             }
+            
+            // 1. FORCE SYNC: Refresh the server's copy of your subscription
+            this.showToast('Refreshing server registration...');
+            await this.subscribeToPush();
+            
+            btn.textContent = 'Triggering...';
             this.showToast('Firing test signal...');
             
-            // 1. Try Server Push (delayed)
-            if (this.settings.serverId) {
-              const res = await this.apiPost('/api/push/test', {
-                user_id: this.settings.serverId,
-                delay: 4000
-              });
-              if (res && !res.error) {
-                this.showToast('Signal sent! Close the app NOW to test background reception.');
-                return;
-              }
-            }
+            // 2. Trigger Server Push (delayed 4s)
+            const res = await this.apiPost('/api/push/test', {
+              user_id: this.settings.serverId,
+              delay: 4000
+            });
             
-            // 2. Fallback to Local if server is unavailable
-            this.showToast('Server test failed — firing local fallback...');
+            if (res && !res.error) {
+              this.showToast('Server signal sent! Close the app NOW.');
+              // Also fire a local "Echo" just to prove local system is alive
+              setTimeout(() => {
+                this._fireLocalNotif('Test Echo 🌴', 'Local system OK. Waiting for server push...', 'test-echo');
+              }, 1000);
+            } else {
+              throw new Error(res?.error || 'Server unreachable');
+            }
+          } catch (e) {
+            this.showToast('Test failed: ' + e.message + '. Firing local fallback...');
             await this._fireLocalNotif(
-              'TropicalFit Test 🏖️',
-              'Local notification system is working perfectly!',
+              'TropicalFit Fallback 🏖️',
+              'The server test failed, but local notifications are WORKING.',
               'notif-local-test'
             );
-          } catch (e) {
-            this.showToast('Test failed: ' + e.message);
           } finally {
             btn.textContent = originalText;
             btn.disabled = false;
