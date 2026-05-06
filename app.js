@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v110';
+const APP_VERSION = 'v111';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4140,47 +4140,56 @@ const App = {
         this.bindClick('btn-test-notif', async () => {
           const btn = document.getElementById('btn-test-notif');
           const originalText = btn.textContent;
-          btn.textContent = 'Syncing...';
+          btn.textContent = 'Resetting...';
           btn.disabled = true;
           try {
             if (!this.settings.serverId) {
-              this.showToast('Please set a username in Profile first to register with the server.');
+              this.showToast('Please set a username in Profile first.');
               return;
             }
-            if (Notification.permission !== 'granted') {
-               const granted = await Notification.requestPermission();
-               if (granted !== 'granted') throw new Error('Permission required');
+            
+            // 1. NUCLEAR RESET: Clear SW and Subscription
+            this.showToast('Purging old tokens...');
+            if ('serviceWorker' in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              for (let r of regs) await r.unregister();
+              // Re-register
+              await navigator.serviceWorker.register('sw.js');
+              const reg = await navigator.serviceWorker.ready;
+              const sub = await reg.pushManager.getSubscription();
+              if (sub) await sub.unsubscribe();
             }
             
-            // 1. FORCE SYNC: Refresh the server's copy of your subscription
-            this.showToast('Refreshing server registration...');
+            this.showToast('Generating fresh subscription...');
             await this.subscribeToPush();
+            
+            const checkReg = await navigator.serviceWorker.ready;
+            const newSub = await checkReg.pushManager.getSubscription();
+            if (!newSub) throw new Error('Failed to generate new token');
+            
+            const subId = newSub.endpoint.slice(-8);
+            this.showToast(`New Token ID: ...${subId}`);
             
             btn.textContent = 'Triggering...';
             this.showToast('Firing test signal...');
             
-            // 2. Trigger Server Push (delayed 4s)
+            // 2. Trigger Server Push (delayed 5s)
             const res = await this.apiPost('/api/push/test', {
               user_id: this.settings.serverId,
-              delay: 4000
+              delay: 5000
             });
             
             if (res && !res.error) {
               this.showToast('Server signal sent! Close the app NOW.');
-              // Also fire a local "Echo" just to prove local system is alive
               setTimeout(() => {
-                this._fireLocalNotif('Test Echo 🌴', 'Local system OK. Waiting for server push...', 'test-echo');
-              }, 1000);
+                this._fireLocalNotif('Test Echo 🌴', 'Browser is ready. Waiting for server...', 'test-echo');
+              }, 1200);
             } else {
-              throw new Error(res?.error || 'Server unreachable');
+              throw new Error(res?.error || 'Server rejected request');
             }
           } catch (e) {
-            this.showToast('Test failed: ' + e.message + '. Firing local fallback...');
-            await this._fireLocalNotif(
-              'TropicalFit Fallback 🏖️',
-              'The server test failed, but local notifications are WORKING.',
-              'notif-local-test'
-            );
+            this.showToast('Reset failed: ' + e.message);
+            await this._fireLocalNotif('Fallback 🏖️', 'Manual test triggered.', 'notif-local-test');
           } finally {
             btn.textContent = originalText;
             btn.disabled = false;
