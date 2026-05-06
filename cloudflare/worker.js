@@ -694,8 +694,9 @@ async function buildVapidHeaders(publicKey, privateKey, subject, endpoint) {
   );
 
   const jwt = `${signing}.${uint8ToB64url(new Uint8Array(sig))}`;
+  const cleanKey = publicKey.trim().replace(/=/g, ''); 
   return {
-    Authorization: `vapid t=${jwt}, k=${publicKey}`,
+    Authorization: `vapid t=${jwt}, k=${cleanKey}`,
   };
 }
 
@@ -761,7 +762,8 @@ function concat(...arrays) {
 }
 
 function b64url(str) {
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const bytes = new TextEncoder().encode(str);
+  return uint8ToB64url(bytes);
 }
 
 function uint8ToB64url(buf) {
@@ -770,8 +772,9 @@ function uint8ToB64url(buf) {
 }
 
 function base64ToUint8(b64) {
-  const s = b64.replace(/-/g, '+').replace(/_/g, '/');
-  return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  const s = b64.trim().replace(/-/g, '+').replace(/_/g, '/');
+  const pad = '='.repeat((4 - s.length % 4) % 4);
+  return Uint8Array.from(atob(s + pad), c => c.charCodeAt(0));
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
