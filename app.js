@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v107';
+const APP_VERSION = 'v108';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -653,15 +653,21 @@ const App = {
   async _fireLocalNotif(title, body, tag = 'tf') {
     if (!('serviceWorker' in navigator)) return;
     // Hard guard: browser permission must be explicitly granted
-    if (Notification.permission !== 'granted') return;
+    if (Notification.permission !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        this.showToast('Notification permission denied.');
+        return;
+      }
+    }
     try {
       const reg = await navigator.serviceWorker.ready;
       reg.showNotification(title, {
         body,
-        icon: '/workoutlog/icons/icon-192.png',
-        badge: '/workoutlog/icons/icon-192.png',
-        tag,
-        data: { url: '/workoutlog/' },
+        icon: 'icons/icon-192.png',
+        badge: 'icons/icon-192.png',
+        tag: tag + '-' + Date.now(),
+        data: { url: './' },
         vibrate: [100, 50, 100],
       });
     } catch (e) { /* SW not ready */ }

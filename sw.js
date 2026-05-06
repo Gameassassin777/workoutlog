@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v107';
+const CACHE_NAME = 'tropical-fit-v108';
 const ASSETS = [
   './',
   './index.html',
@@ -53,29 +53,29 @@ self.addEventListener('push', event => {
     }
   }
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/workoutlog/icons/icon-192.png',
-      badge: '/workoutlog/icons/icon-192.png',
-      tag: data.tag || 'tropicalfit',
-      data: { url: data.url },
-      vibrate: [100, 50, 100],
-    })
-  );
-});
-
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  const url = event.notification.data?.url || '/workoutlog/';
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      const existing = list.find(c => c.url.includes('/workoutlog'));
-      if (existing) { existing.focus(); existing.postMessage({ type: 'NOTIF_CLICK', url }); }
-      else clients.openWindow(url);
-    })
-  );
-});
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'TropicalFit', {
+        body: data.body || 'New message!',
+        icon: 'icons/icon-192.png',
+        badge: 'icons/icon-192.png',
+        tag: data.tag || 'tropicalfit',
+        data: { url: data.url || './' },
+        vibrate: [100, 50, 100],
+      })
+    );
+  });
+  
+  self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    const url = event.notification.data?.url || './';
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+        const existing = list.find(c => c.url.includes(self.location.origin));
+        if (existing) { existing.focus(); existing.postMessage({ type: 'NOTIF_CLICK', url }); }
+        else clients.openWindow(url);
+      })
+    );
+  });
 
 self.addEventListener('fetch', event => {
   // Do not cache non-GET requests or backend API requests
