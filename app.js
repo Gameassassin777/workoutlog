@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v120';
+const APP_VERSION = 'v121';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4142,45 +4142,32 @@ const App = {
               return;
             }
 
-            // Step 1: Unsubscribe old, subscribe fresh
+            // Step 1: Fresh subscription
             btn.textContent = 'Subscribing...';
-            this.showToast('Step 1: Creating fresh push subscription...');
-            let sub;
-            try {
-              sub = await this.subscribeToPush();
-              this.showToast('Step 1 OK: Subscription created.');
-            } catch (subErr) {
-              this.showToast('Step 1 FAILED: ' + subErr.message, 10000);
-              throw subErr;
-            }
+            this.showToast('Registering your device...');
+            await this.subscribeToPush();
 
-            // Step 2: Verify subscription is on the server
-            btn.textContent = 'Verifying...';
-            this.showToast('Step 2: Verifying server has your token...');
+            // Step 2: Verify token on server
             const status = await this.apiPost('/api/push/status', { user_id: this.settings.serverId });
             if (!status?.ok) {
-              this.showToast('Step 2 FAILED: Token not found on server. Try again.', 10000);
-              throw new Error('Subscription not found on server after register');
+              this.showToast('❌ Token not found on server — try again.', 8000);
+              return;
             }
-            this.showToast('Step 2 OK: Token confirmed on server.');
 
-            // Step 3: Trigger the actual server push
-            btn.textContent = 'Firing...';
-            this.showToast('Step 3: Sending push via server... Close app now!');
+            // Step 3: Fire the push with a 10s delay so you can close the app
+            btn.textContent = 'Close app now!';
+            this.showToast('✅ Registered! Close the app — push arrives in ~10 seconds.', 10000);
             const res = await this.apiPost('/api/push/test', {
               user_id: this.settings.serverId,
-              delay: 3000
+              delay: 10000
             });
 
-            if (res?.ok) {
-              this.showToast(`Step 3 OK: Push sent to ${res.sent}/${res.total} device(s). Cleaned ${res.cleaned ?? 0} stale.`, 10000);
-            } else {
-              const detail = res?.errors?.[0] || res?.error || 'Unknown push error';
-              this.showToast('Step 3 FAILED: ' + detail, 10000);
-              throw new Error(detail);
+            if (!res?.ok) {
+              const detail = res?.errors?.[0] || res?.error || 'Push service rejected';
+              this.showToast('❌ Server failed: ' + detail, 8000);
             }
           } catch (e) {
-            console.error('Test notif failed:', e);
+            this.showToast('❌ Error: ' + e.message, 8000);
           } finally {
             btn.textContent = originalText;
             btn.disabled = false;
