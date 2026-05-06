@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v102';
+const APP_VERSION = 'v103';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -558,6 +558,13 @@ const App = {
         await this.apiPost('/api/push/subscribe', {
           user_id: this.settings.serverId,
           subscription: sub.toJSON(),
+          preferences: {
+            dailyReminder: this.settings.notifDailyReminder,
+            reminderTime: this.settings.notifDailyReminderTime || '08:00',
+            streakAtRisk: this.settings.notifStreakAtRisk,
+            boardReset: this.settings.notifBoardReset,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          }
         });
       }
     } catch (e) {
@@ -3155,6 +3162,7 @@ const App = {
               <div class="text-xs text-sea mt-2">Allow alerts from TropicalFit</div>
             </div>
             <input type="checkbox" id="setting-notifications" ${s.notificationsEnabled ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            <button class="btn btn-small" id="btn-test-notif" style="margin-left:auto;padding:4px 10px;font-size:0.7rem;background:var(--glass-light);border:1px solid var(--glass-border);">Test Signal</button>
           </div>
 
           <!-- Browser permission status pill -->
@@ -4157,6 +4165,45 @@ const App = {
         };
         // Observe permission changes (fires after requestPermission resolves)
         const notifToggleEl = document.getElementById('setting-notifications');
+        if (notifToggleEl) {
+          notifToggleEl.addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            this.settings.notificationsEnabled = enabled;
+            DB.saveSetting('notificationsEnabled', enabled);
+            if (enabled) {
+              const granted = await Notification.requestPermission();
+              if (granted === 'granted') {
+                this.subscribeToPush();
+              } else {
+                e.target.checked = false;
+                this.settings.notificationsEnabled = false;
+              }
+            }
+          });
+        }
+
+        this.bindClick('btn-test-notif', async () => {
+          const btn = document.getElementById('btn-test-notif');
+          btn.textContent = 'Sending...';
+          btn.disabled = true;
+          try {
+            if (Notification.permission !== 'granted') {
+               await Notification.requestPermission();
+            }
+            // Trigger a 3-second delayed push from the server to test background reception
+            const res = await this.apiPost('/api/push/test', {
+              user_id: this.settings.serverId,
+              delay: 3000
+            });
+            if (res.error) throw new Error(res.error);
+            this.showToast('Test signal sent. Close the app now to test background reception!');
+          } catch (e) {
+            this.showToast('Test failed: ' + e.message);
+          } finally {
+            btn.textContent = 'Test Signal';
+            btn.disabled = false;
+          }
+        });
         if (notifToggleEl) {
           notifToggleEl.addEventListener('change', () => setTimeout(_updatePermPill, 800));
         }
