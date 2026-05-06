@@ -389,7 +389,15 @@ async function handlePushTest(request, env) {
   const results = await Promise.allSettled(
     subs.results.map(sub => sendWebPush(env, sub, payload))
   );
-  
+
+  // Clean up any stale/invalid subscriptions (400 or 410 responses)
+  const staleIds = subs.results
+    .filter((_, i) => results[i].status === 'rejected')
+    .map(s => s.id);
+  for (const id of staleIds) {
+    await env.DB.prepare('DELETE FROM push_subs WHERE id = ?').bind(id).run();
+  }
+
   const failures = results
     .filter(r => r.status === 'rejected')
     .map(r => r.reason?.message || 'Unknown Error');
@@ -399,17 +407,19 @@ async function handlePushTest(request, env) {
     ok: successCount > 0, 
     sent: successCount, 
     total: subs.results.length,
+    cleaned: staleIds.length,
     errors: failures.slice(0, 3),
     vapid_status: !!env.VAPID_PRIVATE_KEY ? 'Set' : 'MISSING'
   });
 }
 
 async function savePushSub(env, userId, sub) {
-  await env.DB.prepare(`
-    INSERT INTO push_subs (id, user_id, endpoint, p256dh, auth)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(user_id, endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth
-  `).bind(crypto.randomUUID(), userId, sub.endpoint, sub.keys?.p256dh, sub.keys?.auth).run();
+  // Delete ALL existing subscriptions for this user first — one device, one fresh token.
+  // This prevents stale rows accumulating across browser sessions.
+  await env.DB.prepare('DELETE FROM push_subs WHERE user_id = ?').bind(userId).run();
+  await env.DB.prepare(
+    'INSERT INTO push_subs (id, user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?, ?)'
+  ).bind(crypto.randomUUID(), userId, sub.endpoint, sub.keys?.p256dh, sub.keys?.auth).run();
 }
 
 // ── Reactions ────────────────────────────────────────────────────
