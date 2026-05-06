@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v119';
+const APP_VERSION = 'v120';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -531,33 +531,28 @@ const App = {
 
   // Subscribe to Web Push and send subscription to server
   async subscribeToPush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const existingSub = await reg.pushManager.getSubscription();
-      if (existingSub) await existingSub.unsubscribe();
-      
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
-      });
-      
-      if (this.settings.serverId && sub) {
-        await this.apiPost('/api/push/subscribe', {
-          user_id: this.settings.serverId,
-          subscription: sub.toJSON(),
-          preferences: {
-            dailyReminder: this.settings.notifDailyReminder,
-            reminderTime: this.settings.notifDailyReminderTime || '08:00',
-            streakAtRisk: this.settings.notifStreakAtRisk,
-            boardReset: this.settings.notifBoardReset,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          }
-        });
-      }
-    } catch (e) {
-      console.warn('Push subscribe failed:', e);
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      throw new Error('Push not supported in this browser');
     }
+    const reg = await navigator.serviceWorker.ready;
+    const existingSub = await reg.pushManager.getSubscription();
+    if (existingSub) await existingSub.unsubscribe();
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
+    });
+
+    if (!sub) throw new Error('Browser refused to create push subscription');
+
+    if (this.settings.serverId) {
+      const res = await this.apiPost('/api/push/subscribe', {
+        user_id: this.settings.serverId,
+        subscription: sub.toJSON(),
+      });
+      if (!res || res.error) throw new Error('Server rejected subscription: ' + (res?.error || 'unknown'));
+    }
+    return sub;
   },
 
   _urlB64ToUint8Array(base64String) {
@@ -4140,67 +4135,52 @@ const App = {
         this.bindClick('btn-test-notif', async () => {
           const btn = document.getElementById('btn-test-notif');
           const originalText = btn.textContent;
-          btn.textContent = 'Resetting...';
           btn.disabled = true;
           try {
             if (!this.settings.serverId) {
-              this.showToast('Please set a username in Profile first.');
+              this.showToast('Set a username in Profile first.');
               return;
             }
-            
-            // 1. SOFT RESET: Update SW and Refresh Subscription
-            this.showToast('Checking for worker updates...');
-            if ('serviceWorker' in navigator) {
-              const reg = await navigator.serviceWorker.ready;
-              await reg.update(); // Force latest sw.js from server
-              const sub = await reg.pushManager.getSubscription();
-              if (sub) {
-                this.showToast('Purging old subscription...');
-                await sub.unsubscribe();
-              }
-            }
-            
-            this.showToast('Generating fresh subscription...');
-            await this.subscribeToPush();
-            
-            const checkReg = await navigator.serviceWorker.ready;
-            const newSub = await checkReg.pushManager.getSubscription();
-            if (!newSub) throw new Error('Failed to generate new token');
-            
-            const subId = newSub.endpoint.slice(-8);
-            this.showToast(`New Token ID: ...${subId}`);
-            
-            // 2. HEARTBEAT: Quick server-side account check
-            this.showToast('Heartbeat: Checking server account...');
-            const pong = await this.apiPost('/api/push/status', { user_id: this.settings.serverId });
-            if (!pong || pong.error) {
-              this.showToast('Heartbeat failed: ' + (pong?.error || 'Account inactive'));
-            } else {
-              this.showToast('Heartbeat OK: Server ready.');
+
+            // Step 1: Unsubscribe old, subscribe fresh
+            btn.textContent = 'Subscribing...';
+            this.showToast('Step 1: Creating fresh push subscription...');
+            let sub;
+            try {
+              sub = await this.subscribeToPush();
+              this.showToast('Step 1 OK: Subscription created.');
+            } catch (subErr) {
+              this.showToast('Step 1 FAILED: ' + subErr.message, 10000);
+              throw subErr;
             }
 
-            btn.textContent = 'Triggering...';
-            this.showToast('Firing test signal...');
-            
-            // 3. Trigger Server Push (delayed 5s)
+            // Step 2: Verify subscription is on the server
+            btn.textContent = 'Verifying...';
+            this.showToast('Step 2: Verifying server has your token...');
+            const status = await this.apiPost('/api/push/status', { user_id: this.settings.serverId });
+            if (!status?.ok) {
+              this.showToast('Step 2 FAILED: Token not found on server. Try again.', 10000);
+              throw new Error('Subscription not found on server after register');
+            }
+            this.showToast('Step 2 OK: Token confirmed on server.');
+
+            // Step 3: Trigger the actual server push
+            btn.textContent = 'Firing...';
+            this.showToast('Step 3: Sending push via server... Close app now!');
             const res = await this.apiPost('/api/push/test', {
               user_id: this.settings.serverId,
-              delay: 5000
+              delay: 3000
             });
-            
-            if (res && res.ok) {
-              this.showToast(`Success! Sent to ${res.sent}/${res.total} devices. Close app now.`, 8000);
-              setTimeout(() => {
-                this._fireLocalNotif('Test Echo 🌴', 'Browser ready. Awaiting server...', 'test-echo');
-              }, 1200);
+
+            if (res?.ok) {
+              this.showToast(`Step 3 OK: Push sent to ${res.sent}/${res.total} device(s). Cleaned ${res.cleaned ?? 0} stale.`, 10000);
             } else {
-              const detail = res?.errors?.join(', ') || res?.error || 'Unknown Error';
-              this.showToast(`Server Failed: ${detail} (VAPID: ${res?.vapid_status})`, 12000);
+              const detail = res?.errors?.[0] || res?.error || 'Unknown push error';
+              this.showToast('Step 3 FAILED: ' + detail, 10000);
               throw new Error(detail);
             }
           } catch (e) {
-            this.showToast('Reset failed: ' + e.message);
-            await this._fireLocalNotif('Fallback 🏖️', 'Manual test triggered.', 'notif-local-test');
+            console.error('Test notif failed:', e);
           } finally {
             btn.textContent = originalText;
             btn.disabled = false;
