@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v96';
+const APP_VERSION = 'v97';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -1428,13 +1428,16 @@ const App = {
     }
     // 3. Keyword token fallback — handles "inclined rows", "cable chest press", etc.
     const has = (...words) => words.some(w => lower.includes(w));
-    if (has('row', 'rows', 'pulldown', 'pull-down')) return ['Back','Biceps'];
+    if (has('row', 'rows', 'pulldown', 'pull-down', 'lat ')) return ['Back','Biceps','Lats'];
+    if (has('lat ')) return ['Lats','Back'];
+    if (has('curl','curls') && has('wrist','forearm')) return ['Forearms'];
     if (has('curl','curls') && !has('leg')) return ['Biceps'];
     if (has('curl') && has('leg')) return ['Hamstrings'];
     if (has('press') && has('chest','bench','pec')) return ['Chest','Triceps','Shoulders'];
-    if (has('press') && has('shoulder','overhead','military','ohp')) return ['Shoulders','Triceps'];
+    if (has('press') && has('shoulder','overhead','military','ohp','arnold')) return ['Shoulders','Triceps'];
     if (has('press') && has('incline')) return ['Chest','Shoulders','Triceps'];
     if (has('fly','flye','flies')) return ['Chest'];
+    if (has('shrug','upright row','face pull')) return ['Traps','Shoulders'];
     if (has('squat','squats')) return ['Quads','Glutes','Hamstrings'];
     if (has('lunge','lunges')) return ['Quads','Glutes'];
     if (has('deadlift')) return ['Back','Glutes','Hamstrings'];
@@ -4503,8 +4506,16 @@ const App = {
       query = query.toLowerCase();
       document.querySelectorAll('[data-pick-exercise]').forEach(el => {
         const name = el.querySelector('.exercise-item-name').textContent.toLowerCase();
-        const muscles = el.dataset.muscleGroups || '';
-        const chipMatch = activeChip === 'All' || muscles.includes(activeChip.toLowerCase());
+        const muscles = el.dataset.muscleGroups.toLowerCase() || '';
+        
+        // Smart Chip mapping
+        let targetMuscles = [activeChip.toLowerCase()];
+        if (activeChip === 'Arms') targetMuscles = ['biceps', 'triceps', 'forearms'];
+        if (activeChip === 'Legs') targetMuscles = ['quads', 'hamstrings', 'glutes', 'calves'];
+        if (activeChip === 'Core') targetMuscles = ['abs'];
+        if (activeChip === 'Back') targetMuscles = ['back', 'lats', 'traps'];
+
+        const chipMatch = activeChip === 'All' || targetMuscles.some(m => muscles.includes(m));
         const searchMatch = !query || name.includes(query);
         el.style.display = chipMatch && searchMatch ? '' : 'none';
       });
