@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v104';
+const APP_VERSION = 'v105';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2482,10 +2482,13 @@ const App = {
 
   _bindReactionBars() {
     document.querySelectorAll('.reaction-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      // Safe-Binding: Clone node to clear any existing listeners before re-binding
+      const newBtn = btn.cloneNode(true);
+      btn.replaceWith(newBtn);
+      newBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const { emoji, itemId, itemType } = btn.dataset;
-        const bar = btn.closest('.reaction-bar');
+        const { emoji, itemId, itemType } = newBtn.dataset;
+        const bar = newBtn.closest('.reaction-bar');
         const posterId = bar?.dataset.posterUserId || null;
         this._toggleReaction(itemId, itemType, emoji, posterId);
       });
@@ -3787,7 +3790,7 @@ const App = {
         this.bindClick('btn-settings', () => this.showScreen('settings'));
         this.bindClick('btn-profile', () => this.showScreen('profile'));
         this.bindClick('btn-go-social', () => this.showScreen('social'));
-        this.bindClick('btn-go-chat', () => this.showScreen('social'));
+        this.bindClick('btn-go-chat', () => this.showScreen('chat'));
         this.bindClick('btn-resume-workout', () => this.showScreen('activeWorkout'));
         this.bindClick('btn-go-profile-char', () => this.showScreen('settings'));
         this.bindClick('btn-go-profile', () => this.showScreen('settings'));
