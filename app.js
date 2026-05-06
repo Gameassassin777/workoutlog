@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v111';
+const APP_VERSION = 'v112';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4148,16 +4148,16 @@ const App = {
               return;
             }
             
-            // 1. NUCLEAR RESET: Clear SW and Subscription
-            this.showToast('Purging old tokens...');
+            // 1. SOFT RESET: Update SW and Refresh Subscription
+            this.showToast('Checking for worker updates...');
             if ('serviceWorker' in navigator) {
-              const regs = await navigator.serviceWorker.getRegistrations();
-              for (let r of regs) await r.unregister();
-              // Re-register
-              await navigator.serviceWorker.register('sw.js');
               const reg = await navigator.serviceWorker.ready;
+              await reg.update(); // Force latest sw.js from server
               const sub = await reg.pushManager.getSubscription();
-              if (sub) await sub.unsubscribe();
+              if (sub) {
+                this.showToast('Purging old subscription...');
+                await sub.unsubscribe();
+              }
             }
             
             this.showToast('Generating fresh subscription...');
