@@ -62,6 +62,12 @@ export default {
       if (path === '/api/push/subscribe' && request.method === 'POST') {
         return handlePushSubscribe(request, env);
       }
+      if (path === '/api/push/test' && request.method === 'POST') {
+        return handlePushTest(request, env);
+      }
+      if (path === '/api/push/status' && request.method === 'POST') {
+        return handlePushStatus(request, env);
+      }
 
       // ── AI Proxy ──────────────────────────────────────────
       if (path === '/api/ai/chat' && request.method === 'POST') {
@@ -356,6 +362,36 @@ async function handlePushSubscribe(request, env) {
 
   await savePushSub(env, user_id, subscription);
   return json({ ok: true });
+}
+
+async function handlePushStatus(request, env) {
+  const { user_id } = await request.json();
+  const sub = await env.DB.prepare('SELECT id FROM push_subs WHERE user_id = ?').bind(user_id).first();
+  return json({ ok: !!sub, user_id });
+}
+
+async function handlePushTest(request, env) {
+  const { user_id, delay = 0 } = await request.json();
+  const subs = await env.DB.prepare('SELECT * FROM push_subs WHERE user_id = ?').bind(user_id).all();
+  if (!subs.results.length) return json({ error: 'No subscription found on server' }, 404);
+
+  const payload = JSON.stringify({
+    title: 'TropicalFit Test 🏖️',
+    body: 'Server-side push is working perfectly!',
+    url: './',
+    tag: 'test'
+  });
+
+  if (delay > 0) {
+    await new Promise(r => setTimeout(r, delay));
+  }
+
+  const results = await Promise.allSettled(
+    subs.results.map(sub => sendWebPush(env, sub, payload))
+  );
+  
+  const successCount = results.filter(r => r.status === 'fulfilled').length;
+  return json({ ok: true, sent: successCount, total: subs.results.length });
 }
 
 async function savePushSub(env, userId, sub) {
