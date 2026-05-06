@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v101';
+const APP_VERSION = 'v102';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -980,7 +980,7 @@ const App = {
     if (container) container.style.overflow = '';
     this.currentScreen = name;
     this.setActiveNav(name);
-    this._updateBoardNotifDot();
+    this._updateChatNotifDots();
 
     const renderers = {
       home: () => this.renderHome(),
@@ -1333,33 +1333,54 @@ const App = {
 
   _startBoardPolling() {
     // Initial check
-    this._updateBoardNotifDot();
-    // Low frequency poll every 2 minutes for the background dot
-    setInterval(() => this._updateBoardNotifDot(), 120000);
+    this._updateChatNotifDots();
+    // Low frequency poll every 2 minutes for the background dots
+    setInterval(() => this._updateChatNotifDots(), 120000);
   },
 
-  async _updateBoardNotifDot() {
-    const dot = document.getElementById('board-notif-dot');
-    if (!dot) return;
+  async _updateChatNotifDots() {
+    const boardDot = document.getElementById('board-notif-dot');
+    const coachDot = document.getElementById('coach-notif-dot');
+    if (!boardDot && !coachDot) return;
 
-    // If we're already on the social screen, hide it immediately
-    if (this.currentScreen === 'social') {
-      dot.style.display = 'none';
-      return;
+    // Self-healing push check: if permission is granted but no sub, try to fix
+    if (Notification.permission === 'granted' && !localStorage.getItem('tf_last_push_sync')) {
+       this.subscribeToPush();
+       localStorage.setItem('tf_last_push_sync', Date.now());
     }
 
     try {
-      const data = await this._fetchChat();
-      if (!data || !data.messages || !data.messages.length) return;
+      // 1. Check Board (Social)
+      if (this.currentScreen === 'social') {
+        if (boardDot) boardDot.style.display = 'none';
+      } else if (boardDot) {
+        const data = await this._fetchChat();
+        if (data?.messages?.length) {
+          const lastViewed = parseInt(localStorage.getItem('tf_last_chat_view') || '0');
+          const newest = data.messages[0];
+          if (newest && newest.id > lastViewed && newest.user_id !== this.settings.serverId) {
+            boardDot.style.display = 'block';
+          } else {
+            boardDot.style.display = 'none';
+          }
+        }
+      }
 
-      const lastViewed = parseInt(localStorage.getItem('tf_last_chat_view') || '0');
-      const newest = data.messages[0];
-      
-      // If the newest message is newer than our last view (and not from us)
-      if (newest && newest.id > lastViewed && newest.user_id !== this.settings.serverId) {
-        dot.style.display = 'block';
-      } else {
-        dot.style.display = 'none';
+      // 2. Check Coach (DM)
+      if (this.currentScreen === 'chat') {
+        if (coachDot) coachDot.style.display = 'none';
+      } else if (coachDot) {
+        // Fetch coach messages (limit 1 for efficiency)
+        const coachData = await this.apiGet('/api/coach/messages?limit=1');
+        if (coachData?.messages?.length) {
+          const lastCoachViewed = parseInt(localStorage.getItem('tf_last_coach_view') || '0');
+          const newest = coachData.messages[0];
+          if (newest && newest.id > lastCoachViewed && newest.role !== 'user') {
+            coachDot.style.display = 'block';
+          } else {
+            coachDot.style.display = 'none';
+          }
+        }
       }
     } catch (e) {}
   },
@@ -2921,6 +2942,8 @@ const App = {
 
   // ─── CHAT SCREEN ──────────────────────────────────────────
   renderCoachChat(data) {
+    localStorage.setItem('tf_last_coach_view', Date.now());
+    this._updateChatNotifDots();
     const prefilledMsg = data.prefill || '';
 
     const noHistory = !this._currentChatMessages || this._currentChatMessages.length === 0;
