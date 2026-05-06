@@ -637,7 +637,7 @@ async function sendWebPush(env, sub, payloadStr) {
   const vapidHeaders = await buildVapidHeaders(
     env.VAPID_PUBLIC_KEY,
     env.VAPID_PRIVATE_KEY,
-    env.VAPID_SUBJECT || 'mailto:admin@tropicalfit.app',
+    env.VAPID_SUBJECT || 'https://gameassassin777.github.io/workoutlog/',
     sub.endpoint
   );
 
@@ -648,8 +648,7 @@ async function sendWebPush(env, sub, payloadStr) {
       'Content-Type': 'application/octet-stream',
       'Content-Encoding': 'aes128gcm',
       'TTL': '86400',
-      'Urgency': 'high',
-      'Topic': payloadStr.includes('test') ? 'test' : 'update'
+      'Urgency': 'high'
     },
     body: await encryptPayload(payloadStr, sub.p256dh, sub.auth),
   });

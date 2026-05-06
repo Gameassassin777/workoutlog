@@ -1,9 +1,8 @@
-const CACHE_NAME = 'tropical-fit-v116';
+const CACHE_NAME = 'tropical-fit-v117';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
-  './app.js',
   './db.js',
   './shader.js',
   './palm.js',
@@ -11,6 +10,7 @@ const ASSETS = [
   './timer.js',
   './ai.js',
   './export.js',
+  './app.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -19,7 +19,8 @@ const ASSETS = [
   './bg.jpg',
   './bg2.jpg',
   './bg-night-saver.jpg',
-  './bg-day-saver.jpg'
+  './bg-day-saver.jpg',
+  'https://fonts.googleapis.com/css2?family=Pacifico&display=swap'
 ];
 
 self.addEventListener('install', event => {
@@ -51,10 +52,14 @@ self.addEventListener('push', event => {
     }
   }
 
+  // Mobile Fix: Use absolute URLs for icons
+  const baseUrl = self.location.origin + self.location.pathname.replace('sw.js', '');
+  const iconUrl = new URL('icons/icon-192.png', baseUrl).href;
+
   const promiseChain = self.registration.showNotification(data.title, {
     body: data.body,
-    icon: 'icons/icon-192.png',
-    badge: 'icons/icon-192.png',
+    icon: iconUrl,
+    badge: iconUrl,
     tag: data.tag || ('tf-' + Date.now()),
     data: { url: data.url || './' },
     vibrate: [100, 50, 100],
