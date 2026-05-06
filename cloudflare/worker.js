@@ -675,18 +675,30 @@ async function sendWebPush(env, sub, payloadStr) {
 // ── VAPID JWT builder (no dependencies, pure Web Crypto) ─────────
 async function buildVapidHeaders(publicKey, privateKey, subject, endpoint) {
   const audience = new URL(endpoint).origin;
-  const exp = Math.floor(Date.now() / 1000) + 3600; // 1 hour expiration for max compatibility
+  const exp = Math.floor(Date.now() / 1000) + 3600;
 
   const header  = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
   const payload = b64url(JSON.stringify({ aud: audience, exp, sub: subject }));
   const signing = `${header}.${payload}`;
 
-  const keyData = base64ToUint8(privateKey);
+  // The VAPID public key is an uncompressed P-256 point: 0x04 || X(32) || Y(32) = 65 bytes
+  const pubBytes = base64ToUint8(publicKey);
+  const x = uint8ToB64url(pubBytes.slice(1, 33));  // skip the 0x04 prefix
+  const y = uint8ToB64url(pubBytes.slice(33, 65));
+
+  // Import private key as JWK — the only format Web Crypto accepts for raw EC private scalars
+  const jwk = {
+    kty: 'EC', crv: 'P-256',
+    x, y,
+    d: privateKey.trim().replace(/=/g, ''), // private scalar, URL-safe Base64 no-pad
+    ext: true,
+  };
   const key = await crypto.subtle.importKey(
-    'pkcs8', keyData,
+    'jwk', jwk,
     { name: 'ECDSA', namedCurve: 'P-256' },
     false, ['sign']
   );
+
   const sig = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
     key,
@@ -694,7 +706,7 @@ async function buildVapidHeaders(publicKey, privateKey, subject, endpoint) {
   );
 
   const jwt = `${signing}.${uint8ToB64url(new Uint8Array(sig))}`;
-  const cleanKey = publicKey.trim().replace(/=/g, ''); 
+  const cleanKey = publicKey.trim().replace(/=/g, '');
   return {
     Authorization: `vapid t=${jwt}, k=${cleanKey}`,
   };
@@ -762,8 +774,8 @@ function concat(...arrays) {
 }
 
 function b64url(str) {
-  const bytes = new TextEncoder().encode(str);
-  return uint8ToB64url(bytes);
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 function uint8ToB64url(buf) {
