@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v97';
+const APP_VERSION = 'v98';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -288,6 +288,9 @@ const App = {
 
     // Check for an orphaned live session in the cloud (non-blocking)
     this.checkCloudSession();
+
+    // Start background polling for the Board (Social) notifications
+    this._startBoardPolling();
   },
 
   async loadData() {
@@ -972,6 +975,7 @@ const App = {
     if (container) container.style.overflow = '';
     this.currentScreen = name;
     this.setActiveNav(name);
+    this._updateBoardNotifDot();
 
     const renderers = {
       home: () => this.renderHome(),
@@ -1322,16 +1326,55 @@ const App = {
     }).catch(() => {});
   },
 
+  _startBoardPolling() {
+    // Initial check
+    this._updateBoardNotifDot();
+    // Low frequency poll every 2 minutes for the background dot
+    setInterval(() => this._updateBoardNotifDot(), 120000);
+  },
+
+  async _updateBoardNotifDot() {
+    const dot = document.getElementById('board-notif-dot');
+    if (!dot) return;
+
+    // If we're already on the social screen, hide it immediately
+    if (this.currentScreen === 'social') {
+      dot.style.display = 'none';
+      return;
+    }
+
+    try {
+      const data = await this._fetchChat();
+      if (!data || !data.messages || !data.messages.length) return;
+
+      const lastViewed = parseInt(localStorage.getItem('tf_last_chat_view') || '0');
+      const newest = data.messages[0];
+      
+      // If the newest message is newer than our last view (and not from us)
+      if (newest && newest.id > lastViewed && newest.user_id !== this.settings.serverId) {
+        dot.style.display = 'block';
+      } else {
+        dot.style.display = 'none';
+      }
+    } catch (e) {}
+  },
+
   _hasUnreadNotifs() {
+    const lastClear = localStorage.getItem('tf_last_notif_clear_day');
+    const today = new Date().toDateString();
+    if (lastClear === today) return false;
+
     // Show badge when the user hasn't worked out today and has a streak to protect
     const streak = this.profile?.currentStreak || 0;
     if (streak === 0) return false;
-    const todayStr = new Date().toDateString();
-    const workedOutToday = (this.workouts || []).some(w => new Date(w.date).toDateString() === todayStr);
+    const workedOutToday = (this.workouts || []).some(w => new Date(w.date).toDateString() === today);
     return !workedOutToday;
   },
 
   _showNotifPanel() {
+    localStorage.setItem('tf_last_notif_clear_day', new Date().toDateString());
+    this.renderNavBar(); // Refresh badge state
+
     const streak = this.profile?.currentStreak || 0;
     const todayStr = new Date().toDateString();
     const workedOutToday = (this.workouts || []).some(w => new Date(w.date).toDateString() === todayStr);
@@ -1359,21 +1402,23 @@ const App = {
     panel.id = 'notif-panel-overlay';
     panel.style.cssText = 'position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;justify-content:flex-end;';
     panel.innerHTML = `
-      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.5);" id="notif-panel-backdrop"></div>
-      <div style="position:relative;background:linear-gradient(180deg,rgba(5,20,50,0.98),rgba(2,10,28,0.99));border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px 16px calc(20px + var(--safe-bottom,0px));border-top:1.5px solid rgba(0,200,255,0.2);box-shadow:0 -8px 40px rgba(0,0,0,0.6);max-height:60vh;overflow-y:auto;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <span style="font-weight:700;font-size:1rem;color:var(--text-main);">Notifications</span>
-          <button id="btn-close-notif-panel" style="background:none;border:none;padding:4px;cursor:pointer;color:var(--text-muted);">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);" id="notif-panel-backdrop"></div>
+      <div style="position:relative;background:var(--glass-deep);backdrop-filter:var(--blur-lg);-webkit-backdrop-filter:var(--blur-lg);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px 16px calc(24px + var(--safe-bottom,0px));border-top:1.5px solid var(--glass-border);box-shadow:var(--shadow-lg);max-height:60vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <span style="font-weight:800;font-size:1.1rem;color:var(--text-main);letter-spacing:-0.02em;">Notifications</span>
+          <button id="btn-close-notif-panel" style="background:var(--glass-light);border:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        ${items.map(item => `
-          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <span style="min-width:28px;display:flex;align-items:center;justify-content:center;color:var(--aqua);">${item.icon}</span>
-            <span style="flex:1;font-size:0.875rem;color:var(--text-sub);">${item.text}</span>
-            ${item.cta ? `<button data-notif-action="${item.action || ''}" style="background:var(--lagoon);border:none;border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:600;color:#fff;cursor:pointer;white-space:nowrap;">${item.cta}</button>` : ''}
-          </div>
-        `).join('')}
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          ${items.map(item => `
+            <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--glass-light);border-radius:var(--radius-md);margin-bottom:8px;border:1px solid var(--glass-border);">
+              <span style="min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--aqua);background:var(--sand-light);border-radius:10px;">${item.icon}</span>
+              <span style="flex:1;font-size:0.9rem;color:var(--text-main);font-weight:500;line-height:1.4;">${item.text}</span>
+              ${item.cta ? `<button data-notif-action="${item.action || ''}" style="background:var(--lagoon);border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap;box-shadow:0 4px 12px rgba(0,180,255,0.25);">${item.cta}</button>` : ''}
+            </div>
+          `).join('')}
+        </div>
       </div>`;
 
     document.body.appendChild(panel);
