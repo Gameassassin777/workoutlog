@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v124';
+const APP_VERSION = 'v125';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -5126,35 +5126,42 @@ const App = {
       navigator.vibrate?.([40]);
     }
 
+    // Dismiss keyboard to prevent iOS viewport glitching
+    if (document.activeElement && document.activeElement.blur) {
+      document.activeElement.blur();
+    }
+
+    // Re-render so the user sees the checkmark turn green and the autofill appear
+    this.showScreen('activeWorkout');
+
     // Check if this was the last uncompleted set for this exercise
     const allDone = ex.sets.every(s => s.completed);
     const nextUncompletedSet = ex.sets.find(s => !s.completed);
     const restSecs    = ex.restSeconds ?? this.settings.defaultRestBetweenSets;
     const restBetweenEx = this.settings.defaultRestBetweenExercises;
 
-    if (allDone) {
-      // Check if there are more exercises
-      const nextExIdx = exIdx + 1;
-      if (nextExIdx < this.activeWorkout.exercises.length) {
-        // Rest between exercises
+    // Delay the rest timer so the keyboard has time to slide down and the user registers the checkmark
+    setTimeout(() => {
+      if (allDone) {
+        // Check if there are more exercises
+        const nextExIdx = exIdx + 1;
+        if (nextExIdx < this.activeWorkout.exercises.length) {
+          // Rest between exercises
+          this.showScreen('restTimer', {
+            seconds: restBetweenEx,
+            label: `Rest before ${this.activeWorkout.exercises[nextExIdx].name}`,
+            onComplete: () => this.showScreen('activeWorkout')
+          });
+        }
+      } else if (nextUncompletedSet) {
+        // Rest between sets
         this.showScreen('restTimer', {
-          seconds: restBetweenEx,
-          label: `Rest before ${this.activeWorkout.exercises[nextExIdx].name}`,
+          seconds: restSecs,
+          label: `Rest — ${exName} Set ${setIdx + 2} next`,
           onComplete: () => this.showScreen('activeWorkout')
         });
-      } else {
-        this.showScreen('activeWorkout');
       }
-    } else if (nextUncompletedSet) {
-      // Rest between sets
-      this.showScreen('restTimer', {
-        seconds: restSecs,
-        label: `Rest — ${exName} Set ${setIdx + 2} next`,
-        onComplete: () => this.showScreen('activeWorkout')
-      });
-    } else {
-      this.showScreen('activeWorkout');
-    }
+    }, 500);
   },
 
   cancelWorkout() {
