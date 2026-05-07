@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v122';
+const APP_VERSION = 'v123';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4142,30 +4142,32 @@ const App = {
               return;
             }
 
-            // Step 1: Fresh subscription
-            btn.textContent = 'Subscribing...';
-            this.showToast('Registering your device...');
-            await this.subscribeToPush();
-
-            // Step 2: Verify token on server
+            // Step 1: Check if server already has a valid token
+            btn.textContent = 'Checking...';
             const status = await this.apiPost('/api/push/status', { user_id: this.settings.serverId });
+
             if (!status?.ok) {
-              this.showToast('❌ Token not found on server — try again.', 8000);
-              return;
+              // No token on server — subscribe fresh
+              btn.textContent = 'Subscribing...';
+              this.showToast('No token found — registering device...');
+              await this.subscribeToPush();
+
+              // Verify it landed
+              const recheck = await this.apiPost('/api/push/status', { user_id: this.settings.serverId });
+              if (!recheck?.ok) {
+                this.showToast('❌ Registration failed — try again.', 8000);
+                return;
+              }
             }
 
-            // Step 3: Fire the push with a 10s delay so you can close the app
+            // Step 2: Fire the push — close the app before it arrives
             btn.textContent = 'Close app now!';
-            this.showToast('✅ Registered! Close the app — push arrives in ~10 seconds.', 10000);
-            const res = await this.apiPost('/api/push/test', {
+            this.showToast('✅ Push firing in ~5 seconds — close the app now!', 8000);
+            await this.apiPost('/api/push/test', {
               user_id: this.settings.serverId,
-              delay: 10000
+              delay: 5000
             });
 
-            if (!res?.ok) {
-              const detail = res?.errors?.[0] || res?.error || 'Push service rejected';
-              this.showToast('❌ Server failed: ' + detail, 8000);
-            }
           } catch (e) {
             this.showToast('❌ Error: ' + e.message, 8000);
           } finally {
