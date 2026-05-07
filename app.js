@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v128';
+const APP_VERSION = 'v129';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -291,11 +291,14 @@ const App = {
       const initialHeight = window.innerHeight;
       window.visualViewport.addEventListener('resize', () => {
         const nav = document.getElementById('bottom-nav');
-        if (nav) {
+        const screenContainer = document.getElementById('screen-container');
+        if (nav && screenContainer) {
           if (window.visualViewport.height < initialHeight * 0.8) {
             nav.style.display = 'none';
+            screenContainer.style.paddingBottom = '0px';
           } else {
             nav.style.display = '';
+            screenContainer.style.paddingBottom = '';
           }
         }
       });
