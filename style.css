@@ -1306,3 +1306,14 @@ select.input {
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 @keyframes oceanSwell { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+/* ═══════════════════════════════════════════════════════
+   KEYBOARD OPEN STATE (iOS PWA Fixes)
+═══════════════════════════════════════════════════════ */
+body.keyboard-open #bottom-nav {
+  display: none !important;
+}
+
+body.keyboard-open #screen-container {
+  padding-bottom: 0px !important;
+}
