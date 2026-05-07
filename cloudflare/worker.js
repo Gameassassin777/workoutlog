@@ -9,7 +9,7 @@ const CORS = {
 };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS });
     }
@@ -63,7 +63,7 @@ export default {
         return handlePushSubscribe(request, env);
       }
       if (path === '/api/push/test' && request.method === 'POST') {
-        return handlePushTest(request, env);
+        return handlePushTest(request, env, ctx);
       }
       if (path === '/api/push/status' && request.method === 'POST') {
         return handlePushStatus(request, env);
@@ -370,47 +370,40 @@ async function handlePushStatus(request, env) {
   return json({ ok: !!sub, user_id });
 }
 
-async function handlePushTest(request, env) {
+async function handlePushTest(request, env, ctx) {
   const { user_id, delay = 0 } = await request.json();
   const subs = await env.DB.prepare('SELECT * FROM push_subs WHERE user_id = ?').bind(user_id).all();
   if (!subs.results.length) return json({ error: 'No subscription found on server' }, 404);
 
   const payload = JSON.stringify({
     title: 'TropicalFit Test 🏖️',
-    body: 'Server-side push is working perfectly!',
+    body: 'Server-side push is working!',
     url: './',
     tag: 'test'
   });
 
-  if (delay > 0) {
-    await new Promise(r => setTimeout(r, delay));
-  }
+  // Return the response immediately so the client can close the app.
+  // Use ctx.waitUntil() to keep the Worker alive and fire the push in the background
+  // even after the HTTP connection is dropped.
+  const sendPushes = async () => {
+    if (delay > 0) await new Promise(r => setTimeout(r, delay));
 
-  const results = await Promise.allSettled(
-    subs.results.map(sub => sendWebPush(env, sub, payload))
-  );
+    const results = await Promise.allSettled(
+      subs.results.map(sub => sendWebPush(env, sub, payload))
+    );
 
-  // Clean up any stale/invalid subscriptions (400 or 410 responses)
-  const staleIds = subs.results
-    .filter((_, i) => results[i].status === 'rejected')
-    .map(s => s.id);
-  for (const id of staleIds) {
-    await env.DB.prepare('DELETE FROM push_subs WHERE id = ?').bind(id).run();
-  }
+    // Clean up stale subscriptions
+    const staleIds = subs.results
+      .filter((_, i) => results[i].status === 'rejected')
+      .map(s => s.id);
+    for (const id of staleIds) {
+      await env.DB.prepare('DELETE FROM push_subs WHERE id = ?').bind(id).run();
+    }
+  };
 
-  const failures = results
-    .filter(r => r.status === 'rejected')
-    .map(r => r.reason?.message || 'Unknown Error');
+  ctx.waitUntil(sendPushes());
 
-  const successCount = results.filter(r => r.status === 'fulfilled').length;
-  return json({ 
-    ok: successCount > 0, 
-    sent: successCount, 
-    total: subs.results.length,
-    cleaned: staleIds.length,
-    errors: failures.slice(0, 3),
-    vapid_status: !!env.VAPID_PRIVATE_KEY ? 'Set' : 'MISSING'
-  });
+  return json({ ok: true, queued: subs.results.length });
 }
 
 async function savePushSub(env, userId, sub) {
