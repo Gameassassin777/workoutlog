@@ -165,7 +165,7 @@ async function handleUserUpdate(request, env) {
 
 async function handleUserGet(path, env) {
   const identifier = decodeURIComponent(path.split('/').pop());
-  const user = await env.DB.prepare('SELECT * FROM users WHERE id = ? OR username = ?').bind(identifier, identifier).first();
+  const user = await env.DB.prepare('SELECT * FROM users WHERE id = ? OR LOWER(username) = LOWER(?)').bind(identifier, identifier).first();
   if (!user) return json({ error: 'Not found' }, 404);
 
   const id = user.id;

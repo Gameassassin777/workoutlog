@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v135';
+const APP_VERSION = 'v136';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3626,14 +3626,16 @@ const App = {
   // ─── USER PROFILE VIEWER (other users) ────────────────────
   renderUserProfile(data = {}) {
     if (data.userId && !data.fullProfileLoaded) {
-      this.apiGet('/api/user/' + data.userId).then(res => {
+      this.apiGet('/api/user/' + encodeURIComponent(data.userId)).then(res => {
+        data.fullProfileLoaded = true;
         if (res && !res.error) {
           data.user = { ...data.user, ...res };
-          data.fullProfileLoaded = true;
           // Re-render the screen seamlessly once the full heatmap/history arrives
           if (this.currentScreen === 'userProfile') this.showScreen('userProfile', data);
         }
-      }).catch(() => {});
+      }).catch(() => {
+        data.fullProfileLoaded = true;
+      });
     }
 
     const u = data.user || {};
