@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v129';
+const APP_VERSION = 'v130';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -286,12 +286,19 @@ const App = {
     window.matchMedia('(prefers-color-scheme: light)')
       .addEventListener('change', () => this.applyTheme());
 
-    // Hide bottom nav when keyboard is open (iOS/Android PWA viewport glitch fix)
+    // Handle iOS PWA keyboard resizing robustly
     if (window.visualViewport) {
       const initialHeight = window.innerHeight;
-      window.visualViewport.addEventListener('resize', () => {
+      
+      const onViewportChange = () => {
+        // Force the body to physically shrink to the usable screen area above the keyboard
+        document.documentElement.style.height = `${window.visualViewport.height}px`;
+        document.body.style.height = `${window.visualViewport.height}px`;
+        window.scrollTo(0, 0); // Prevent iOS Safari from applying an artificial frame shift
+
         const nav = document.getElementById('bottom-nav');
         const screenContainer = document.getElementById('screen-container');
+        
         if (nav && screenContainer) {
           if (window.visualViewport.height < initialHeight * 0.8) {
             nav.style.display = 'none';
@@ -301,7 +308,10 @@ const App = {
             screenContainer.style.paddingBottom = '';
           }
         }
-      });
+      };
+
+      window.visualViewport.addEventListener('resize', onViewportChange);
+      window.visualViewport.addEventListener('scroll', onViewportChange);
     }
 
     // Check for an orphaned live session in the cloud (non-blocking)
