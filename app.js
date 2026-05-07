@@ -16,18 +16,18 @@ const EXERCISE_MUSCLE_MAP = {
   'push-up':['Chest','Triceps','Shoulders'],'pushup':['Chest','Triceps','Shoulders'],
   'dips':['Triceps','Chest'],'chest dips':['Chest','Triceps'],
   // Back
-  'pull up':['Lats','Biceps','Back'],'pull-up':['Lats','Biceps','Back'],'pullup':['Lats','Biceps','Back'],
-  'chin up':['Lats','Biceps'],'chin-up':['Lats','Biceps'],'chinup':['Lats','Biceps'],
-  'lat pulldown':['Lats','Biceps'],'seated row':['Back','Biceps'],'cable row':['Back','Biceps'],
-  'bent over row':['Back','Biceps'],'barbell row':['Back','Biceps'],'dumbbell row':['Back','Biceps'],
-  't-bar row':['Back','Biceps'],'deadlift':['Back','Glutes','Hamstrings','Traps'],
-  'romanian deadlift':['Hamstrings','Glutes','Back'],'rdl':['Hamstrings','Glutes','Back'],
-  'stiff leg deadlift':['Hamstrings','Glutes'],'sumo deadlift':['Glutes','Hamstrings','Back'],
-  'good morning':['Hamstrings','Back','Glutes'],'back extension':['Back','Glutes'],
+  'pull up':['Lats','Biceps','Back','Forearms:0.4','Abs:0.3'],'pull-up':['Lats','Biceps','Back','Forearms:0.4','Abs:0.3'],'pullup':['Lats','Biceps','Back','Forearms:0.4','Abs:0.3'],
+  'chin up':['Lats','Biceps','Forearms:0.4','Abs:0.3'],'chin-up':['Lats','Biceps','Forearms:0.4','Abs:0.3'],'chinup':['Lats','Biceps','Forearms:0.4','Abs:0.3'],
+  'lat pulldown':['Lats','Biceps','Forearms:0.4'],'seated row':['Back','Biceps','Forearms:0.4'],'cable row':['Back','Biceps','Forearms:0.4'],
+  'bent over row':['Back','Biceps','Forearms:0.4','Abs:0.4'],'barbell row':['Back','Biceps','Forearms:0.4','Abs:0.4'],'dumbbell row':['Back','Biceps','Forearms:0.4'],
+  't-bar row':['Back','Biceps','Forearms:0.4','Abs:0.4'],'deadlift':['Back','Glutes','Hamstrings','Traps','Forearms:0.5','Abs:0.5'],
+  'romanian deadlift':['Hamstrings','Glutes','Back','Forearms:0.5','Abs:0.4'],'rdl':['Hamstrings','Glutes','Back','Forearms:0.5','Abs:0.4'],
+  'stiff leg deadlift':['Hamstrings','Glutes','Forearms:0.5','Abs:0.4'],'sumo deadlift':['Glutes','Hamstrings','Back','Forearms:0.5','Abs:0.5'],
+  'good morning':['Hamstrings','Back','Glutes','Abs:0.4'],'back extension':['Back','Glutes'],
   'hyperextension':['Back','Glutes'],'face pull':['Shoulders','Traps','Back'],
-  'shrug':['Traps'],'barbell shrug':['Traps'],'dumbbell shrug':['Traps'],
+  'shrug':['Traps','Forearms:0.4'],'barbell shrug':['Traps','Forearms:0.4'],'dumbbell shrug':['Traps','Forearms:0.4'],
   // Shoulders
-  'overhead press':['Shoulders','Triceps'],'military press':['Shoulders','Triceps'],
+  'overhead press':['Shoulders','Triceps','Abs:0.4'],'military press':['Shoulders','Triceps','Abs:0.4'],
   'shoulder press':['Shoulders','Triceps'],'dumbbell shoulder press':['Shoulders','Triceps'],
   'ohp':['Shoulders','Triceps'],'arnold press':['Shoulders','Triceps'],
   'lateral raise':['Shoulders'],'side raise':['Shoulders'],'front raise':['Shoulders'],
@@ -44,11 +44,11 @@ const EXERCISE_MUSCLE_MAP = {
   'close grip bench press':['Triceps','Chest'],'tricep dip':['Triceps','Chest'],
   'triceps dip':['Triceps','Chest'],'diamond push up':['Triceps','Chest'],
   // Legs — quads
-  'squat':['Quads','Glutes','Hamstrings'],'back squat':['Quads','Glutes','Hamstrings'],
-  'front squat':['Quads','Glutes'],'goblet squat':['Quads','Glutes'],
+  'squat':['Quads','Glutes','Hamstrings','Abs:0.5'],'back squat':['Quads','Glutes','Hamstrings','Abs:0.5'],
+  'front squat':['Quads','Glutes','Abs:0.6'],'goblet squat':['Quads','Glutes','Abs:0.4'],
   'leg press':['Quads','Glutes','Hamstrings'],'hack squat':['Quads','Glutes'],
-  'leg extension':['Quads'],'lunges':['Quads','Glutes','Hamstrings'],
-  'lunge':['Quads','Glutes','Hamstrings'],'walking lunge':['Quads','Glutes'],
+  'leg extension':['Quads'],'lunges':['Quads','Glutes','Hamstrings','Abs:0.3'],
+  'lunge':['Quads','Glutes','Hamstrings','Abs:0.3'],'walking lunge':['Quads','Glutes','Abs:0.3'],
   'split squat':['Quads','Glutes'],'bulgarian split squat':['Quads','Glutes'],
   'step up':['Quads','Glutes'],'wall sit':['Quads'],
   // Legs — posterior
@@ -876,7 +876,7 @@ const App = {
       title: w.title,
       volume: totalVolume,
       sets_completed: totalSets,
-      exercises: w.exercises.map(ex => ({ name: ex.name, sets: ex.sets.length })),
+      exercises: w.exercises.map(ex => ({ name: ex.name, sets: ex.sets })),
       prs,
     });
   },
@@ -1532,9 +1532,9 @@ const App = {
     if (has('press') && has('incline')) return ['Chest','Shoulders','Triceps'];
     if (has('fly','flye','flies')) return ['Chest'];
     if (has('shrug','upright row','face pull')) return ['Traps','Shoulders'];
-    if (has('squat','squats')) return ['Quads','Glutes','Hamstrings'];
+    if (has('squat','squats')) return ['Quads','Glutes','Hamstrings', 'Abs:0.4'];
     if (has('lunge','lunges')) return ['Quads','Glutes'];
-    if (has('deadlift')) return ['Back','Glutes','Hamstrings'];
+    if (has('deadlift')) return ['Back','Glutes','Hamstrings', 'Abs:0.4', 'Forearms:0.4'];
     if (has('extension') && has('leg')) return ['Quads'];
     if (has('extension') && has('tricep','triceps')) return ['Triceps'];
     if (has('raise') && has('calf','calves')) return ['Calves'];
@@ -1542,7 +1542,7 @@ const App = {
     if (has('hip thrust','glute bridge','kickback')) return ['Glutes'];
     if (has('push') && has('chest','bench')) return ['Chest','Triceps'];
     if (has('dip','dips')) return ['Triceps','Chest'];
-    if (has('pull up','pull-up','pullup','chin')) return ['Lats','Biceps'];
+    if (has('pull up','pull-up','pullup','chin')) return ['Lats','Biceps', 'Forearms:0.4'];
     if (has('shrug')) return ['Traps'];
     if (has('plank','hollow','crunch','sit-up','situp')) return ['Abs'];
     if (has('run','jog','sprint','treadmill','bike','cycling','cardio','elliptical','rowing','swim')) return ['Cardio'];
@@ -1560,7 +1560,9 @@ const App = {
   _workoutMuscleGroups(workout) {
     const seen = new Set();
     workout.exercises.forEach(ex => {
-      this._getMuscleGroups(ex.name, ex.exerciseId).forEach(m => seen.add(m));
+      this._getMuscleGroups(ex.name, ex.exerciseId).forEach(m => {
+        seen.add(m.split(':')[0]);
+      });
     });
     return Array.from(seen);
   },
@@ -2059,9 +2061,51 @@ const App = {
           `).join('')}
         ` : ''}
 
+        <!-- Recent Templates -->
+        <div class="section-header" style="padding-left:0; margin-top:24px;">
+          <span class="section-title">Copy Recent Routine</span>
+        </div>
+        ${this._buildRecentTemplatesHTML()}
+
         <button class="btn btn-accent btn-large mt-16" id="btn-begin-workout">
           Lets Go!
         </button>
+      </div>
+    `;
+  },
+
+  _buildRecentTemplatesHTML() {
+    if (!this.workouts || this.workouts.length === 0) {
+      return `<div class="text-xs text-sea mt-8">No recent workouts to copy.</div>`;
+    }
+    
+    // Get last 3 unique workouts (by title/composition)
+    const recent = [];
+    const seen = new Set();
+    const sorted = [...this.workouts].sort((a,b) => new Date(b.date) - new Date(a.date));
+    
+    for (const w of sorted) {
+      if (recent.length >= 3) break;
+      const signature = w.title || w.exercises.map(e => e.name).join(',');
+      if (!seen.has(signature)) {
+        seen.add(signature);
+        recent.push(w);
+      }
+    }
+
+    return `
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+        ${recent.map((w, idx) => `
+          <div class="card card-tappable template-card" data-template-idx="${idx}" style="padding:12px; display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <div class="text-bold text-white text-sm">${w.title || 'Workout'}</div>
+              <div class="text-xs text-sea mt-4" style="display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;">
+                ${w.exercises.map(e => e.name).join(', ')}
+              </div>
+            </div>
+            <div style="color:var(--lagoon);">${this.Icons.plus}</div>
+          </div>
+        `).join('')}
       </div>
     `;
   },
@@ -2219,7 +2263,7 @@ const App = {
         <div class="flex gap-12 mb-32" style="width: 100%; max-width: 360px;">
           <button class="btn btn-ghost flex-1" id="btn-timer-minus15">-15s</button>
           <button class="btn btn-accent flex-1" id="btn-timer-skip">Skip →</button>
-          <button class="btn btn-ghost flex-1" id="btn-timer-plus15">+15s</button>
+          <button class="btn btn-ghost flex-1" id="btn-timer-plus30">+30s</button>
         </div>
 
         <div class="card" style="width: 100%; max-width: 360px; background: var(--glass-mid); border-color: var(--glass-border);">
@@ -3690,8 +3734,15 @@ const App = {
           
           if (count > 0) {
             mg.forEach(m => {
-              if (!muscleData[m]) muscleData[m] = 0;
-              muscleData[m] += count;
+              let mName = m;
+              let mult = 1;
+              if (m.includes(':')) {
+                const parts = m.split(':');
+                mName = parts[0];
+                mult = parseFloat(parts[1]);
+              }
+              if (!muscleData[mName]) muscleData[mName] = 0;
+              muscleData[mName] += count * mult;
             });
           }
         });
@@ -3878,6 +3929,14 @@ const App = {
       case 'startWorkout':
         this.bindClick('btn-begin-workout', () => this.beginWorkout());
         this.setupTagInput();
+        
+        // Bind Template Clicks
+        document.querySelectorAll('.template-card[data-template-idx]').forEach(el => {
+          el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.templateIdx);
+            this.beginWorkoutFromTemplate(idx);
+          });
+        });
         break;
 
       case 'activeWorkout':
@@ -3897,7 +3956,7 @@ const App = {
         this.startRestTimer(data);
         this.bindClick('btn-timer-skip', () => Timer.skip());
         this.bindClick('btn-timer-minus15', () => this.adjustTimer(-15));
-        this.bindClick('btn-timer-plus15', () => this.adjustTimer(15));
+        this.bindClick('btn-timer-plus30', () => this.adjustTimer(30));
         break;
 
       case 'workoutComplete':
@@ -4569,6 +4628,46 @@ const App = {
     await Timer.startWorkoutSession();
     this.syncSession();
     this.showExercisePicker();
+  },
+
+  async beginWorkoutFromTemplate(idx) {
+    const recent = [];
+    const seen = new Set();
+    const sorted = [...this.workouts].sort((a,b) => new Date(b.date) - new Date(a.date));
+    for (const w of sorted) {
+      if (recent.length >= 3) break;
+      const signature = w.title || w.exercises.map(e => e.name).join(',');
+      if (!seen.has(signature)) { seen.add(signature); recent.push(w); }
+    }
+
+    const template = recent[idx];
+    if (!template) return;
+
+    this.activeWorkout = {
+      id: this.generateId(),
+      date: new Date().toISOString(),
+      title: template.title, // keep same title
+      notes: '',
+      tags: [],
+      customFields: {},
+      exercises: template.exercises.map(ex => ({
+        id: crypto.randomUUID(),
+        exerciseId: ex.exerciseId,
+        name: ex.name,
+        bilateral: ex.bilateral,
+        // create empty sets for the new session matching the old session's volume
+        sets: ex.sets.map(() => ({ weight: '', reps: '', completed: false }))
+      })),
+      duration: 0,
+      score: null,
+      xpEarned: 0,
+      aiAnalysis: ''
+    };
+
+    navigator.vibrate?.([60]);
+    await Timer.startWorkoutSession();
+    this.syncSession();
+    this.showScreen('activeWorkout');
   },
 
   showExercisePicker() {
@@ -5262,12 +5361,18 @@ const App = {
   },
 
   cancelWorkout() {
-    if (confirm('Cancel this workout? All progress will be lost.')) {
-      Timer.endWorkoutSession();
-      this.activeWorkout = null;
-      this.clearCloudSession();
-      this.showScreen('home');
-    }
+    this.showConfirmModal(
+      'Cancel Session?',
+      'Are you sure you want to cancel? All progress will be permanently lost.',
+      'Cancel Workout',
+      'Keep Going',
+      () => {
+        Timer.endWorkoutSession();
+        this.activeWorkout = null;
+        this.clearCloudSession();
+        this.showScreen('home');
+      }
+    );
   },
 
   async finishWorkout() {
@@ -5283,11 +5388,17 @@ const App = {
     w.exercises = w.exercises.filter(ex => ex.sets.length > 0);
 
     if (w.exercises.length === 0) {
-      if (confirm('No sets completed. Discard workout?')) {
-        Timer.endWorkoutSession();
-        this.activeWorkout = null;
-        this.showScreen('home');
-      }
+      this.showConfirmModal(
+        'Discard Session?',
+        'No sets were completed. Are you sure you want to discard this workout?',
+        'Discard',
+        'Keep Going',
+        () => {
+          Timer.endWorkoutSession();
+          this.activeWorkout = null;
+          this.showScreen('home');
+        }
+      );
       return;
     }
 
@@ -5318,6 +5429,8 @@ const App = {
     this._logWorkoutToServer(w);
 
     navigator.vibrate?.([80, 50, 80, 50, 200]);
+    this._previousSetCache = null;
+    this._sortedWorkoutsCache = null;
     this.showScreen('workoutComplete');
   },
 
@@ -6737,14 +6850,27 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
   },
 
   getPreviousSet(exerciseName, setIndex) {
-    // Find the last workout with this exercise
-    const sorted = [...this.workouts].sort((a, b) => new Date(b.date) - new Date(a.date));
-    for (const w of sorted) {
+    if (!this._previousSetCache) this._previousSetCache = {};
+    const key = exerciseName + '_' + setIndex;
+    
+    if (this._previousSetCache[key] !== undefined) {
+      return this._previousSetCache[key];
+    }
+    
+    // Sort only once if we don't have it cached
+    if (!this._sortedWorkoutsCache) {
+      this._sortedWorkoutsCache = [...this.workouts].sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+    
+    for (const w of this._sortedWorkoutsCache) {
       const ex = w.exercises.find(e => e.name === exerciseName);
       if (ex && ex.sets[setIndex]) {
+        this._previousSetCache[key] = ex.sets[setIndex];
         return ex.sets[setIndex];
       }
     }
+    
+    this._previousSetCache[key] = null;
     return null;
   },
 
@@ -6868,7 +6994,14 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
         w.exercises.forEach(ex => {
           const groups = this._getMuscleGroups(ex.name, ex.exerciseId);
           groups.forEach(mg => {
-            muscles[mg] = (muscles[mg] || 0) + ex.sets.length;
+            let mName = mg;
+            let mult = 1;
+            if (mg.includes(':')) {
+              const parts = mg.split(':');
+              mName = parts[0];
+              mult = parseFloat(parts[1]);
+            }
+            muscles[mName] = (muscles[mName] || 0) + (ex.sets.length * mult);
           });
         });
       });
