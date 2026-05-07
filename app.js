@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v123';
+const APP_VERSION = 'v124';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -535,13 +535,15 @@ const App = {
       throw new Error('Push not supported in this browser');
     }
     const reg = await navigator.serviceWorker.ready;
-    const existingSub = await reg.pushManager.getSubscription();
-    if (existingSub) await existingSub.unsubscribe();
 
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
-    });
+    // Reuse existing subscription if it exists — never rotate unless forced
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: this._urlB64ToUint8Array(this.VAPID_PUBLIC_KEY),
+      });
+    }
 
     if (!sub) throw new Error('Browser refused to create push subscription');
 
