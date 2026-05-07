@@ -68,6 +68,9 @@ export default {
       if (path === '/api/push/status' && request.method === 'POST') {
         return handlePushStatus(request, env);
       }
+      if (path === '/api/push/diagnose' && request.method === 'POST') {
+        return handlePushDiagnose(request, env);
+      }
 
       // ── AI Proxy ──────────────────────────────────────────
       if (path === '/api/ai/chat' && request.method === 'POST') {
@@ -362,6 +365,62 @@ async function handlePushSubscribe(request, env) {
 
   await savePushSub(env, user_id, subscription);
   return json({ ok: true });
+}
+
+async function handlePushDiagnose(request, env) {
+  const { user_id, mode = 'full' } = await request.json();
+  const subs = await env.DB.prepare('SELECT * FROM push_subs WHERE user_id = ?').bind(user_id).all();
+  if (!subs.results.length) return json({ error: 'No subscription in DB' }, 404);
+
+  const sub = subs.results[0];
+
+  try {
+    const vapidHeaders = await buildVapidHeaders(
+      env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY,
+      env.VAPID_SUBJECT || 'mailto:gameassassin777@gmail.com',
+      sub.endpoint
+    );
+
+    let fetchOpts;
+    if (mode === 'empty') {
+      // Zero payload — tests if SW even wakes up (no encryption involved)
+      fetchOpts = {
+        method: 'POST',
+        headers: {
+          ...vapidHeaders,
+          'Content-Length': '0',
+          'TTL': '30',
+          'Urgency': 'high',
+        },
+      };
+    } else {
+      // Full encrypted payload
+      const payload = JSON.stringify({ title: 'Diagnose \ud83d\udd2c', body: 'If you see this, encryption works!', tag: 'diag' });
+      fetchOpts = {
+        method: 'POST',
+        headers: {
+          ...vapidHeaders,
+          'Content-Type': 'application/octet-stream',
+          'Content-Encoding': 'aes128gcm',
+          'TTL': '86400',
+          'Urgency': 'high',
+        },
+        body: await encryptPayload(payload, sub.p256dh, sub.auth),
+      };
+    }
+
+    const response = await fetch(sub.endpoint, fetchOpts);
+    const body = await response.text().catch(() => '');
+    return json({
+      mode,
+      http_status: response.status,
+      apple_response: body || '(empty — normal for 201)',
+      endpoint_prefix: sub.endpoint.slice(0, 60),
+      ok: response.ok,
+    });
+  } catch (e) {
+    return json({ error: e.message, stack: e.stack?.slice(0, 300) }, 500);
+  }
 }
 
 async function handlePushStatus(request, env) {
