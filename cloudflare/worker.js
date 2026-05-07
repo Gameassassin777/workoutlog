@@ -181,12 +181,10 @@ async function handleUserGet(path, env) {
     SELECT logged_at FROM workouts WHERE user_id = ? ORDER BY logged_at DESC
   `).bind(id).all();
 
-  // Get exercises from the last 30 days for the muscle heatmap
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // Get exercises from the last 30 days for the muscle heatmap using native SQLite date matching
   const recentWorkouts = await env.DB.prepare(`
-    SELECT exercises_json FROM workouts WHERE user_id = ? AND logged_at >= ?
-  `).bind(id, thirtyDaysAgo.toISOString()).all();
+    SELECT exercises_json FROM workouts WHERE user_id = ? AND logged_at >= datetime('now', '-30 days')
+  `).bind(id).all();
 
   return json({
     ...user,
