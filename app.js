@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v132';
+const APP_VERSION = 'v133';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -290,10 +290,23 @@ const App = {
     if (window.visualViewport) {
       const initialHeight = window.innerHeight;
       window.visualViewport.addEventListener('resize', () => {
-        if (window.visualViewport.height < initialHeight * 0.8) {
+        const wasOpen = document.body.classList.contains('keyboard-open');
+        const isOpen = window.visualViewport.height < initialHeight * 0.8;
+        
+        if (isOpen) {
           document.body.classList.add('keyboard-open');
         } else {
           document.body.classList.remove('keyboard-open');
+          // If the keyboard just closed, the layout container shrinks by 56px (restoring the nav bar gap).
+          // We must force the chat views to re-anchor to the bottom so the newest messages aren't left stranded out of view.
+          if (wasOpen) {
+            requestAnimationFrame(() => {
+              const msgs1 = document.getElementById('chat-messages');
+              if (msgs1) msgs1.scrollTop = msgs1.scrollHeight;
+              const msgs2 = document.getElementById('global-chat-messages');
+              if (msgs2) msgs2.scrollTop = msgs2.scrollHeight;
+            });
+          }
         }
       });
     }
