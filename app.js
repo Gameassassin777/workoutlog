@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v126';
+const APP_VERSION = 'v127';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -285,6 +285,18 @@ const App = {
     // Re-apply theme if OS dark/light preference changes while app is open
     window.matchMedia('(prefers-color-scheme: light)')
       .addEventListener('change', () => this.applyTheme());
+
+    // Hide bottom nav when keyboard is open (iOS/Android PWA viewport glitch fix)
+    document.addEventListener('focusin', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        const nav = document.getElementById('bottom-nav');
+        if (nav) nav.style.display = 'none';
+      }
+    });
+    document.addEventListener('focusout', (e) => {
+      const nav = document.getElementById('bottom-nav');
+      if (nav) nav.style.display = '';
+    });
 
     // Check for an orphaned live session in the cloud (non-blocking)
     this.checkCloudSession();
