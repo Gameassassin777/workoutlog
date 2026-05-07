@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v127';
+const APP_VERSION = 'v128';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -287,16 +287,19 @@ const App = {
       .addEventListener('change', () => this.applyTheme());
 
     // Hide bottom nav when keyboard is open (iOS/Android PWA viewport glitch fix)
-    document.addEventListener('focusin', (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+    if (window.visualViewport) {
+      const initialHeight = window.innerHeight;
+      window.visualViewport.addEventListener('resize', () => {
         const nav = document.getElementById('bottom-nav');
-        if (nav) nav.style.display = 'none';
-      }
-    });
-    document.addEventListener('focusout', (e) => {
-      const nav = document.getElementById('bottom-nav');
-      if (nav) nav.style.display = '';
-    });
+        if (nav) {
+          if (window.visualViewport.height < initialHeight * 0.8) {
+            nav.style.display = 'none';
+          } else {
+            nav.style.display = '';
+          }
+        }
+      });
+    }
 
     // Check for an orphaned live session in the cloud (non-blocking)
     this.checkCloudSession();
