@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v125';
+const APP_VERSION = 'v126';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4902,7 +4902,25 @@ const App = {
           // Un-complete: toggle back to editable
           set.completed = false;
           set.timestamp = null;
-          this.showScreen('activeWorkout');
+          this.syncSession();
+
+          // Surgically update DOM
+          const currentBtn = document.querySelector(`.set-check[data-ex="${exIdx}"][data-set="${setIdx}"]`);
+          if (currentBtn) {
+            currentBtn.classList.remove('done');
+            currentBtn.innerHTML = '';
+            if (set.weight && set.reps) currentBtn.classList.add('ready');
+          }
+          const setRow = document.querySelector(`.set-row[data-ex="${exIdx}"][data-set="${setIdx}"]`);
+          if (setRow) {
+            setRow.classList.remove('completed');
+            const numLabel = setRow.querySelector('.set-number');
+            if (numLabel) numLabel.classList.remove('completed');
+            setRow.querySelectorAll('input').forEach(inp => {
+              inp.readOnly = false;
+              inp.style.opacity = '1';
+            });
+          }
         } else {
           this.completeSet(exIdx, setIdx);
         }
@@ -5131,8 +5149,37 @@ const App = {
       document.activeElement.blur();
     }
 
-    // Re-render so the user sees the checkmark turn green and the autofill appear
-    this.showScreen('activeWorkout');
+    // Surgically update the DOM so the user sees the checkmark turn green instantly without a full screen flash
+    const currentBtn = document.querySelector(`.set-check[data-ex="${exIdx}"][data-set="${setIdx}"]`);
+    if (currentBtn) {
+      currentBtn.classList.remove('ready');
+      currentBtn.classList.add('done');
+      currentBtn.innerHTML = this.Icons.check;
+    }
+
+    const setRow = document.querySelector(`.set-row[data-ex="${exIdx}"][data-set="${setIdx}"]`);
+    if (setRow) {
+      setRow.classList.add('completed');
+      const numLabel = setRow.querySelector('.set-number');
+      if (numLabel) numLabel.classList.add('completed');
+      setRow.querySelectorAll('input').forEach(inp => {
+        inp.readOnly = true;
+        inp.style.opacity = '0.7';
+      });
+    }
+
+    // Surgically update autofilled future sets in the DOM
+    for (let i = setIdx + 1; i < ex.sets.length; i++) {
+      if (!ex.sets[i].completed && ex.sets[i].weight === set.weight && ex.sets[i].reps === set.reps) {
+        const wInp = document.querySelector(`input[data-field="weight"][data-ex="${exIdx}"][data-set="${i}"]`);
+        const rInp = document.querySelector(`input[data-field="reps"][data-ex="${exIdx}"][data-set="${i}"]`);
+        if (wInp) wInp.value = set.weight;
+        if (rInp) rInp.value = set.reps;
+
+        const futBtn = document.querySelector(`.set-check[data-ex="${exIdx}"][data-set="${i}"]`);
+        if (futBtn) futBtn.classList.add('ready');
+      }
+    }
 
     // Check if this was the last uncompleted set for this exercise
     const allDone = ex.sets.every(s => s.completed);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v125';
+const CACHE_NAME = 'tropical-fit-v126';
 const ASSETS = [
   './',
   './index.html',
