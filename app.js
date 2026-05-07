@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v136';
+const APP_VERSION = 'v137';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3679,8 +3679,15 @@ const App = {
         const exercises = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
         exercises.forEach(ex => {
           const mg = this._getMuscleGroups(ex.name, ex.exerciseId);
-          // Only count sets that have data, or all if we can't tell easily
-          const count = ex.sets ? (ex.sets.filter(s => s.completed || s.weight || s.reps).length || ex.sets.length) : 0;
+          let count = 0;
+          if (Array.isArray(ex.sets)) {
+            count = ex.sets.filter(s => s.completed || s.weight || s.reps).length || ex.sets.length;
+          } else if (typeof ex.sets === 'number') {
+            count = ex.sets;
+          } else if (ex.sets) {
+            count = 1;
+          }
+          
           if (count > 0) {
             mg.forEach(m => {
               if (!muscleData[m]) muscleData[m] = 0;
