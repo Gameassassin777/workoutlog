@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v131';
+const APP_VERSION = 'v132';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4479,7 +4479,7 @@ const App = {
               el.setAttribute('data-optimistic', 'true');
               el.innerHTML = `<div class="bubble-body"><div class="bubble-text">${this.escapeHtml(text)}</div></div><img class="bubble-avatar" src="${myAv}" alt="you">`;
               msgs.appendChild(el);
-              msgs.scrollTop = msgs.scrollHeight;
+              requestAnimationFrame(() => msgs.scrollTop = msgs.scrollHeight);
             }
             await this._postChatMessage(text);
             // Force a poll ~300ms later to confirm and swap the optimistic bubble
@@ -5662,7 +5662,7 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
     typingBubble.id = 'ai-typing';
     typingBubble.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>';
     msgsContainer.appendChild(typingBubble);
-    msgsContainer.scrollTop = msgsContainer.scrollHeight;
+    requestAnimationFrame(() => msgsContainer.scrollTop = msgsContainer.scrollHeight);
 
     // Auto-register with server if needed (required for free backend AI tier)
     if (!this.settings.serverId && this.settings.username) {

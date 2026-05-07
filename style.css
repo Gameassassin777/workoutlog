@@ -1317,3 +1317,15 @@ body.keyboard-open #bottom-nav {
 body.keyboard-open #screen-container {
   padding-bottom: 0px !important;
 }
+
+body.keyboard-open #chat-fixed-frame {
+  bottom: 0px !important;
+}
+
+body.keyboard-open .chat-input-bar {
+  padding-bottom: 12px !important;
+}
+
+body.keyboard-open .chat-global-input-bar {
+  padding-bottom: 10px !important;
+}
