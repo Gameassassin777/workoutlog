@@ -201,9 +201,9 @@ async function handleUserNudge(request, env) {
 
   // Send 3 pushes rapidly as requested by user
   if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
-    const payload1 = { title: 'NUDGE!', body: `${nudger_name} noticed you haven't worked out in a while.`, url: '/workoutlog/', tag: 'nudge' };
-    const payload2 = { title: 'Get to the gym!', body: `Seriously, ${nudger_name} is waiting for your next log.`, url: '/workoutlog/', tag: 'nudge' };
-    const payload3 = { title: 'Time to lift.', body: `No excuses. Log a workout today.`, url: '/workoutlog/', tag: 'nudge' };
+    const payload1 = { title: 'NUDGE!', body: `${nudger_name} noticed you haven't worked out in a while.`, url: '/workoutlog/', tag: 'nudge1' };
+    const payload2 = { title: 'Get to the gym!', body: `Seriously, ${nudger_name} is waiting for your next log.`, url: '/workoutlog/', tag: 'nudge2' };
+    const payload3 = { title: 'Time to lift.', body: `No excuses. Log a workout today.`, url: '/workoutlog/', tag: 'nudge3' };
     
     // We reuse broadcastPush but modify it to only hit target_id.
     // However, broadcastPush is global. Let's just query push_subs for target_id.

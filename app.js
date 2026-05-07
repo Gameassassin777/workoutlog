@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v137';
+const APP_VERSION = 'v138';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -4367,7 +4367,8 @@ const App = {
           const btn = document.getElementById('btn-nudge-user');
           if (btn) { btn.disabled = true; btn.textContent = 'Nudging...'; }
           try {
-            await this.apiPost('/api/user/nudge', { target_id: data.user.id, nudger_name: this.profile.username });
+            const res = await this.apiPost('/api/user/nudge', { target_id: data.user.id, nudger_name: this.settings.username || 'Someone' });
+            if (res.error) throw new Error(res.error);
             this.showToast('Nudge sent!');
             if (btn) { btn.textContent = 'Nudged!'; btn.style.background = 'var(--lagoon)'; btn.style.color = '#fff'; }
           } catch(e) {
