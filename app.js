@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v133';
+const APP_VERSION = 'v134';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2408,7 +2408,7 @@ const App = {
       ${users.map(u => {
         const av = u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.user_id}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
         return `
-          <div class="leaderboard-row card-tappable" data-lb-username="${u.username}" data-lb-avatar="${encodeURIComponent(av)}" data-lb-level="${u.level || 1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}" data-lb-streak="${u.streak || 0}" data-lb-sessions="${u.sessions || 0}">
+          <div class="leaderboard-row card-tappable" data-lb-id="${u.id}" data-lb-username="${u.username}" data-lb-avatar="${encodeURIComponent(av)}" data-lb-level="${u.level || 1}" data-lb-volume="${u.volume}" data-lb-rank="${u.rank}" data-lb-streak="${u.streak || 0}" data-lb-sessions="${u.sessions || 0}">
             <div class="leaderboard-rank ${rankClass(u.rank)}">${u.rank}</div>
             <img class="leaderboard-avatar" src="${av}" alt="${u.username}">
             <div class="leaderboard-info">
@@ -2426,6 +2426,7 @@ const App = {
           ? decodeURIComponent(el.dataset.lbAvatar)
           : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
         this.showScreen('userProfile', {
+          userId: el.dataset.lbId,
           user: {
             username: el.dataset.lbUsername, avatarUrl: av,
             level: parseInt(el.dataset.lbLevel) || 1,
@@ -3621,6 +3622,17 @@ const App = {
 
   // ─── USER PROFILE VIEWER (other users) ────────────────────
   renderUserProfile(data = {}) {
+    if (data.userId && !data.fullProfileLoaded) {
+      this.apiGet('/api/user/' + data.userId).then(res => {
+        if (res && !res.error) {
+          data.user = { ...data.user, ...res };
+          data.fullProfileLoaded = true;
+          // Re-render the screen seamlessly once the full heatmap/history arrives
+          if (this.currentScreen === 'userProfile') this.showScreen('userProfile', data);
+        }
+      }).catch(() => {});
+    }
+
     const u = data.user || {};
     const av = u.avatarUrl || u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username || 'unknown'}&backgroundColor=b6e3f4,c0aede,d1d4f9&mouth=smile,twinkle&top=shortHair,shortHairShortFlat`;
     const levelInfo = this.getLevelInfo((u.level || 1) * 500); 
