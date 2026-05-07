@@ -164,9 +164,11 @@ async function handleUserUpdate(request, env) {
 }
 
 async function handleUserGet(path, env) {
-  const id = path.split('/').pop();
-  const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
+  const identifier = decodeURIComponent(path.split('/').pop());
+  const user = await env.DB.prepare('SELECT * FROM users WHERE id = ? OR username = ?').bind(identifier, identifier).first();
   if (!user) return json({ error: 'Not found' }, 404);
+
+  const id = user.id;
 
   // Get total volume and sessions
   const stats = await env.DB.prepare(`

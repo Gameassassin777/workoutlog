@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v134';
+const APP_VERSION = 'v135';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2609,6 +2609,7 @@ const App = {
         const av = img.dataset.chatAvatar ? decodeURIComponent(img.dataset.chatAvatar) : '';
         if (!username) return;
         this.showScreen('userProfile', {
+          userId: username,
           user: cached || { username, avatarUrl: av, level: 1, volume: 0, rank: null, streak: 0, sessions: 0 }
         });
       });
@@ -2771,6 +2772,7 @@ const App = {
         const cached = this._profileDataCache?.[username];
         const av = img.dataset.lbAvatar ? decodeURIComponent(img.dataset.lbAvatar) : '';
         this.showScreen('userProfile', {
+          userId: username,
           user: cached || {
             username: username, avatarUrl: av,
             level: 1, volume: 0, rank: null, streak: 0, sessions: 0
@@ -2852,6 +2854,7 @@ const App = {
           ? decodeURIComponent(el.dataset.lbAvatar)
           : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`;
         this.showScreen('userProfile', {
+          userId: el.dataset.lbId || username,
           user: cached || {
             username: username, avatarUrl: av,
             level: parseInt(el.dataset.lbLevel)||1, volume: parseInt(el.dataset.lbVolume)||0,
