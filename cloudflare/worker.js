@@ -800,10 +800,8 @@ async function encryptPayload(plaintext, p256dhB64, authB64) {
   // HKDF
   const prk = await hkdf(userAuth, sharedSecret,
     concat(new TextEncoder().encode('WebPush: info\x00'), userPublicKey, serverPublicKey), 32);
-  const cek = await hkdf(salt, prk,
-    concat(new TextEncoder().encode('Content-Encoding: aes128gcm\x00'), new Uint8Array([1])), 16);
-  const nonce = await hkdf(salt, prk,
-    concat(new TextEncoder().encode('Content-Encoding: nonce\x00'), new Uint8Array([1])), 12);
+  const cek = await hkdf(salt, prk, new TextEncoder().encode('Content-Encoding: aes128gcm\x00'), 16);
+  const nonce = await hkdf(salt, prk, new TextEncoder().encode('Content-Encoding: nonce\x00'), 12);
 
   // Encrypt
   const data = new TextEncoder().encode(plaintext);
