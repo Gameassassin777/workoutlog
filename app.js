@@ -992,7 +992,10 @@ const App = {
   // ─── Screen Router ─────────────────────────────────────────
   async showScreen(name, data = {}, pushHistory = true) {
     if (pushHistory) {
-      history.pushState({ screen: name, data }, "", "#" + name);
+      // history.pushState uses structured clone — functions are not serializable.
+      // Strip them out so pushState never throws a DataCloneError.
+      const { onComplete, ...historyData } = data;
+      history.pushState({ screen: name, data: historyData }, "", "#" + name);
     }
     // Kill background timers when navigating away
     if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
