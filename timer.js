@@ -152,6 +152,6 @@ const Timer = {
 
   getProgress(seconds, total) {
     if (total === 0) return 0;
-    return 1 - (seconds / total);
+    return seconds / total; // remaining fraction: 1 at start, 0 at end
   }
 };

@@ -2237,9 +2237,20 @@ const App = {
 
   // ─── REST TIMER SCREEN ────────────────────────────────────
   renderRestTimer(data) {
-    const seconds = data.seconds || this.settings.defaultRestBetweenSets;
-    const label = data.label || 'Rest Time';
     const circumference = 2 * Math.PI * 95;
+    let seconds, initialOffset;
+
+    if (data._restore && Timer.isRunning) {
+      const remaining = Math.max(0, Math.ceil((Timer.targetEnd - Date.now()) / 1000));
+      seconds = remaining;
+      const progress = Timer.totalSeconds > 0 ? remaining / Timer.totalSeconds : 1;
+      initialOffset = circumference * (1 - progress);
+    } else {
+      seconds = data.seconds || this.settings.defaultRestBetweenSets;
+      initialOffset = 0; // full ring — depletes as timer counts down
+    }
+
+    const label = data.label || 'Rest Time';
 
     return `
       <div class="fade-in" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 75vh; padding: 0 16px; text-align: center;">
@@ -2251,7 +2262,7 @@ const App = {
               <circle class="timer-ring-bg" cx="100" cy="100" r="95"/>
               <circle class="timer-ring-progress" cx="100" cy="100" r="95"
                       stroke-dasharray="${circumference}"
-                      stroke-dashoffset="0"
+                      stroke-dashoffset="${initialOffset}"
                       id="timer-ring-circle"/>
             </svg>
             <div class="timer-time" id="timer-display">${Timer.formatTime(seconds)}</div>
@@ -2265,6 +2276,10 @@ const App = {
           <button class="btn btn-accent flex-1" id="btn-timer-skip">Skip →</button>
           <button class="btn btn-ghost flex-1" id="btn-timer-plus30">+30s</button>
         </div>
+
+        <button class="btn btn-ghost mb-16" id="btn-timer-minimize" style="width: 100%; max-width: 360px; opacity: 0.7;">
+          ↓ Back to Workout
+        </button>
 
         <div class="card" style="width: 100%; max-width: 360px; background: var(--glass-mid); border-color: var(--glass-border);">
           <div class="text-sm text-sand" style="font-style: italic;">
@@ -3957,6 +3972,7 @@ const App = {
         this.bindClick('btn-timer-skip', () => Timer.skip());
         this.bindClick('btn-timer-minus15', () => this.adjustTimer(-15));
         this.bindClick('btn-timer-plus30', () => this.adjustTimer(30));
+        this.bindClick('btn-timer-minimize', () => this.showScreen('activeWorkout'));
         break;
 
       case 'workoutComplete':
@@ -5498,10 +5514,26 @@ const App = {
 
   // ─── TIMER LOGIC ──────────────────────────────────────────
   startRestTimer(data) {
-    const seconds = data.seconds || this.settings.defaultRestBetweenSets;
     const circumference = 2 * Math.PI * 95;
     const circle = document.getElementById('timer-ring-circle');
     if (circle) circle.style.strokeDasharray = circumference;
+
+    // Restoring from mini-timer: timer already running, just sync the display
+    if (data._restore && Timer.isRunning) {
+      const remaining = Math.max(0, Math.ceil((Timer.targetEnd - Date.now()) / 1000));
+      const display = document.getElementById('timer-display');
+      const label = document.getElementById('timer-label');
+      if (display) display.textContent = Timer.formatTime(remaining);
+      if (label) label.textContent = `${remaining}s remaining`;
+      if (circle) {
+        const progress = Timer.getProgress(remaining, Timer.totalSeconds);
+        const offset = circumference * (1 - progress);
+        circle.style.strokeDashoffset = offset;
+      }
+      return;
+    }
+
+    const seconds = data.seconds || this.settings.defaultRestBetweenSets;
 
     Timer.start(
       seconds,
@@ -5571,11 +5603,7 @@ const App = {
       `;
       
       miniTimer.addEventListener('click', () => {
-        // Read live remaining from Timer so the restored screen shows the correct value
-        const liveRemaining = Timer.isRunning
-          ? Math.max(0, Math.round((Timer.targetEnd - Date.now()) / 1000))
-          : 0;
-        this.showScreen('restTimer', { seconds: liveRemaining || 1 });
+        this.showScreen('restTimer', { _restore: true });
       });
       document.body.appendChild(miniTimer);
     }
