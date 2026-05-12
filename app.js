@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v138';
+const APP_VERSION = 'v141';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -992,7 +992,10 @@ const App = {
   // ─── Screen Router ─────────────────────────────────────────
   async showScreen(name, data = {}, pushHistory = true) {
     if (pushHistory) {
-      history.pushState({ screen: name, data }, "", "#" + name);
+      // history.pushState uses structured clone — functions are not serializable.
+      // Strip them out so pushState never throws a DataCloneError.
+      const { onComplete, ...historyData } = data;
+      history.pushState({ screen: name, data: historyData }, "", "#" + name);
     }
     // Kill background timers when navigating away
     if (this._chatPollTimer) { clearInterval(this._chatPollTimer); this._chatPollTimer = null; }
