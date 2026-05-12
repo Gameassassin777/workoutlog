@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v143';
+const APP_VERSION = 'v144';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2929,7 +2929,8 @@ const App = {
         });
       });
     });
-    // Cache for profile viewing
+    // Cache leaderboard for AI context + profile viewing
+    this._leaderboardCache = users;
     this._updatePeerCache(users);
   },
 
@@ -3042,6 +3043,7 @@ const App = {
     // Context-aware chips
     const hasWorkouts = this.workouts && this.workouts.length > 0;
     const hasActive = !!this.activeWorkout;
+    const hasCommunity = !!(this._leaderboardCache?.length);
     const chips = hasActive ? [
       { chip: 'What should I do next in my workout?', label: 'Next exercise' },
       { chip: 'How much rest should I take between sets?', label: 'Rest advice' },
@@ -3049,7 +3051,7 @@ const App = {
     ] : hasWorkouts ? [
       { chip: 'Analyze my recent progress and suggest improvements', label: 'My progress' },
       { chip: 'What should I train today?', label: 'What to train' },
-      { chip: 'Help me break my current PRs', label: 'Hit a PR' },
+      ...(hasCommunity ? [{ chip: 'How do I rank on the leaderboard this week?', label: 'My rank' }] : [{ chip: 'Help me break my current PRs', label: 'Hit a PR' }]),
       { chip: 'How do I use the rest timer?', label: 'Timer help' },
     ] : [
       { chip: 'How do I log my first workout?', label: 'Get started' },
@@ -4034,6 +4036,12 @@ const App = {
             if (input) { input.value = chip.dataset.chip; input.focus(); }
           });
         });
+        // Background-refresh leaderboard so AI context has fresh community data
+        if (this.settings.serverId) {
+          this._fetchLeaderboard().then(data => {
+            if (data?.users?.length) this._leaderboardCache = data.users;
+          }).catch(() => {});
+        }
         break;
 
       case 'settings':
@@ -5737,6 +5745,23 @@ const App = {
       ? `\nACTIVE WORKOUT NOW: "${this.activeWorkout.title || 'Workout'}" — ${this.activeWorkout.exercises.map(e => e.name).join(', ')}`
       : '';
 
+    // Community leaderboard context
+    let communityCtx = '';
+    if (this._leaderboardCache?.length) {
+      const myWeekVol = this.getWeekVolume();
+      const lb = this._leaderboardCache;
+      const myRank = myWeekVol > 0 ? lb.filter(u => u.volume > myWeekVol).length + 1 : null;
+      const totalUsers = lb.length;
+      const avgVol = totalUsers > 0 ? Math.round(lb.reduce((s, u) => s + u.volume, 0) / totalUsers) : 0;
+      const top10 = lb.slice(0, 10)
+        .map(u => `#${u.rank} ${u.username} (${this.formatVolume(u.volume)} ${unit}, Lv.${u.level || 1})`)
+        .join(' | ');
+      communityCtx = `\n\n## Community This Week (${totalUsers} users on leaderboard)
+My weekly volume: ${this.formatVolume(myWeekVol)} ${unit}${myRank ? ` | My rank: #${myRank} of ${totalUsers}` : ' | Not yet ranked'}
+Community avg volume: ${this.formatVolume(avgVol)} ${unit}
+Top 10: ${top10}`;
+    }
+
     return `## User
 Name: ${s.username || 'Unknown'} | Level ${p.level} (${p.levelTitle}) | ${p.xp} XP
 Streak: ${p.currentStreak} days (longest: ${p.longestStreak}) | Total workouts: ${p.totalWorkouts} | Total volume: ${this.formatVolume(p.totalVolume)} ${unit}
@@ -5757,7 +5782,7 @@ ${this.exercises.map(e => e.name).join(', ') || 'Empty'}
 ${activeCtx}
 
 ## Recent Workouts (last 10, IDs included for editing)
-${JSON.stringify(recentWorkouts)}`;
+${JSON.stringify(recentWorkouts)}${communityCtx}`;
   },
 
   _renderMarkdown(text) {
