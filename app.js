@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v142';
+const APP_VERSION = 'v143';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -3037,8 +3037,27 @@ const App = {
     localStorage.setItem('tf_last_coach_view', Date.now());
     this._updateChatNotifDots();
     const prefilledMsg = data.prefill || '';
-
     const noHistory = !this._currentChatMessages || this._currentChatMessages.length === 0;
+
+    // Context-aware chips
+    const hasWorkouts = this.workouts && this.workouts.length > 0;
+    const hasActive = !!this.activeWorkout;
+    const chips = hasActive ? [
+      { chip: 'What should I do next in my workout?', label: 'Next exercise' },
+      { chip: 'How much rest should I take between sets?', label: 'Rest advice' },
+      { chip: 'Analyze my workout so far', label: 'In-progress analysis' },
+    ] : hasWorkouts ? [
+      { chip: 'Analyze my recent progress and suggest improvements', label: 'My progress' },
+      { chip: 'What should I train today?', label: 'What to train' },
+      { chip: 'Help me break my current PRs', label: 'Hit a PR' },
+      { chip: 'How do I use the rest timer?', label: 'Timer help' },
+    ] : [
+      { chip: 'How do I log my first workout?', label: 'Get started' },
+      { chip: 'Build me a beginner workout program', label: 'Beginner plan' },
+      { chip: 'How does this app work?', label: 'App tour' },
+      { chip: 'What exercises should I start with?', label: 'First exercises' },
+    ];
+
     return `
       <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
         <div class="header" style="flex-shrink:0;">
@@ -3046,20 +3065,21 @@ const App = {
         </div>
         <div class="chat-messages" id="chat-messages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; -webkit-overflow-scrolling:touch;">
           <div class="chat-bubble ai">
-            What's the move today? Ask me anything — training, nutrition, recovery. Or hit a quick prompt.
+            ${hasActive
+              ? "You've got a workout in progress — I can see it. Ask me anything: next exercise, form tips, how much rest, or anything else."
+              : hasWorkouts
+              ? "Hey, I've got your full workout history. Ask me about your progress, what to train today, how to hit a new PR — or how to use any part of the app."
+              : "Welcome! I'm your personal Coach. I can help you get started, build a plan, or explain any feature of the app. What do you need?"}
           </div>
           ${this._currentChatMessages && this._currentChatMessages.length > 0 ? this._currentChatMessages.map(m => `
             <div class="chat-bubble ${m.role === 'ai' ? 'ai' : 'user'}">
-              <div class="chat-content">${this.escapeHtml(m.content || '')}</div>
+              <div class="chat-content">${m.role === 'ai' ? this._renderMarkdown(m.content || '') : this.escapeHtml(m.content || '')}</div>
             </div>
           `).join('') : ''}
         </div>
         ${noHistory && !this._aiIsThinking ? `
           <div class="ai-chips">
-            <button class="ai-chip" data-chip="Analyze my last workout">Last workout</button>
-            <button class="ai-chip" data-chip="What should I train today?">What to train</button>
-            <button class="ai-chip" data-chip="Help me hit a new PR">Hit a PR</button>
-            <button class="ai-chip" data-chip="Give me recovery advice">Recovery</button>
+            ${chips.map(c => `<button class="ai-chip" data-chip="${this.escapeHtml(c.chip)}">${this.escapeHtml(c.label)}</button>`).join('')}
           </div>` : ''}
         <div class="chat-input-bar" style="flex-shrink:0; padding-bottom:calc(12px + var(--safe-bottom));">
           <input type="text" class="chat-input" placeholder="Ask Coach anything..."
@@ -5671,23 +5691,100 @@ const App = {
 
   buildChatContext() {
     const p = this.profile;
-    const recentWorkouts = [...this.workouts]
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 5)
-      .map(w => ({
-        id: w.id,
-        date: w.date,
-        title: w.title,
-        exercises: w.exercises.map((ex, i) => ({
-          index: i,
-          name: ex.name,
-          sets: ex.sets.map((s, j) => ({ index: j, weight: s.weight, reps: s.reps, unit: s.weightUnit }))
-        }))
-      }));
+    const s = this.settings;
+    const unit = s.defaultWeightUnit;
+    const allWorkouts = [...this.workouts].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    return `Profile: Level ${p.level} (${p.levelTitle}), ${p.xp} XP, ${p.totalWorkouts} workouts, ${p.currentStreak} day streak.
-Recent workouts (last 5): ${JSON.stringify(recentWorkouts)}
-Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
+    // Recent workouts with IDs (for editing actions)
+    const recentWorkouts = allWorkouts.slice(0, 10).map(w => ({
+      id: w.id,
+      date: new Date(w.date).toLocaleDateString(),
+      title: w.title || 'Workout',
+      exercises: w.exercises.map((ex, i) => ({
+        index: i,
+        name: ex.name,
+        sets: ex.sets.map((s, j) => ({ index: j, weight: s.weight, reps: s.reps, unit: s.weightUnit || unit }))
+      }))
+    }));
+
+    // Personal records
+    const prs = Object.entries(p.personalRecords || {})
+      .filter(([, pr]) => pr.maxWeight)
+      .map(([name, pr]) => `${name}: ${pr.maxWeight.value}${pr.maxWeight.unit || unit}×${pr.maxWeight.reps}`)
+      .join(' | ') || 'None yet';
+
+    // Top exercises by frequency (last 90 days)
+    const cutoff = Date.now() - 90 * 86400000;
+    const exFreq = {};
+    allWorkouts
+      .filter(w => new Date(w.date).getTime() > cutoff)
+      .forEach(w => w.exercises.forEach(ex => { exFreq[ex.name] = (exFreq[ex.name] || 0) + 1; }));
+    const topExercises = Object.entries(exFreq)
+      .sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([name, count]) => `${name} (${count}x)`).join(', ') || 'None yet';
+
+    // Sessions per week (last 4 weeks, oldest first)
+    const weeklyFreq = [3, 2, 1, 0].map(w => {
+      const start = Date.now() - (w + 1) * 7 * 86400000;
+      const end = Date.now() - w * 7 * 86400000;
+      return allWorkouts.filter(wk => {
+        const d = new Date(wk.date).getTime();
+        return d >= start && d < end;
+      }).length;
+    }).join(', ');
+
+    const activeCtx = this.activeWorkout
+      ? `\nACTIVE WORKOUT NOW: "${this.activeWorkout.title || 'Workout'}" — ${this.activeWorkout.exercises.map(e => e.name).join(', ')}`
+      : '';
+
+    return `## User
+Name: ${s.username || 'Unknown'} | Level ${p.level} (${p.levelTitle}) | ${p.xp} XP
+Streak: ${p.currentStreak} days (longest: ${p.longestStreak}) | Total workouts: ${p.totalWorkouts} | Total volume: ${this.formatVolume(p.totalVolume)} ${unit}
+Weight unit: ${unit} | Default rest: ${s.defaultRestBetweenSets}s (sets), ${s.defaultRestBetweenExercises}s (exercises)
+Last workout: ${allWorkouts[0] ? new Date(allWorkouts[0].date).toLocaleDateString() : 'Never'}
+
+## Personal Records
+${prs}
+
+## Most Trained (last 90 days)
+${topExercises}
+
+## Sessions/Week (oldest→newest, last 4 weeks)
+${weeklyFreq}
+
+## Exercise Library
+${this.exercises.map(e => e.name).join(', ') || 'Empty'}
+${activeCtx}
+
+## Recent Workouts (last 10, IDs included for editing)
+${JSON.stringify(recentWorkouts)}`;
+  },
+
+  _renderMarkdown(text) {
+    if (!text) return '';
+    let html = text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Bold, italic, inline code
+    html = html
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
+      .replace(/`([^`\n]+)`/g, '<code style="background:rgba(0,200,255,0.13);padding:1px 5px;border-radius:4px;font-size:0.88em;">$1</code>');
+    // Lists
+    const lines = html.split('\n');
+    const out = [];
+    let inList = false;
+    for (const line of lines) {
+      const li = line.match(/^[-•*] (.+)/) || line.match(/^\d+\. (.+)/);
+      if (li) {
+        if (!inList) { out.push('<ul style="margin:6px 0;padding-left:18px;">'); inList = true; }
+        out.push(`<li style="margin:2px 0;">${li[1]}</li>`);
+      } else {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push(line);
+      }
+    }
+    if (inList) out.push('</ul>');
+    return out.join('\n').replace(/\n\n+/g, '<br><br>').replace(/\n/g, '<br>');
   },
 
   async executeAIAction(action) {
