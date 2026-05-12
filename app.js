@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v141';
+const APP_VERSION = 'v142';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -2274,14 +2274,16 @@ const App = {
 
         <div class="text-white text-bold mt-16 mb-32" id="timer-label" style="font-size: 1.15rem; letter-spacing: 0.5px;">${seconds}s remaining</div>
 
-        <div class="flex gap-12 mb-32" style="width: 100%; max-width: 360px;">
-          <button class="btn btn-ghost flex-1" id="btn-timer-minus15">-15s</button>
-          <button class="btn btn-accent flex-1" id="btn-timer-skip">Skip →</button>
-          <button class="btn btn-ghost flex-1" id="btn-timer-plus30">+30s</button>
+        <div style="width: 100%; max-width: 360px; margin-bottom: 16px;">
+          <button class="btn btn-accent btn-large" id="btn-timer-skip" style="width:100%; margin-bottom:12px;">Skip Rest →</button>
+          <div style="display:flex; gap:12px;">
+            <button class="btn btn-ghost btn-large flex-1" id="btn-timer-minus15">−15s</button>
+            <button class="btn btn-ghost btn-large flex-1" id="btn-timer-plus30">+30s</button>
+          </div>
         </div>
 
-        <button class="btn btn-ghost mb-16" id="btn-timer-minimize" style="width: 100%; max-width: 360px; opacity: 0.7;">
-          ↓ Back to Workout
+        <button class="btn btn-ghost" id="btn-timer-minimize" style="width: 100%; max-width: 360px; margin-bottom: 24px; opacity: 0.65; font-size: 0.85rem;">
+          ↓ Minimize — Back to Workout
         </button>
 
         <div class="card" style="width: 100%; max-width: 360px; background: var(--glass-mid); border-color: var(--glass-border);">
@@ -5571,44 +5573,46 @@ const App = {
 
   _updateMiniTimer(remaining, total, hide = false) {
     let miniTimer = document.getElementById('mini-rest-timer');
-    
-    // Hide logic
+
     if (hide || remaining <= 0 || this.currentScreen === 'restTimer') {
       if (miniTimer) miniTimer.style.display = 'none';
       return;
     }
 
-    // Create if missing
     if (!miniTimer) {
       miniTimer = document.createElement('div');
       miniTimer.id = 'mini-rest-timer';
-      miniTimer.className = 'card-tappable';
       miniTimer.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
+        position: absolute;
+        bottom: calc(62px + var(--safe-bottom));
+        left: 8px; right: 8px;
         background: var(--glass-dark);
         border: 1px solid var(--glass-border);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 20px;
-        padding: 6px 16px;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-radius: 14px;
+        padding: 10px 16px;
         display: flex;
         align-items: center;
-        gap: 8px;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        justify-content: space-between;
+        z-index: 500;
+        box-shadow: 0 -2px 16px rgba(0,0,0,0.45);
+        cursor: pointer;
       `;
       miniTimer.innerHTML = `
-        <span style="color:var(--aqua);">${this.Icons.sun}</span>
-        <span id="mini-timer-text" class="text-white text-bold text-sm"></span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="color:var(--aqua);">${this.Icons.sun}</span>
+          <div>
+            <div style="font-size:0.7rem;color:var(--text-sub);letter-spacing:0.5px;">REST TIMER</div>
+            <div id="mini-timer-text" style="font-size:1.1rem;font-weight:900;color:var(--text-main);font-variant-numeric:tabular-nums;"></div>
+          </div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--aqua);font-weight:600;">Back to Timer ↑</div>
       `;
-      
       miniTimer.addEventListener('click', () => {
         this.showScreen('restTimer', { _restore: true });
       });
-      document.body.appendChild(miniTimer);
+      document.getElementById('app').appendChild(miniTimer);
     }
 
     miniTimer.style.display = 'flex';
@@ -7184,6 +7188,25 @@ Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
   },
 
   // ─── TOAST ─────────────────────────────────────────────────
+  showConfirmModal(title, message, confirmLabel, cancelLabel, onConfirm) {
+    const mc = document.getElementById('modal-container');
+    mc.innerHTML = `
+      <div class="modal-overlay" id="confirm-overlay">
+        <div class="modal-sheet">
+          <div class="modal-handle"></div>
+          <div class="text-bold text-white text-lg mb-8">${title}</div>
+          <div class="text-sm text-sea mb-24" style="line-height:1.5;">${message}</div>
+          <button class="btn btn-danger btn-large mb-8" id="btn-confirm-yes">${confirmLabel}</button>
+          <button class="btn btn-ghost btn-large" id="btn-confirm-no">${cancelLabel}</button>
+        </div>
+      </div>
+    `;
+    const close = () => { mc.innerHTML = ''; };
+    document.getElementById('btn-confirm-yes').addEventListener('click', () => { close(); onConfirm(); });
+    document.getElementById('btn-confirm-no').addEventListener('click', close);
+    document.getElementById('confirm-overlay').addEventListener('click', e => { if (e.target.id === 'confirm-overlay') close(); });
+  },
+
   showToast(message, duration = 3000) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
