@@ -1,13 +1,15 @@
 // timer.js — Wake Lock + Silent Audio + Countdown Timer
 const Timer = {
   wakeLock: null,
-  audioElement: null,
   intervalId: null,
+  silentCtx: null,
+  silentSource: null,
   seconds: 0,
   totalSeconds: 0,
   onTick: null,
   onComplete: null,
   isRunning: false,
+  _lifecycleBound: false,
 
   async requestWakeLock() {
     try {
@@ -63,12 +65,30 @@ const Timer = {
   async startWorkoutSession() {
     await this.requestWakeLock();
     this.startSilentAudio();
+    this._bindLifecycle();
   },
 
   endWorkoutSession() {
     this.stop();
     this.releaseWakeLock();
     this.stopSilentAudio();
+  },
+
+  // Ensure WakeLock + silent audio + interval don't leak past navigation.
+  // pagehide fires on tab close / nav away; visibilitychange alone is not enough
+  // because the session is *supposed* to survive briefly going to background.
+  _bindLifecycle() {
+    if (this._lifecycleBound) return;
+    this._lifecycleBound = true;
+    const cleanup = () => { try { this.endWorkoutSession(); } catch (e) {} };
+    window.addEventListener('pagehide', cleanup);
+    window.addEventListener('beforeunload', cleanup);
+    // Re-request wake lock when returning from background (Wake Lock auto-releases on hidden)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.isRunning && !this.wakeLock) {
+        this.requestWakeLock();
+      }
+    });
   },
 
   start(seconds, onTick, onComplete) {

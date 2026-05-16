@@ -375,23 +375,12 @@ const App = {
 
     if (this.settings.batterySaver) {
       document.body.classList.add('battery-saver');
-      // Pause video; CSS will show the still image instead
       const vid = document.getElementById('bg-video');
       if (vid) { vid.pause(); }
-      if (window.oceanShader) window.oceanShader.stop();
-      if (window.palmTree) window.palmTree.stop();
     } else {
-      // Resume video
+      document.body.classList.remove('battery-saver');
       const vid = document.getElementById('bg-video');
       if (vid) { vid.play().catch(() => {}); }
-      if (!window.oceanShader && window.OceanShaderEngine) {
-        window.oceanShader = new window.OceanShaderEngine('ocean-shader');
-      }
-      if (!window.palmTree && window.PalmTreeEngine) {
-        window.palmTree = new window.PalmTreeEngine('palm-canvas');
-      }
-      if (window.oceanShader) window.oceanShader.start();
-      if (window.palmTree) window.palmTree.start();
     }
   },
 
@@ -4447,7 +4436,7 @@ const App = {
           const btn = document.getElementById('btn-nudge-user');
           if (btn) { btn.disabled = true; btn.textContent = 'Nudging...'; }
           try {
-            const res = await this.apiPost('/api/user/nudge', { target_id: data.user.id, nudger_name: this.settings.username || 'Someone' });
+            const res = await this.apiPost('/api/user/nudge', { target_id: data.user.id, nudger_id: this.settings.serverId, nudger_name: this.settings.username || 'Someone' });
             if (res.error) throw new Error(res.error);
             this.showToast('Nudge sent!');
             if (btn) { btn.textContent = 'Nudged!'; btn.style.background = 'var(--lagoon)'; btn.style.color = '#fff'; }

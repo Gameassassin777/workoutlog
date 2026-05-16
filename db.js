@@ -14,31 +14,32 @@ function openDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
+    // Versioned migration ladder. Each case falls through to add subsequent changes
+    // so any older version is brought fully up to date. Add a new case when bumping DB_VERSION.
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
+      const oldVersion = event.oldVersion;
 
-      if (!db.objectStoreNames.contains(STORES.workouts)) {
-        const workoutStore = db.createObjectStore(STORES.workouts, { keyPath: 'id' });
-        workoutStore.createIndex('date', 'date', { unique: false });
-      }
+      // eslint-disable-next-line no-fallthrough
+      switch (oldVersion) {
+        case 0: {
+          // Fresh install: create all v1 stores.
+          const workoutStore = db.createObjectStore(STORES.workouts, { keyPath: 'id' });
+          workoutStore.createIndex('date', 'date', { unique: false });
 
-      if (!db.objectStoreNames.contains(STORES.exercises)) {
-        const exerciseStore = db.createObjectStore(STORES.exercises, { keyPath: 'id' });
-        exerciseStore.createIndex('name', 'name', { unique: false });
-        exerciseStore.createIndex('lastUsed', 'lastUsed', { unique: false });
-      }
+          const exerciseStore = db.createObjectStore(STORES.exercises, { keyPath: 'id' });
+          exerciseStore.createIndex('name', 'name', { unique: false });
+          exerciseStore.createIndex('lastUsed', 'lastUsed', { unique: false });
 
-      if (!db.objectStoreNames.contains(STORES.settings)) {
-        db.createObjectStore(STORES.settings, { keyPath: 'key' });
-      }
+          db.createObjectStore(STORES.settings, { keyPath: 'key' });
+          db.createObjectStore(STORES.profile, { keyPath: 'key' });
 
-      if (!db.objectStoreNames.contains(STORES.profile)) {
-        db.createObjectStore(STORES.profile, { keyPath: 'key' });
-      }
-
-      if (!db.objectStoreNames.contains(STORES.chatLogs)) {
-        const chatStore = db.createObjectStore(STORES.chatLogs, { keyPath: 'id' });
-        chatStore.createIndex('date', 'date', { unique: false });
+          const chatStore = db.createObjectStore(STORES.chatLogs, { keyPath: 'id' });
+          chatStore.createIndex('date', 'date', { unique: false });
+        }
+        // Future migrations go here:
+        // case 1: { /* v1 → v2 */ }
+        // case 2: { /* v2 → v3 */ }
       }
     };
 

@@ -178,18 +178,6 @@ body {
 }
 body.battery-saver #bg-video { display: none; }
 
-/* ─── Canvases ──────────────────────────────────────────────── */
-#ocean-shader {
-  position: fixed; top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  z-index: -2; pointer-events: none; opacity: 1;
-}
-#palm-canvas {
-  position: fixed; top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  pointer-events: none; z-index: -1;
-}
-
 /* ─── Vignette overlay — darkens edges, lifts card readability ─ */
 body::before {
   content: '';
