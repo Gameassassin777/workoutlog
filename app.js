@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v145';
+const APP_VERSION = 'v146';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -396,16 +396,24 @@ const App = {
   },
 
   registerSW() {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => {
-          console.log('SW registered:', reg.scope);
-          reg.update(); // Force check for sw.js updates
-        })
-        .catch(err => {
-          console.warn('SW registration failed:', err);
-        });
-    }
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => {
+        console.log('SW registered:', reg.scope);
+        reg.update();
+        // Check for updates every 60s while the app is open
+        setInterval(() => reg.update().catch(() => {}), 60000);
+      })
+      .catch(err => console.warn('SW registration failed:', err));
+
+    // When a new SW takes control (after a version bump), reload to pick it up
+    let _swReloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_swReloading) return;
+      _swReloading = true;
+      window.location.reload();
+    });
   },
 
   // ─── Backend API ───────────────────────────────────────────
