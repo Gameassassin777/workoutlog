@@ -104,16 +104,24 @@ const Timer = {
     } catch (e) {}
   },
 
-  scheduleNotification(seconds, exerciseName = '') {
+  // userId + apiBase let the SW cancel the server alarm after firing,
+  // ensuring SW notification and server push are mutually exclusive.
+  scheduleNotification(seconds, exerciseName = '', userId = '', apiBase = '') {
     if (Notification.permission !== 'granted') return;
-    this._postToSW({ type: 'SCHEDULE_REST_NOTIF', delay: seconds * 1000, exercise: exerciseName });
+    this._postToSW({
+      type: 'SCHEDULE_REST_NOTIF',
+      delay: seconds * 1000,
+      exercise: exerciseName,
+      userId,
+      apiBase,
+    });
   },
 
   cancelNotification() {
     this._postToSW({ type: 'CANCEL_REST_NOTIF' });
   },
 
-  start(seconds, onTick, onComplete, exerciseName = '') {
+  start(seconds, onTick, onComplete) {
     this.stop();
     this.totalSeconds = seconds;
     this.seconds = seconds;
@@ -122,7 +130,7 @@ const Timer = {
     this.isRunning = true;
     this.startTime = Date.now();
     this.targetEnd = Date.now() + (seconds * 1000);
-    this.scheduleNotification(seconds, exerciseName);
+    // Notification scheduling is the app layer's responsibility (needs userId/apiBase)
 
     if (this.onTick) this.onTick(this.seconds, this.totalSeconds);
 

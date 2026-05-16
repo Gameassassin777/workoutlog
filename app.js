@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v149';
+const APP_VERSION = 'v150';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -5729,8 +5729,8 @@ const App = {
     const seconds = data.seconds || this.settings.defaultRestBetweenSets;
     const exercise = data.exercise || '';
 
-    // Schedule server-side alarm — fires via Durable Object push even if app is fully closed
-    this._scheduleServerRestNotif(seconds, exercise);
+    const userId = this.settings?.serverId || '';
+    const apiBase = this.API_BASE;
 
     Timer.start(
       seconds,
@@ -5749,23 +5749,26 @@ const App = {
           }
         }
         this._updateMiniTimer(remaining, total);
-        // Pre-cancel server alarm with 3 s to spare so the cancel POST arrives
-        // at the DO before the alarm fires — prevents duplicate push when app is open
-        if (remaining > 0 && remaining <= 3) this._cancelServerRestNotif();
       },
-      // onComplete — cancel server alarm (belt-and-suspenders for the pre-cancel above)
+      // onComplete — app was open and handled it; cancel server alarm so no duplicate push
       () => {
         this._cancelServerRestNotif();
         navigator.vibrate?.([100, 60, 100, 60, 100]);
-        this._updateMiniTimer(0, 0, true); // hide
+        this._updateMiniTimer(0, 0, true);
         if (data.onComplete) {
           data.onComplete();
         } else {
           this.showScreen('activeWorkout');
         }
-      },
-      exercise
+      }
     );
+
+    // Schedule both layers AFTER Timer.start() — start() calls stop() internally which
+    // would cancel any previously-scheduled notification.
+    // SW path (backgrounded): SW setTimeout fires → shows notification → cancels server alarm.
+    // Server path (fully closed): DO alarm fires push only if SW never got to cancel it.
+    Timer.scheduleNotification(seconds, exercise, userId, apiBase);
+    this._scheduleServerRestNotif(seconds, exercise);
   },
 
   _updateMiniTimer(remaining, total, hide = false) {
@@ -5823,9 +5826,11 @@ const App = {
       Timer.totalSeconds += delta;
       if (Timer.totalSeconds < 0) Timer.totalSeconds = 0;
       const remaining = Math.max(0, Math.ceil((Timer.targetEnd - Date.now()) / 1000));
-      // Reschedule both SW (backgrounded) and server (fully closed) with updated time
-      Timer.scheduleNotification(remaining, this._activeRestExercise || '');
-      this._scheduleServerRestNotif(remaining, this._activeRestExercise || '');
+      const exercise = this._activeRestExercise || '';
+      const userId = this.settings?.serverId || '';
+      // Reschedule both layers with updated remaining time
+      Timer.scheduleNotification(remaining, exercise, userId, this.API_BASE);
+      this._scheduleServerRestNotif(remaining, exercise);
     }
   },
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v149';
+const CACHE_NAME = 'tropical-fit-v150';
 const ASSETS = [
   './',
   './index.html',
@@ -89,6 +89,9 @@ self.addEventListener('message', event => {
     const delay = Math.max(0, msg.delay || 0);
     const baseUrl = self.location.origin + self.location.pathname.replace('sw.js', '');
     const iconUrl = new URL('icons/icon-192.png', baseUrl).href;
+    // Captured for closure — used to cancel server alarm after SW fires
+    const userId = msg.userId || '';
+    const apiBase = msg.apiBase || '';
     _restNotifTimer = setTimeout(() => {
       _restNotifTimer = null;
       self.registration.showNotification('Rest Over — Get Back to Work! 💪', {
@@ -100,6 +103,14 @@ self.addEventListener('message', event => {
         vibrate: [200, 100, 200, 100, 300],
         data: { url: './#activeWorkout' },
       });
+      // SW handled it — cancel server alarm so the DO doesn't also fire a push
+      if (userId && apiBase) {
+        fetch(apiBase + '/api/rest-timer/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId }),
+        }).catch(() => {});
+      }
     }, delay);
   }
 
