@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v143';
+const APP_VERSION = 'v150';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -385,16 +385,49 @@ const App = {
   },
 
   registerSW() {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => {
-          console.log('SW registered:', reg.scope);
-          reg.update(); // Force check for sw.js updates
-        })
-        .catch(err => {
-          console.warn('SW registration failed:', err);
-        });
-    }
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => {
+        console.log('SW registered:', reg.scope);
+        reg.update();
+        // Check for updates every 60s while the app is open
+        setInterval(() => reg.update().catch(() => {}), 60000);
+      })
+      .catch(err => console.warn('SW registration failed:', err));
+
+    // When a new SW takes control (after a version bump), reload to pick it up
+    let _swReloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_swReloading) return;
+      _swReloading = true;
+      window.location.reload();
+    });
+  },
+
+  // ─── Server-side rest-timer alarm ─────────────────────────
+  // Schedules / cancels a Durable Object alarm on the Worker.
+  // Fires a Web Push even if the app is fully closed.
+  _scheduleServerRestNotif(seconds, exercise) {
+    const userId = this.settings?.serverId;
+    if (!userId || seconds <= 0) return;
+    // Send absolute fire_at so out-of-order HTTP requests can't set a stale alarm
+    const fire_at = Timer.targetEnd || (Date.now() + seconds * 1000);
+    fetch(this.API_BASE + '/api/rest-timer/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, exercise: exercise || '', fire_at }),
+    }).catch(() => {});
+  },
+
+  _cancelServerRestNotif() {
+    const userId = this.settings?.serverId;
+    if (!userId) return;
+    fetch(this.API_BASE + '/api/rest-timer/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    }).catch(() => {});
   },
 
   // ─── Backend API ───────────────────────────────────────────
@@ -1925,6 +1958,138 @@ const App = {
       </svg>`;
   },
 
+  // ── Per-exercise weight-over-time graph ───────────────────
+  _buildExerciseProgressGraph(exName) {
+    const unit = this.settings?.defaultWeightUnit || 'lbs';
+    const sessions = [];
+    [...this.workouts]
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .forEach(w => {
+        const ex = w.exercises.find(e => e.name === exName);
+        if (!ex) return;
+        const validSets = ex.sets.filter(s => s.weight && s.reps);
+        if (!validSets.length) return;
+        const maxW = Math.max(...validSets.map(s => s.weight));
+        const vol = validSets.reduce((s, set) => s + set.weight * set.reps, 0);
+        sessions.push({ date: new Date(w.date), maxWeight: maxW, volume: vol, sets: validSets.length });
+      });
+
+    if (sessions.length === 0) return `<div class="text-sm text-sea" style="padding:16px;text-align:center;">No logged sets yet</div>`;
+    if (sessions.length < 2) {
+      const s = sessions[0];
+      return `<div class="text-sm text-sea" style="padding:16px;text-align:center;">1 session — ${s.maxWeight} ${unit} top set. Log another workout to see your trend!</div>`;
+    }
+
+    const maxW = Math.max(...sessions.map(s => s.maxWeight));
+    const minW = Math.min(...sessions.map(s => s.maxWeight));
+    const range = maxW - minW || 1;
+    const W = 300, H = 90, PL = 4, PR = 4, PT = 10, PB = 20;
+    const iW = W - PL - PR, iH = H - PT - PB;
+    const n = sessions.length - 1;
+
+    const pts = sessions.map((s, i) => ({
+      x: PL + (i / n) * iW,
+      y: PT + (1 - (s.maxWeight - minW) / range) * iH,
+      s,
+    }));
+    const line = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const area = `M${pts[0].x.toFixed(1)},${(PT+iH).toFixed(1)} ` +
+      pts.map(p => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') +
+      ` L${pts[n].x.toFixed(1)},${(PT+iH).toFixed(1)} Z`;
+
+    const labelIdx = new Set([0, Math.floor(n/2), n]);
+    const xLabels = [...labelIdx].map(i => {
+      const p = pts[i];
+      const lbl = p.s.date.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      return `<text x="${p.x.toFixed(1)}" y="${H-1}" text-anchor="middle" fill="rgba(130,190,210,0.75)" font-size="7.5" font-family="-apple-system,sans-serif">${lbl}</text>`;
+    }).join('');
+
+    const latest = sessions[n].maxWeight;
+    const prev = sessions[n-1].maxWeight;
+    const delta = latest - prev;
+    const dStr = (delta >= 0 ? '+' : '') + delta.toFixed(1);
+    const dColor = delta >= 0 ? 'var(--sea-foam)' : 'var(--coral)';
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <div style="font-size:1.15rem;font-weight:800;color:var(--text-main);">${latest} <span style="font-size:0.72rem;font-weight:500;color:var(--text-sea);">${unit}</span></div>
+          <div style="font-size:0.75rem;color:${dColor};">${dStr} ${unit} from last session</div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text-muted);padding-top:2px;">${sessions.length} sessions</div>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible;">
+        <defs>
+          <linearGradient id="exGrad${exName.length}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f5a742" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="#f5a742" stop-opacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <path d="${area}" fill="url(#exGrad${exName.length})"/>
+        <polyline points="${line}" fill="none" stroke="#f5a742" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${pts[n].x.toFixed(1)}" cy="${pts[n].y.toFixed(1)}" r="3.5" fill="#f5a742"/>
+        ${xLabels}
+      </svg>`;
+  },
+
+  openExerciseProgressModal(exName) {
+    const unit = this.settings?.defaultWeightUnit || 'lbs';
+    const pr = this.profile.personalRecords?.[exName];
+    const graph = this._buildExerciseProgressGraph(exName);
+
+    const recentSessions = [...this.workouts]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .filter(w => w.exercises.some(e => e.name === exName))
+      .slice(0, 5)
+      .map(w => {
+        const ex = w.exercises.find(e => e.name === exName);
+        const validSets = ex.sets.filter(s => s.weight && s.reps);
+        const best = validSets.sort((a, b) => b.weight - a.weight)[0];
+        const vol = validSets.reduce((s, set) => s + set.weight * set.reps, 0);
+        return { date: new Date(w.date), ex, best, vol, count: validSets.length };
+      });
+
+    const mc = document.getElementById('modal-container');
+    mc.innerHTML = `
+      <div class="modal-overlay" id="ex-progress-overlay" style="align-items:flex-end;">
+        <div class="modal-sheet fade-in" style="max-height:82vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:20px 16px 32px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="text-bold text-white" style="font-size:1.15rem;">${exName}</div>
+            <button id="btn-ex-progress-close" style="background:none;border:none;color:var(--text-sea);font-size:1.4rem;padding:4px 8px;cursor:pointer;">×</button>
+          </div>
+
+          ${pr ? `<div class="card" style="padding:10px 14px;margin-bottom:14px;background:rgba(245,167,66,0.1);border-color:rgba(245,167,66,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div class="text-xs text-sea">Personal Record</div>
+              <div class="text-bold" style="color:#f5a742;">${pr.maxWeight?.value || '—'} ${unit}</div>
+            </div>
+          </div>` : ''}
+
+          <div class="text-xs text-sea" style="margin-bottom:8px;letter-spacing:0.04em;text-transform:uppercase;">Weight Progress</div>
+          <div class="card" style="padding:12px 10px;margin-bottom:18px;">${graph}</div>
+
+          <div class="text-xs text-sea" style="margin-bottom:8px;letter-spacing:0.04em;text-transform:uppercase;">Recent Sessions</div>
+          ${recentSessions.map(({ date, best, vol, count }) => `
+            <div class="card" style="padding:10px 14px;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="text-sm text-white">${date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'})}</div>
+                <div class="text-xs text-sea">${count} sets · ${Math.round(vol).toLocaleString()} ${unit}</div>
+              </div>
+              ${best ? `<div class="text-xs text-muted" style="margin-top:3px;">Best: ${best.weight} ${unit} × ${best.reps} reps</div>` : ''}
+            </div>`).join('')}
+
+          <button class="btn btn-accent" id="btn-ex-ask-ai" style="width:100%;margin-top:8px;">Ask AI Coach</button>
+        </div>
+      </div>`;
+
+    document.getElementById('btn-ex-progress-close').addEventListener('click', () => { mc.innerHTML = ''; });
+    document.getElementById('ex-progress-overlay').addEventListener('click', e => { if (e.target.id === 'ex-progress-overlay') mc.innerHTML = ''; });
+    document.getElementById('btn-ex-ask-ai').addEventListener('click', () => {
+      mc.innerHTML = '';
+      this.openAIChat(`Analyze my ${exName} progress. Here's my full history for this exercise.`, exName);
+    });
+  },
+
   // ── Weekly volume bar chart ───────────────────────────────
   _buildWeeklyVolBars(weeks) {
     const data = this.getVolumeHistory(weeks);
@@ -2918,7 +3083,8 @@ const App = {
         });
       });
     });
-    // Cache for profile viewing
+    // Cache leaderboard for AI context + profile viewing
+    this._leaderboardCache = users;
     this._updatePeerCache(users);
   },
 
@@ -3026,8 +3192,28 @@ const App = {
     localStorage.setItem('tf_last_coach_view', Date.now());
     this._updateChatNotifDots();
     const prefilledMsg = data.prefill || '';
-
     const noHistory = !this._currentChatMessages || this._currentChatMessages.length === 0;
+
+    // Context-aware chips
+    const hasWorkouts = this.workouts && this.workouts.length > 0;
+    const hasActive = !!this.activeWorkout;
+    const hasCommunity = !!(this._leaderboardCache?.length);
+    const chips = hasActive ? [
+      { chip: 'What should I do next in my workout?', label: 'Next exercise' },
+      { chip: 'How much rest should I take between sets?', label: 'Rest advice' },
+      { chip: 'Analyze my workout so far', label: 'In-progress analysis' },
+    ] : hasWorkouts ? [
+      { chip: 'Analyze my recent progress and suggest improvements', label: 'My progress' },
+      { chip: 'What should I train today?', label: 'What to train' },
+      ...(hasCommunity ? [{ chip: 'How do I rank on the leaderboard this week?', label: 'My rank' }] : [{ chip: 'Help me break my current PRs', label: 'Hit a PR' }]),
+      { chip: 'How do I use the rest timer?', label: 'Timer help' },
+    ] : [
+      { chip: 'How do I log my first workout?', label: 'Get started' },
+      { chip: 'Build me a beginner workout program', label: 'Beginner plan' },
+      { chip: 'How does this app work?', label: 'App tour' },
+      { chip: 'What exercises should I start with?', label: 'First exercises' },
+    ];
+
     return `
       <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
         <div class="header" style="flex-shrink:0;">
@@ -3035,20 +3221,21 @@ const App = {
         </div>
         <div class="chat-messages" id="chat-messages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; -webkit-overflow-scrolling:touch;">
           <div class="chat-bubble ai">
-            What's the move today? Ask me anything — training, nutrition, recovery. Or hit a quick prompt.
+            ${hasActive
+              ? "You've got a workout in progress — I can see it. Ask me anything: next exercise, form tips, how much rest, or anything else."
+              : hasWorkouts
+              ? "Hey, I've got your full workout history. Ask me about your progress, what to train today, how to hit a new PR — or how to use any part of the app."
+              : "Welcome! I'm your personal Coach. I can help you get started, build a plan, or explain any feature of the app. What do you need?"}
           </div>
           ${this._currentChatMessages && this._currentChatMessages.length > 0 ? this._currentChatMessages.map(m => `
             <div class="chat-bubble ${m.role === 'ai' ? 'ai' : 'user'}">
-              <div class="chat-content">${this.escapeHtml(m.content || '')}</div>
+              <div class="chat-content">${m.role === 'ai' ? this._renderMarkdown(m.content || '') : this.escapeHtml(m.content || '')}</div>
             </div>
           `).join('') : ''}
         </div>
         ${noHistory && !this._aiIsThinking ? `
           <div class="ai-chips">
-            <button class="ai-chip" data-chip="Analyze my last workout">Last workout</button>
-            <button class="ai-chip" data-chip="What should I train today?">What to train</button>
-            <button class="ai-chip" data-chip="Help me hit a new PR">Hit a PR</button>
-            <button class="ai-chip" data-chip="Give me recovery advice">Recovery</button>
+            ${chips.map(c => `<button class="ai-chip" data-chip="${this.escapeHtml(c.chip)}">${this.escapeHtml(c.label)}</button>`).join('')}
           </div>` : ''}
         <div class="chat-input-bar" style="flex-shrink:0; padding-bottom:calc(12px + var(--safe-bottom));">
           <input type="text" class="chat-input" placeholder="Ask Coach anything..."
@@ -3915,12 +4102,9 @@ const App = {
         this.bindClick('tap-total-volume', () => this.openAIChat(`My total lifetime volume is ${this.profile.totalVolume} ${this.settings.defaultWeightUnit}. What does this mean for my progress?`));
         this.bindClick('tap-longest-streak', () => this.openAIChat(`My longest streak is ${this.profile.longestStreak} days. What does research say about training frequency and consistency?`));
 
-        // Tappable PR cards
+        // Tappable PR cards — show progress graph modal
         document.querySelectorAll('[data-pr-exercise]').forEach(el => {
-          el.addEventListener('click', () => {
-            const name = el.dataset.prExercise;
-            this.openAIChat(`Analyze my ${name} progress. Here's my full history for this exercise.`, name);
-          });
+          el.addEventListener('click', () => this.openExerciseProgressModal(el.dataset.prExercise));
         });
 
         // Tappable week bars
@@ -3963,9 +4147,13 @@ const App = {
 
       case 'restTimer':
         this.startRestTimer(data);
-        this.bindClick('btn-timer-skip', () => Timer.skip());
+        this.bindClick('btn-timer-skip', () => {
+          this._cancelServerRestNotif();
+          Timer.skip();
+        });
         this.bindClick('btn-timer-minus15', () => this.adjustTimer(-15));
         this.bindClick('btn-timer-plus30', () => this.adjustTimer(30));
+        // Minimize: keep server alarm alive — if they close the app from the workout screen, it still fires
         this.bindClick('btn-timer-minimize', () => this.showScreen('activeWorkout'));
         break;
 
@@ -4003,6 +4191,12 @@ const App = {
             if (input) { input.value = chip.dataset.chip; input.focus(); }
           });
         });
+        // Background-refresh leaderboard so AI context has fresh community data
+        if (this.settings.serverId) {
+          this._fetchLeaderboard().then(data => {
+            if (data?.users?.length) this._leaderboardCache = data.users;
+          }).catch(() => {});
+        }
         break;
 
       case 'settings':
@@ -4374,7 +4568,7 @@ const App = {
           });
         });
         document.querySelectorAll('[data-pr-exercise]').forEach(el => {
-          el.addEventListener('click', () => this.openAIChat?.(`Tell me about my ${el.dataset.prExercise} progress.`));
+          el.addEventListener('click', () => this.openExerciseProgressModal(el.dataset.prExercise));
         });
 
         // ── Stats expand/collapse toggles ─────────────────────
@@ -5356,6 +5550,7 @@ const App = {
           this.showScreen('restTimer', {
             seconds: restBetweenEx,
             label: `Rest before ${this.activeWorkout.exercises[nextExIdx].name}`,
+            exercise: this.activeWorkout.exercises[nextExIdx].name,
             onComplete: () => this.showScreen('activeWorkout')
           });
         }
@@ -5364,6 +5559,7 @@ const App = {
         this.showScreen('restTimer', {
           seconds: restSecs,
           label: `Rest — ${exName} Set ${setIdx + 2} next`,
+          exercise: exName,
           onComplete: () => this.showScreen('activeWorkout')
         });
       }
@@ -5377,6 +5573,7 @@ const App = {
       'Cancel Workout',
       'Keep Going',
       () => {
+        this._cancelServerRestNotif();
         Timer.endWorkoutSession();
         this.activeWorkout = null;
         this.clearCloudSession();
@@ -5431,6 +5628,7 @@ const App = {
     // Update profile
     await this.updateProfileAfterWorkout(w);
 
+    this._cancelServerRestNotif();
     Timer.endWorkoutSession();
     this.lastCompletedWorkout = w;
     this.activeWorkout = null;
@@ -5508,6 +5706,7 @@ const App = {
 
   // ─── TIMER LOGIC ──────────────────────────────────────────
   startRestTimer(data) {
+    this._activeRestExercise = data.exercise || '';
     const circumference = 2 * Math.PI * 95;
     const circle = document.getElementById('timer-ring-circle');
     if (circle) circle.style.strokeDasharray = circumference;
@@ -5528,6 +5727,10 @@ const App = {
     }
 
     const seconds = data.seconds || this.settings.defaultRestBetweenSets;
+    const exercise = data.exercise || '';
+
+    const userId = this.settings?.serverId || '';
+    const apiBase = this.API_BASE;
 
     Timer.start(
       seconds,
@@ -5547,10 +5750,11 @@ const App = {
         }
         this._updateMiniTimer(remaining, total);
       },
-      // onComplete
+      // onComplete — app was open and handled it; cancel server alarm so no duplicate push
       () => {
+        this._cancelServerRestNotif();
         navigator.vibrate?.([100, 60, 100, 60, 100]);
-        this._updateMiniTimer(0, 0, true); // hide
+        this._updateMiniTimer(0, 0, true);
         if (data.onComplete) {
           data.onComplete();
         } else {
@@ -5558,6 +5762,13 @@ const App = {
         }
       }
     );
+
+    // Schedule both layers AFTER Timer.start() — start() calls stop() internally which
+    // would cancel any previously-scheduled notification.
+    // SW path (backgrounded): SW setTimeout fires → shows notification → cancels server alarm.
+    // Server path (fully closed): DO alarm fires push only if SW never got to cancel it.
+    Timer.scheduleNotification(seconds, exercise, userId, apiBase);
+    this._scheduleServerRestNotif(seconds, exercise);
   },
 
   _updateMiniTimer(remaining, total, hide = false) {
@@ -5614,6 +5825,12 @@ const App = {
       Timer.targetEnd += delta * 1000;
       Timer.totalSeconds += delta;
       if (Timer.totalSeconds < 0) Timer.totalSeconds = 0;
+      const remaining = Math.max(0, Math.ceil((Timer.targetEnd - Date.now()) / 1000));
+      const exercise = this._activeRestExercise || '';
+      const userId = this.settings?.serverId || '';
+      // Reschedule both layers with updated remaining time
+      Timer.scheduleNotification(remaining, exercise, userId, this.API_BASE);
+      this._scheduleServerRestNotif(remaining, exercise);
     }
   },
 
@@ -5660,23 +5877,117 @@ const App = {
 
   buildChatContext() {
     const p = this.profile;
-    const recentWorkouts = [...this.workouts]
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 5)
-      .map(w => ({
-        id: w.id,
-        date: w.date,
-        title: w.title,
-        exercises: w.exercises.map((ex, i) => ({
-          index: i,
-          name: ex.name,
-          sets: ex.sets.map((s, j) => ({ index: j, weight: s.weight, reps: s.reps, unit: s.weightUnit }))
-        }))
-      }));
+    const s = this.settings;
+    const unit = s.defaultWeightUnit;
+    const allWorkouts = [...this.workouts].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    return `Profile: Level ${p.level} (${p.levelTitle}), ${p.xp} XP, ${p.totalWorkouts} workouts, ${p.currentStreak} day streak.
-Recent workouts (last 5): ${JSON.stringify(recentWorkouts)}
-Exercise library: ${this.exercises.map(e => e.name).join(', ')}`;
+    // Recent workouts with IDs (for editing actions)
+    const recentWorkouts = allWorkouts.slice(0, 10).map(w => ({
+      id: w.id,
+      date: new Date(w.date).toLocaleDateString(),
+      title: w.title || 'Workout',
+      exercises: w.exercises.map((ex, i) => ({
+        index: i,
+        name: ex.name,
+        sets: ex.sets.map((s, j) => ({ index: j, weight: s.weight, reps: s.reps, unit: s.weightUnit || unit }))
+      }))
+    }));
+
+    // Personal records
+    const prs = Object.entries(p.personalRecords || {})
+      .filter(([, pr]) => pr.maxWeight)
+      .map(([name, pr]) => `${name}: ${pr.maxWeight.value}${pr.maxWeight.unit || unit}×${pr.maxWeight.reps}`)
+      .join(' | ') || 'None yet';
+
+    // Top exercises by frequency (last 90 days)
+    const cutoff = Date.now() - 90 * 86400000;
+    const exFreq = {};
+    allWorkouts
+      .filter(w => new Date(w.date).getTime() > cutoff)
+      .forEach(w => w.exercises.forEach(ex => { exFreq[ex.name] = (exFreq[ex.name] || 0) + 1; }));
+    const topExercises = Object.entries(exFreq)
+      .sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([name, count]) => `${name} (${count}x)`).join(', ') || 'None yet';
+
+    // Sessions per week (last 4 weeks, oldest first)
+    const weeklyFreq = [3, 2, 1, 0].map(w => {
+      const start = Date.now() - (w + 1) * 7 * 86400000;
+      const end = Date.now() - w * 7 * 86400000;
+      return allWorkouts.filter(wk => {
+        const d = new Date(wk.date).getTime();
+        return d >= start && d < end;
+      }).length;
+    }).join(', ');
+
+    const activeCtx = this.activeWorkout
+      ? `\nACTIVE WORKOUT NOW: "${this.activeWorkout.title || 'Workout'}" — ${this.activeWorkout.exercises.map(e => e.name).join(', ')}`
+      : '';
+
+    // Community leaderboard context
+    let communityCtx = '';
+    if (this._leaderboardCache?.length) {
+      const myWeekVol = this.getWeekVolume();
+      const lb = this._leaderboardCache;
+      const myRank = myWeekVol > 0 ? lb.filter(u => u.volume > myWeekVol).length + 1 : null;
+      const totalUsers = lb.length;
+      const avgVol = totalUsers > 0 ? Math.round(lb.reduce((s, u) => s + u.volume, 0) / totalUsers) : 0;
+      const top10 = lb.slice(0, 10)
+        .map(u => `#${u.rank} ${u.username} (${this.formatVolume(u.volume)} ${unit}, Lv.${u.level || 1})`)
+        .join(' | ');
+      communityCtx = `\n\n## Community This Week (${totalUsers} users on leaderboard)
+My weekly volume: ${this.formatVolume(myWeekVol)} ${unit}${myRank ? ` | My rank: #${myRank} of ${totalUsers}` : ' | Not yet ranked'}
+Community avg volume: ${this.formatVolume(avgVol)} ${unit}
+Top 10: ${top10}`;
+    }
+
+    return `## User
+Name: ${s.username || 'Unknown'} | Level ${p.level} (${p.levelTitle}) | ${p.xp} XP
+Streak: ${p.currentStreak} days (longest: ${p.longestStreak}) | Total workouts: ${p.totalWorkouts} | Total volume: ${this.formatVolume(p.totalVolume)} ${unit}
+Weight unit: ${unit} | Default rest: ${s.defaultRestBetweenSets}s (sets), ${s.defaultRestBetweenExercises}s (exercises)
+Last workout: ${allWorkouts[0] ? new Date(allWorkouts[0].date).toLocaleDateString() : 'Never'}
+
+## Personal Records
+${prs}
+
+## Most Trained (last 90 days)
+${topExercises}
+
+## Sessions/Week (oldest→newest, last 4 weeks)
+${weeklyFreq}
+
+## Exercise Library
+${this.exercises.map(e => e.name).join(', ') || 'Empty'}
+${activeCtx}
+
+## Recent Workouts (last 10, IDs included for editing)
+${JSON.stringify(recentWorkouts)}${communityCtx}`;
+  },
+
+  _renderMarkdown(text) {
+    if (!text) return '';
+    let html = text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Bold, italic, inline code
+    html = html
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
+      .replace(/`([^`\n]+)`/g, '<code style="background:rgba(0,200,255,0.13);padding:1px 5px;border-radius:4px;font-size:0.88em;">$1</code>');
+    // Lists
+    const lines = html.split('\n');
+    const out = [];
+    let inList = false;
+    for (const line of lines) {
+      const li = line.match(/^[-•*] (.+)/) || line.match(/^\d+\. (.+)/);
+      if (li) {
+        if (!inList) { out.push('<ul style="margin:6px 0;padding-left:18px;">'); inList = true; }
+        out.push(`<li style="margin:2px 0;">${li[1]}</li>`);
+      } else {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push(line);
+      }
+    }
+    if (inList) out.push('</ul>');
+    return out.join('\n').replace(/\n\n+/g, '<br><br>').replace(/\n/g, '<br>');
   },
 
   async executeAIAction(action) {

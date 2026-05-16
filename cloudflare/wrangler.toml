@@ -9,6 +9,17 @@ binding       = "DB"
 database_name = "tropicalfit"
 database_id   = "dea81b5a-2b46-4e81-a027-1b13df6ab365"
 
+# Durable Object — one instance per user, used for rest-timer alarms.
+# The DO stores the pending notification and fires a push when the alarm triggers,
+# which works even when the user's device has the app fully closed.
+[[durable_objects.bindings]]
+name       = "REST_TIMER"
+class_name = "RestTimerDO"
+
+[[migrations]]
+tag         = "v1"
+new_classes = ["RestTimerDO"]
+
 [vars]
 VAPID_SUBJECT = "mailto:gameassassin777@gmail.com"
 

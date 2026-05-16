@@ -62,9 +62,18 @@ const Timer = {
     }
   },
 
+  async requestNotificationPermission() {
+    try {
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+    } catch (e) {}
+  },
+
   async startWorkoutSession() {
     await this.requestWakeLock();
     this.startSilentAudio();
+    await this.requestNotificationPermission();
     this._bindLifecycle();
   },
 
@@ -74,21 +83,42 @@ const Timer = {
     this.stopSilentAudio();
   },
 
-  // Ensure WakeLock + silent audio + interval don't leak past navigation.
-  // pagehide fires on tab close / nav away; visibilitychange alone is not enough
-  // because the session is *supposed* to survive briefly going to background.
   _bindLifecycle() {
     if (this._lifecycleBound) return;
     this._lifecycleBound = true;
     const cleanup = () => { try { this.endWorkoutSession(); } catch (e) {} };
     window.addEventListener('pagehide', cleanup);
     window.addEventListener('beforeunload', cleanup);
-    // Re-request wake lock when returning from background (Wake Lock auto-releases on hidden)
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && this.isRunning && !this.wakeLock) {
         this.requestWakeLock();
       }
     });
+  },
+
+  _postToSW(msg) {
+    try {
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage(msg);
+      }
+    } catch (e) {}
+  },
+
+  // userId + apiBase let the SW cancel the server alarm after firing,
+  // ensuring SW notification and server push are mutually exclusive.
+  scheduleNotification(seconds, exerciseName = '', userId = '', apiBase = '') {
+    if (Notification.permission !== 'granted') return;
+    this._postToSW({
+      type: 'SCHEDULE_REST_NOTIF',
+      delay: seconds * 1000,
+      exercise: exerciseName,
+      userId,
+      apiBase,
+    });
+  },
+
+  cancelNotification() {
+    this._postToSW({ type: 'CANCEL_REST_NOTIF' });
   },
 
   start(seconds, onTick, onComplete) {
@@ -100,6 +130,7 @@ const Timer = {
     this.isRunning = true;
     this.startTime = Date.now();
     this.targetEnd = Date.now() + (seconds * 1000);
+    // Notification scheduling is the app layer's responsibility (needs userId/apiBase)
 
     if (this.onTick) this.onTick(this.seconds, this.totalSeconds);
 
@@ -110,7 +141,7 @@ const Timer = {
       if (this.onTick) this.onTick(this.seconds, this.totalSeconds);
 
       if (remaining <= 0) {
-        this.stop();
+        this.stop(); // stop() calls cancelNotification() to dismiss the SW-scheduled notif
         this.playAlert();
         this.vibrate();
         if (this.onComplete) this.onComplete();
@@ -124,9 +155,11 @@ const Timer = {
       this.intervalId = null;
     }
     this.isRunning = false;
+    this.cancelNotification();
   },
 
   skip() {
+    this.cancelNotification();
     this.stop();
     if (this.onComplete) this.onComplete();
   },
