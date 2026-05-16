@@ -58,6 +58,14 @@ export default {
         return handleChatPost(request, env);
       }
 
+      // ── Rest Timer (server-side alarm for fully-closed app) ──
+      if (path === '/api/rest-timer/schedule' && request.method === 'POST') {
+        return handleRestTimerSchedule(request, env);
+      }
+      if (path === '/api/rest-timer/cancel' && request.method === 'POST') {
+        return handleRestTimerCancel(request, env);
+      }
+
       // ── Push ──────────────────────────────────────────────
       if (path === '/api/push/subscribe' && request.method === 'POST') {
         return handlePushSubscribe(request, env);
@@ -702,6 +710,33 @@ async function handleAIChat(request, env) {
   }
 }
 
+// ── Rest Timer Alarm (server-side push when app is fully closed) ─
+async function handleRestTimerSchedule(request, env) {
+  const { user_id, exercise, delay_ms } = await request.json();
+  if (!user_id || !(delay_ms > 0)) return json({ error: 'missing fields' }, 400);
+  // Clamp to 1 s – 30 min to avoid misuse
+  const delay = Math.min(Math.max(Math.round(delay_ms), 1000), 30 * 60 * 1000);
+  const doId = env.REST_TIMER.idFromName(user_id);
+  await env.REST_TIMER.get(doId).fetch(new Request('https://do/schedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id, exercise: exercise || '', delay }),
+  }));
+  return json({ ok: true });
+}
+
+async function handleRestTimerCancel(request, env) {
+  const { user_id } = await request.json();
+  if (!user_id) return json({ error: 'missing user_id' }, 400);
+  const doId = env.REST_TIMER.idFromName(user_id);
+  await env.REST_TIMER.get(doId).fetch(new Request('https://do/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  }));
+  return json({ ok: true });
+}
+
 // ── Web Push (VAPID) ─────────────────────────────────────────────
 async function broadcastPush(env, payload, excludeUserId = null) {
   let query = 'SELECT * FROM push_subs';
@@ -884,4 +919,68 @@ function weekStart() {
   d.setUTCHours(0, 0, 0, 0);
   d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // back to Sunday
   return d.toISOString().split('T')[0];
+}
+
+// ── Durable Object: RestTimerDO ───────────────────────────────────
+// One DO instance per user (keyed by user_id).
+// Stores the pending notification in DO storage and sets a Cloudflare alarm.
+// When the alarm fires — regardless of whether the app is open — it sends a
+// Web Push notification to all of the user's stored subscriptions.
+export class RestTimerDO {
+  constructor(state, env) {
+    this.state = state;
+    this.env   = env;
+  }
+
+  async fetch(request) {
+    const action = new URL(request.url).pathname.slice(1); // 'schedule' | 'cancel'
+    const body   = await request.json().catch(() => ({}));
+
+    if (action === 'schedule') {
+      await this.state.storage.put('notif', { user_id: body.user_id, exercise: body.exercise || '' });
+      await this.state.storage.setAlarm(Date.now() + body.delay);
+      return new Response('ok');
+    }
+
+    if (action === 'cancel') {
+      await this.state.storage.deleteAlarm().catch(() => {});
+      await this.state.storage.delete('notif');
+      return new Response('ok');
+    }
+
+    return new Response('unknown action', { status: 400 });
+  }
+
+  async alarm() {
+    const notif = await this.state.storage.get('notif');
+    if (!notif?.user_id) return;
+    await this.state.storage.delete('notif');
+
+    if (!this.env.VAPID_PUBLIC_KEY || !this.env.VAPID_PRIVATE_KEY) return;
+
+    const subs = await this.env.DB
+      .prepare('SELECT * FROM push_subs WHERE user_id = ?')
+      .bind(notif.user_id).all();
+
+    if (!subs.results.length) return;
+
+    const payload = JSON.stringify({
+      title: 'Rest Over — Get Back to Work! 💪',
+      body: notif.exercise ? `Time for your next set of ${notif.exercise}` : 'Your rest timer just finished.',
+      tag: 'rest-timer',
+      url: '/workoutlog/',
+    });
+
+    const results = await Promise.allSettled(
+      subs.results.map(sub => sendWebPush(this.env, sub, payload))
+    );
+
+    // Clean up any stale / expired subscriptions
+    for (let i = 0; i < subs.results.length; i++) {
+      if (results[i].status === 'rejected') {
+        await this.env.DB.prepare('DELETE FROM push_subs WHERE id = ?')
+          .bind(subs.results[i].id).run().catch(() => {});
+      }
+    }
+  }
 }

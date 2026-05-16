@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v147';
+const APP_VERSION = 'v148';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -403,6 +403,29 @@ const App = {
       _swReloading = true;
       window.location.reload();
     });
+  },
+
+  // ─── Server-side rest-timer alarm ─────────────────────────
+  // Schedules / cancels a Durable Object alarm on the Worker.
+  // Fires a Web Push even if the app is fully closed.
+  _scheduleServerRestNotif(seconds, exercise) {
+    const userId = this.settings?.serverId;
+    if (!userId || seconds <= 0) return;
+    fetch(this.API_BASE + '/api/rest-timer/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, exercise: exercise || '', delay_ms: seconds * 1000 }),
+    }).catch(() => {});
+  },
+
+  _cancelServerRestNotif() {
+    const userId = this.settings?.serverId;
+    if (!userId) return;
+    fetch(this.API_BASE + '/api/rest-timer/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    }).catch(() => {});
   },
 
   // ─── Backend API ───────────────────────────────────────────
@@ -4122,9 +4145,13 @@ const App = {
 
       case 'restTimer':
         this.startRestTimer(data);
-        this.bindClick('btn-timer-skip', () => Timer.skip());
+        this.bindClick('btn-timer-skip', () => {
+          this._cancelServerRestNotif();
+          Timer.skip();
+        });
         this.bindClick('btn-timer-minus15', () => this.adjustTimer(-15));
         this.bindClick('btn-timer-plus30', () => this.adjustTimer(30));
+        // Minimize: keep server alarm alive — if they close the app from the workout screen, it still fires
         this.bindClick('btn-timer-minimize', () => this.showScreen('activeWorkout'));
         break;
 
@@ -5544,6 +5571,7 @@ const App = {
       'Cancel Workout',
       'Keep Going',
       () => {
+        this._cancelServerRestNotif();
         Timer.endWorkoutSession();
         this.activeWorkout = null;
         this.clearCloudSession();
@@ -5598,6 +5626,7 @@ const App = {
     // Update profile
     await this.updateProfileAfterWorkout(w);
 
+    this._cancelServerRestNotif();
     Timer.endWorkoutSession();
     this.lastCompletedWorkout = w;
     this.activeWorkout = null;
@@ -5696,6 +5725,10 @@ const App = {
     }
 
     const seconds = data.seconds || this.settings.defaultRestBetweenSets;
+    const exercise = data.exercise || '';
+
+    // Schedule server-side alarm — fires via Durable Object push even if app is fully closed
+    this._scheduleServerRestNotif(seconds, exercise);
 
     Timer.start(
       seconds,
@@ -5715,8 +5748,9 @@ const App = {
         }
         this._updateMiniTimer(remaining, total);
       },
-      // onComplete
+      // onComplete — cancel server alarm (app was open, local audio/vibrate handled it)
       () => {
+        this._cancelServerRestNotif();
         navigator.vibrate?.([100, 60, 100, 60, 100]);
         this._updateMiniTimer(0, 0, true); // hide
         if (data.onComplete) {
@@ -5725,7 +5759,7 @@ const App = {
           this.showScreen('activeWorkout');
         }
       },
-      data.exercise || ''
+      exercise
     );
   },
 
@@ -5783,9 +5817,10 @@ const App = {
       Timer.targetEnd += delta * 1000;
       Timer.totalSeconds += delta;
       if (Timer.totalSeconds < 0) Timer.totalSeconds = 0;
-      // Reschedule the SW notification with the updated remaining time
       const remaining = Math.max(0, Math.ceil((Timer.targetEnd - Date.now()) / 1000));
+      // Reschedule both SW (backgrounded) and server (fully closed) with updated time
       Timer.scheduleNotification(remaining, this._activeRestExercise || '');
+      this._scheduleServerRestNotif(remaining, this._activeRestExercise || '');
     }
   },
 
