@@ -196,17 +196,39 @@ async function handleUserGet(path, env) {
 }
 
 async function handleUserNudge(request, env) {
-  const { target_id, nudger_name } = await request.json();
-  if (!target_id || !nudger_name) return json({ error: 'Missing fields' }, 400);
+  const { target_id, nudger_id, nudger_name } = await request.json();
+  if (!target_id || !nudger_id || !nudger_name) return json({ error: 'Missing fields' }, 400);
+  if (nudger_id === target_id) return json({ error: 'Cannot nudge yourself' }, 400);
 
-  // Send 3 pushes rapidly as requested by user
+  // Verify both users exist (prevents anonymous attackers spoofing arbitrary IDs).
+  const nudger = await env.DB.prepare('SELECT id, username FROM users WHERE id = ?').bind(nudger_id).first();
+  if (!nudger) return json({ error: 'Register first' }, 403);
+  const target = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(target_id).first();
+  if (!target) return json({ error: 'Target not found' }, 404);
+
+  // Rate limit: same nudger → same target, max 1 nudge per day.
+  // Reuses the ai_usage table by synthesizing a composite key — no schema change required.
+  const today = new Date().toISOString().split('T')[0];
+  const rateKey = `nudge:${nudger_id}:${target_id}`;
+  const usage = await env.DB.prepare(
+    'SELECT count FROM ai_usage WHERE user_id = ? AND date_str = ?'
+  ).bind(rateKey, today).first().catch(() => null);
+  if ((usage?.count || 0) >= 1) {
+    return json({ error: 'You already nudged this person today. One per day.' }, 429);
+  }
+  await env.DB.prepare(`
+    INSERT INTO ai_usage (user_id, date_str, count) VALUES (?, ?, 1)
+    ON CONFLICT(user_id, date_str) DO UPDATE SET count = count + 1
+  `).bind(rateKey, today).run().catch(() => {});
+
+  // Use the SERVER-VERIFIED username, not whatever the client claimed.
+  const senderName = nudger.username || nudger_name;
+
   if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
-    const payload1 = { title: 'NUDGE!', body: `${nudger_name} noticed you haven't worked out in a while.`, url: '/workoutlog/', tag: 'nudge1' };
-    const payload2 = { title: 'Get to the gym!', body: `Seriously, ${nudger_name} is waiting for your next log.`, url: '/workoutlog/', tag: 'nudge2' };
+    const payload1 = { title: 'NUDGE!', body: `${senderName} noticed you haven't worked out in a while.`, url: '/workoutlog/', tag: 'nudge1' };
+    const payload2 = { title: 'Get to the gym!', body: `Seriously, ${senderName} is waiting for your next log.`, url: '/workoutlog/', tag: 'nudge2' };
     const payload3 = { title: 'Time to lift.', body: `No excuses. Log a workout today.`, url: '/workoutlog/', tag: 'nudge3' };
-    
-    // We reuse broadcastPush but modify it to only hit target_id.
-    // However, broadcastPush is global. Let's just query push_subs for target_id.
+
     const subs = await env.DB.prepare('SELECT * FROM push_subs WHERE user_id = ?').bind(target_id).all();
     if (subs.results.length > 0) {
       for (const sub of subs.results) {

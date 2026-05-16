@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v146';
+const APP_VERSION = 'v147';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -375,23 +375,12 @@ const App = {
 
     if (this.settings.batterySaver) {
       document.body.classList.add('battery-saver');
-      // Pause video; CSS will show the still image instead
       const vid = document.getElementById('bg-video');
       if (vid) { vid.pause(); }
-      if (window.oceanShader) window.oceanShader.stop();
-      if (window.palmTree) window.palmTree.stop();
     } else {
-      // Resume video
+      document.body.classList.remove('battery-saver');
       const vid = document.getElementById('bg-video');
       if (vid) { vid.play().catch(() => {}); }
-      if (!window.oceanShader && window.OceanShaderEngine) {
-        window.oceanShader = new window.OceanShaderEngine('ocean-shader');
-      }
-      if (!window.palmTree && window.PalmTreeEngine) {
-        window.palmTree = new window.PalmTreeEngine('palm-canvas');
-      }
-      if (window.oceanShader) window.oceanShader.start();
-      if (window.palmTree) window.palmTree.start();
     }
   },
 
@@ -1942,6 +1931,138 @@ const App = {
         }).join('')}
         ${xLabels}
       </svg>`;
+  },
+
+  // ── Per-exercise weight-over-time graph ───────────────────
+  _buildExerciseProgressGraph(exName) {
+    const unit = this.settings?.defaultWeightUnit || 'lbs';
+    const sessions = [];
+    [...this.workouts]
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .forEach(w => {
+        const ex = w.exercises.find(e => e.name === exName);
+        if (!ex) return;
+        const validSets = ex.sets.filter(s => s.weight && s.reps);
+        if (!validSets.length) return;
+        const maxW = Math.max(...validSets.map(s => s.weight));
+        const vol = validSets.reduce((s, set) => s + set.weight * set.reps, 0);
+        sessions.push({ date: new Date(w.date), maxWeight: maxW, volume: vol, sets: validSets.length });
+      });
+
+    if (sessions.length === 0) return `<div class="text-sm text-sea" style="padding:16px;text-align:center;">No logged sets yet</div>`;
+    if (sessions.length < 2) {
+      const s = sessions[0];
+      return `<div class="text-sm text-sea" style="padding:16px;text-align:center;">1 session — ${s.maxWeight} ${unit} top set. Log another workout to see your trend!</div>`;
+    }
+
+    const maxW = Math.max(...sessions.map(s => s.maxWeight));
+    const minW = Math.min(...sessions.map(s => s.maxWeight));
+    const range = maxW - minW || 1;
+    const W = 300, H = 90, PL = 4, PR = 4, PT = 10, PB = 20;
+    const iW = W - PL - PR, iH = H - PT - PB;
+    const n = sessions.length - 1;
+
+    const pts = sessions.map((s, i) => ({
+      x: PL + (i / n) * iW,
+      y: PT + (1 - (s.maxWeight - minW) / range) * iH,
+      s,
+    }));
+    const line = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const area = `M${pts[0].x.toFixed(1)},${(PT+iH).toFixed(1)} ` +
+      pts.map(p => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') +
+      ` L${pts[n].x.toFixed(1)},${(PT+iH).toFixed(1)} Z`;
+
+    const labelIdx = new Set([0, Math.floor(n/2), n]);
+    const xLabels = [...labelIdx].map(i => {
+      const p = pts[i];
+      const lbl = p.s.date.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      return `<text x="${p.x.toFixed(1)}" y="${H-1}" text-anchor="middle" fill="rgba(130,190,210,0.75)" font-size="7.5" font-family="-apple-system,sans-serif">${lbl}</text>`;
+    }).join('');
+
+    const latest = sessions[n].maxWeight;
+    const prev = sessions[n-1].maxWeight;
+    const delta = latest - prev;
+    const dStr = (delta >= 0 ? '+' : '') + delta.toFixed(1);
+    const dColor = delta >= 0 ? 'var(--sea-foam)' : 'var(--coral)';
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <div style="font-size:1.15rem;font-weight:800;color:var(--text-main);">${latest} <span style="font-size:0.72rem;font-weight:500;color:var(--text-sea);">${unit}</span></div>
+          <div style="font-size:0.75rem;color:${dColor};">${dStr} ${unit} from last session</div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text-muted);padding-top:2px;">${sessions.length} sessions</div>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible;">
+        <defs>
+          <linearGradient id="exGrad${exName.length}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f5a742" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="#f5a742" stop-opacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <path d="${area}" fill="url(#exGrad${exName.length})"/>
+        <polyline points="${line}" fill="none" stroke="#f5a742" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${pts[n].x.toFixed(1)}" cy="${pts[n].y.toFixed(1)}" r="3.5" fill="#f5a742"/>
+        ${xLabels}
+      </svg>`;
+  },
+
+  openExerciseProgressModal(exName) {
+    const unit = this.settings?.defaultWeightUnit || 'lbs';
+    const pr = this.profile.personalRecords?.[exName];
+    const graph = this._buildExerciseProgressGraph(exName);
+
+    const recentSessions = [...this.workouts]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .filter(w => w.exercises.some(e => e.name === exName))
+      .slice(0, 5)
+      .map(w => {
+        const ex = w.exercises.find(e => e.name === exName);
+        const validSets = ex.sets.filter(s => s.weight && s.reps);
+        const best = validSets.sort((a, b) => b.weight - a.weight)[0];
+        const vol = validSets.reduce((s, set) => s + set.weight * set.reps, 0);
+        return { date: new Date(w.date), ex, best, vol, count: validSets.length };
+      });
+
+    const mc = document.getElementById('modal-container');
+    mc.innerHTML = `
+      <div class="modal-overlay" id="ex-progress-overlay" style="align-items:flex-end;">
+        <div class="modal-sheet fade-in" style="max-height:82vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:20px 16px 32px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="text-bold text-white" style="font-size:1.15rem;">${exName}</div>
+            <button id="btn-ex-progress-close" style="background:none;border:none;color:var(--text-sea);font-size:1.4rem;padding:4px 8px;cursor:pointer;">×</button>
+          </div>
+
+          ${pr ? `<div class="card" style="padding:10px 14px;margin-bottom:14px;background:rgba(245,167,66,0.1);border-color:rgba(245,167,66,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div class="text-xs text-sea">Personal Record</div>
+              <div class="text-bold" style="color:#f5a742;">${pr.maxWeight?.value || '—'} ${unit}</div>
+            </div>
+          </div>` : ''}
+
+          <div class="text-xs text-sea" style="margin-bottom:8px;letter-spacing:0.04em;text-transform:uppercase;">Weight Progress</div>
+          <div class="card" style="padding:12px 10px;margin-bottom:18px;">${graph}</div>
+
+          <div class="text-xs text-sea" style="margin-bottom:8px;letter-spacing:0.04em;text-transform:uppercase;">Recent Sessions</div>
+          ${recentSessions.map(({ date, best, vol, count }) => `
+            <div class="card" style="padding:10px 14px;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="text-sm text-white">${date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'})}</div>
+                <div class="text-xs text-sea">${count} sets · ${Math.round(vol).toLocaleString()} ${unit}</div>
+              </div>
+              ${best ? `<div class="text-xs text-muted" style="margin-top:3px;">Best: ${best.weight} ${unit} × ${best.reps} reps</div>` : ''}
+            </div>`).join('')}
+
+          <button class="btn btn-accent" id="btn-ex-ask-ai" style="width:100%;margin-top:8px;">Ask AI Coach</button>
+        </div>
+      </div>`;
+
+    document.getElementById('btn-ex-progress-close').addEventListener('click', () => { mc.innerHTML = ''; });
+    document.getElementById('ex-progress-overlay').addEventListener('click', e => { if (e.target.id === 'ex-progress-overlay') mc.innerHTML = ''; });
+    document.getElementById('btn-ex-ask-ai').addEventListener('click', () => {
+      mc.innerHTML = '';
+      this.openAIChat(`Analyze my ${exName} progress. Here's my full history for this exercise.`, exName);
+    });
   },
 
   // ── Weekly volume bar chart ───────────────────────────────
@@ -3956,12 +4077,9 @@ const App = {
         this.bindClick('tap-total-volume', () => this.openAIChat(`My total lifetime volume is ${this.profile.totalVolume} ${this.settings.defaultWeightUnit}. What does this mean for my progress?`));
         this.bindClick('tap-longest-streak', () => this.openAIChat(`My longest streak is ${this.profile.longestStreak} days. What does research say about training frequency and consistency?`));
 
-        // Tappable PR cards
+        // Tappable PR cards — show progress graph modal
         document.querySelectorAll('[data-pr-exercise]').forEach(el => {
-          el.addEventListener('click', () => {
-            const name = el.dataset.prExercise;
-            this.openAIChat(`Analyze my ${name} progress. Here's my full history for this exercise.`, name);
-          });
+          el.addEventListener('click', () => this.openExerciseProgressModal(el.dataset.prExercise));
         });
 
         // Tappable week bars
@@ -4421,7 +4539,7 @@ const App = {
           });
         });
         document.querySelectorAll('[data-pr-exercise]').forEach(el => {
-          el.addEventListener('click', () => this.openAIChat?.(`Tell me about my ${el.dataset.prExercise} progress.`));
+          el.addEventListener('click', () => this.openExerciseProgressModal(el.dataset.prExercise));
         });
 
         // ── Stats expand/collapse toggles ─────────────────────
@@ -4483,7 +4601,7 @@ const App = {
           const btn = document.getElementById('btn-nudge-user');
           if (btn) { btn.disabled = true; btn.textContent = 'Nudging...'; }
           try {
-            const res = await this.apiPost('/api/user/nudge', { target_id: data.user.id, nudger_name: this.settings.username || 'Someone' });
+            const res = await this.apiPost('/api/user/nudge', { target_id: data.user.id, nudger_id: this.settings.serverId, nudger_name: this.settings.username || 'Someone' });
             if (res.error) throw new Error(res.error);
             this.showToast('Nudge sent!');
             if (btn) { btn.textContent = 'Nudged!'; btn.style.background = 'var(--lagoon)'; btn.style.color = '#fff'; }
@@ -5557,6 +5675,7 @@ const App = {
 
   // ─── TIMER LOGIC ──────────────────────────────────────────
   startRestTimer(data) {
+    this._activeRestExercise = data.exercise || '';
     const circumference = 2 * Math.PI * 95;
     const circle = document.getElementById('timer-ring-circle');
     if (circle) circle.style.strokeDasharray = circumference;
@@ -5664,6 +5783,9 @@ const App = {
       Timer.targetEnd += delta * 1000;
       Timer.totalSeconds += delta;
       if (Timer.totalSeconds < 0) Timer.totalSeconds = 0;
+      // Reschedule the SW notification with the updated remaining time
+      const remaining = Math.max(0, Math.ceil((Timer.targetEnd - Date.now()) / 1000));
+      Timer.scheduleNotification(remaining, this._activeRestExercise || '');
     }
   },
 

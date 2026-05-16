@@ -8,11 +8,11 @@
   <meta name="apple-mobile-web-app-title" content="TropicalFit">
   <meta name="theme-color" content="#0B3954" id="theme-color-meta">
   <meta name="description" content="Track your gains, island style">
-  <meta name="version" content="v146">
+  <meta name="version" content="v147">
   <script>
     (function() {
-      const APP_VERSION = 'v146';
-      const CACHE_NAME = 'tropical-fit-v146';
+      const APP_VERSION = 'v147';
+      const CACHE_NAME = 'tropical-fit-v147';
       const stored = localStorage.getItem('tf_app_v');
       if (stored && stored !== APP_VERSION) {
         localStorage.setItem('tf_app_v', APP_VERSION);
@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=146">
+  <link rel="stylesheet" href="style.css?v=147">
   <title>TropicalFit</title>
 </head>
 <body>
@@ -63,8 +63,6 @@
       };
     })();
   </script>
-  <canvas id="ocean-shader"></canvas>
-  <canvas id="palm-canvas" style="position:fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:-1;"></canvas>
   <div id="app">
     <div id="screen-header"></div>
     <div id="screen-container" class="screen"></div>
@@ -102,13 +100,11 @@
   <div id="modal-container"></div>
   <div id="celebration-container"></div>
 
-  <script src="db.js?v=146"></script>
-  <script src="shader.js?v=146"></script>
-  <script src="palm.js?v=146"></script>
-  <script src="transition.js?v=146"></script>
-  <script src="timer.js?v=146"></script>
-  <script src="ai.js?v=146"></script>
-  <script src="export.js?v=146"></script>
-  <script src="app.js?v=146"></script>
+  <script src="db.js?v=147"></script>
+  <script src="transition.js?v=147"></script>
+  <script src="timer.js?v=147"></script>
+  <script src="ai.js?v=147"></script>
+  <script src="export.js?v=147"></script>
+  <script src="app.js?v=147"></script>
 </body>
 </html>

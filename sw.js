@@ -1,11 +1,9 @@
-const CACHE_NAME = 'tropical-fit-v146';
+const CACHE_NAME = 'tropical-fit-v147';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './db.js',
-  './shader.js',
-  './palm.js',
   './transition.js',
   './timer.js',
   './ai.js',

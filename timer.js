@@ -1,13 +1,15 @@
 // timer.js — Wake Lock + Silent Audio + Countdown Timer
 const Timer = {
   wakeLock: null,
-  audioElement: null,
   intervalId: null,
+  silentCtx: null,
+  silentSource: null,
   seconds: 0,
   totalSeconds: 0,
   onTick: null,
   onComplete: null,
   isRunning: false,
+  _lifecycleBound: false,
 
   async requestWakeLock() {
     try {
@@ -72,12 +74,26 @@ const Timer = {
     await this.requestWakeLock();
     this.startSilentAudio();
     await this.requestNotificationPermission();
+    this._bindLifecycle();
   },
 
   endWorkoutSession() {
     this.stop();
     this.releaseWakeLock();
     this.stopSilentAudio();
+  },
+
+  _bindLifecycle() {
+    if (this._lifecycleBound) return;
+    this._lifecycleBound = true;
+    const cleanup = () => { try { this.endWorkoutSession(); } catch (e) {} };
+    window.addEventListener('pagehide', cleanup);
+    window.addEventListener('beforeunload', cleanup);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.isRunning && !this.wakeLock) {
+        this.requestWakeLock();
+      }
+    });
   },
 
   _postToSW(msg) {
