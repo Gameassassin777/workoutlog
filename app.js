@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v150';
+const APP_VERSION = 'v151';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -380,7 +380,13 @@ const App = {
     } else {
       document.body.classList.remove('battery-saver');
       const vid = document.getElementById('bg-video');
-      if (vid) { vid.play().catch(() => {}); }
+      if (vid) {
+        vid._playBlocked = false;
+        vid.play().catch(() => {
+          vid._playBlocked = true;
+          document.body.classList.add('battery-saver');
+        });
+      }
     }
   },
 
@@ -4698,12 +4704,14 @@ const App = {
               this._bindBubbleInteractions(msgs);
               this._bindChatAvatarTaps(msgs);
               
-              // Force auto-scroll to the bottom always (initial load)
+              // Force scroll to bottom — fire multiple times to catch avatar image loads
               const forceScroll = () => { msgs.scrollTop = msgs.scrollHeight; };
               requestAnimationFrame(() => {
                 forceScroll();
                 requestAnimationFrame(forceScroll);
-                setTimeout(forceScroll, 50); // Catch late image layout shifts
+                setTimeout(forceScroll, 100);
+                setTimeout(forceScroll, 300); // catch slow avatar image loads
+                setTimeout(forceScroll, 600); // final catch-all
               });
               
               // Load real reaction counts from server

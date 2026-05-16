@@ -8,11 +8,11 @@
   <meta name="apple-mobile-web-app-title" content="TropicalFit">
   <meta name="theme-color" content="#0B3954" id="theme-color-meta">
   <meta name="description" content="Track your gains, island style">
-  <meta name="version" content="v150">
+  <meta name="version" content="v151">
   <script>
     (function() {
-      const APP_VERSION = 'v150';
-      const CACHE_NAME = 'tropical-fit-v150';
+      const APP_VERSION = 'v151';
+      const CACHE_NAME = 'tropical-fit-v151';
       const stored = localStorage.getItem('tf_app_v');
       if (stored && stored !== APP_VERSION) {
         localStorage.setItem('tf_app_v', APP_VERSION);
@@ -27,24 +27,30 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=150">
+  <link rel="stylesheet" href="style.css?v=151">
   <title>TropicalFit</title>
 </head>
 <body>
-  <video id="bg-video" autoplay muted playsinline loop>
+  <video id="bg-video" autoplay muted playsinline loop poster="bg-night-saver.jpg">
     <source src="bg.mp4" type="video/mp4">
   </video>
   <script>
     // iOS PWA video loop + visibility resume fix
     (function () {
       const v = document.getElementById('bg-video');
-      function play() { v.play().catch(() => {}); }
-      // Only restart if the pause wasn't triggered by a source-switch or battery saver
-      v.addEventListener('pause', () => { 
-        if (!v.ended && !v._switching && !document.body.classList.contains('battery-saver')) play(); 
+      function play() {
+        v.play().then(() => { v._playBlocked = false; }).catch(() => {
+          v._playBlocked = true;
+          // LPM/autoplay blocked — activate battery-saver so the poster image shows
+          document.body.classList.add('battery-saver');
+        });
+      }
+      // Only restart if the pause wasn't triggered by a source-switch, battery saver, or LPM block
+      v.addEventListener('pause', () => {
+        if (!v.ended && !v._switching && !v._playBlocked && !document.body.classList.contains('battery-saver')) play();
       });
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) play(); });
-      window.addEventListener('pageshow', play);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && !v._playBlocked) play(); });
+      window.addEventListener('pageshow', () => { if (!v._playBlocked) play(); });
       play();
 
       // Exposed so applyTheme() can swap day/night video
@@ -100,11 +106,11 @@
   <div id="modal-container"></div>
   <div id="celebration-container"></div>
 
-  <script src="db.js?v=150"></script>
-  <script src="transition.js?v=150"></script>
-  <script src="timer.js?v=150"></script>
-  <script src="ai.js?v=150"></script>
-  <script src="export.js?v=150"></script>
-  <script src="app.js?v=150"></script>
+  <script src="db.js?v=151"></script>
+  <script src="transition.js?v=151"></script>
+  <script src="timer.js?v=151"></script>
+  <script src="ai.js?v=151"></script>
+  <script src="export.js?v=151"></script>
+  <script src="app.js?v=151"></script>
 </body>
 </html>
