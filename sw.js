@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tropical-fit-v144';
+const CACHE_NAME = 'tropical-fit-v145';
 const ASSETS = [
   './',
   './index.html',
@@ -79,6 +79,41 @@ self.addEventListener('push', event => {
       })
     );
   });
+
+// ─── Scheduled Rest Timer Notifications ────────────────────
+let _restNotifTimer = null;
+
+self.addEventListener('message', event => {
+  const msg = event.data;
+  if (!msg) return;
+
+  if (msg.type === 'SCHEDULE_REST_NOTIF') {
+    if (_restNotifTimer) { clearTimeout(_restNotifTimer); _restNotifTimer = null; }
+    const delay = Math.max(0, msg.delay || 0);
+    const baseUrl = self.location.origin + self.location.pathname.replace('sw.js', '');
+    const iconUrl = new URL('icons/icon-192.png', baseUrl).href;
+    _restNotifTimer = setTimeout(() => {
+      _restNotifTimer = null;
+      self.registration.showNotification('Rest Over — Get Back to Work! 💪', {
+        body: msg.exercise ? `Time for your next set of ${msg.exercise}` : 'Your rest timer just finished.',
+        icon: iconUrl,
+        badge: iconUrl,
+        tag: 'rest-timer',
+        renotify: true,
+        vibrate: [200, 100, 200, 100, 300],
+        data: { url: './#activeWorkout' },
+      });
+    }, delay);
+  }
+
+  if (msg.type === 'CANCEL_REST_NOTIF') {
+    if (_restNotifTimer) { clearTimeout(_restNotifTimer); _restNotifTimer = null; }
+    // Dismiss any existing rest-timer notification
+    self.registration.getNotifications({ tag: 'rest-timer' }).then(notifs => {
+      notifs.forEach(n => n.close());
+    });
+  }
+});
 
 self.addEventListener('fetch', event => {
   // Do not cache non-GET requests or backend API requests

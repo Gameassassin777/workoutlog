@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v144';
+const APP_VERSION = 'v145';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -5395,6 +5395,7 @@ const App = {
           this.showScreen('restTimer', {
             seconds: restBetweenEx,
             label: `Rest before ${this.activeWorkout.exercises[nextExIdx].name}`,
+            exercise: this.activeWorkout.exercises[nextExIdx].name,
             onComplete: () => this.showScreen('activeWorkout')
           });
         }
@@ -5403,6 +5404,7 @@ const App = {
         this.showScreen('restTimer', {
           seconds: restSecs,
           label: `Rest — ${exName} Set ${setIdx + 2} next`,
+          exercise: exName,
           onComplete: () => this.showScreen('activeWorkout')
         });
       }
@@ -5595,7 +5597,8 @@ const App = {
         } else {
           this.showScreen('activeWorkout');
         }
-      }
+      },
+      data.exercise || ''
     );
   },
 

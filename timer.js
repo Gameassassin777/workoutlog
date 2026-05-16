@@ -60,9 +60,18 @@ const Timer = {
     }
   },
 
+  async requestNotificationPermission() {
+    try {
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+    } catch (e) {}
+  },
+
   async startWorkoutSession() {
     await this.requestWakeLock();
     this.startSilentAudio();
+    await this.requestNotificationPermission();
   },
 
   endWorkoutSession() {
@@ -71,7 +80,24 @@ const Timer = {
     this.stopSilentAudio();
   },
 
-  start(seconds, onTick, onComplete) {
+  _postToSW(msg) {
+    try {
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage(msg);
+      }
+    } catch (e) {}
+  },
+
+  scheduleNotification(seconds, exerciseName = '') {
+    if (Notification.permission !== 'granted') return;
+    this._postToSW({ type: 'SCHEDULE_REST_NOTIF', delay: seconds * 1000, exercise: exerciseName });
+  },
+
+  cancelNotification() {
+    this._postToSW({ type: 'CANCEL_REST_NOTIF' });
+  },
+
+  start(seconds, onTick, onComplete, exerciseName = '') {
     this.stop();
     this.totalSeconds = seconds;
     this.seconds = seconds;
@@ -80,6 +106,7 @@ const Timer = {
     this.isRunning = true;
     this.startTime = Date.now();
     this.targetEnd = Date.now() + (seconds * 1000);
+    this.scheduleNotification(seconds, exerciseName);
 
     if (this.onTick) this.onTick(this.seconds, this.totalSeconds);
 
@@ -90,7 +117,7 @@ const Timer = {
       if (this.onTick) this.onTick(this.seconds, this.totalSeconds);
 
       if (remaining <= 0) {
-        this.stop();
+        this.stop(); // stop() calls cancelNotification() to dismiss the SW-scheduled notif
         this.playAlert();
         this.vibrate();
         if (this.onComplete) this.onComplete();
@@ -104,9 +131,11 @@ const Timer = {
       this.intervalId = null;
     }
     this.isRunning = false;
+    this.cancelNotification();
   },
 
   skip() {
+    this.cancelNotification();
     this.stop();
     if (this.onComplete) this.onComplete();
   },
