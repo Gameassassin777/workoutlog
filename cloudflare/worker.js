@@ -712,15 +712,16 @@ async function handleAIChat(request, env) {
 
 // ── Rest Timer Alarm (server-side push when app is fully closed) ─
 async function handleRestTimerSchedule(request, env) {
-  const { user_id, exercise, delay_ms } = await request.json();
-  if (!user_id || !(delay_ms > 0)) return json({ error: 'missing fields' }, 400);
-  // Clamp to 1 s – 30 min to avoid misuse
-  const delay = Math.min(Math.max(Math.round(delay_ms), 1000), 30 * 60 * 1000);
+  const { user_id, exercise, fire_at } = await request.json();
+  if (!user_id || !(fire_at > 0)) return json({ error: 'missing fields' }, 400);
+  // Clamp: must be in the future, max 30 min from now
+  const now = Date.now();
+  const clamped = Math.min(Math.max(fire_at, now + 1000), now + 30 * 60 * 1000);
   const doId = env.REST_TIMER.idFromName(user_id);
   await env.REST_TIMER.get(doId).fetch(new Request('https://do/schedule', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id, exercise: exercise || '', delay }),
+    body: JSON.stringify({ user_id, exercise: exercise || '', fire_at: clamped }),
   }));
   return json({ ok: true });
 }
@@ -937,14 +938,21 @@ export class RestTimerDO {
     const body   = await request.json().catch(() => ({}));
 
     if (action === 'schedule') {
+      // Reject out-of-order requests: if a newer fire_at is already set, ignore this one
+      const storedFireAt = await this.state.storage.get('fireAt') || 0;
+      if (body.fire_at < storedFireAt - 1000) {
+        return new Response('stale');
+      }
       await this.state.storage.put('notif', { user_id: body.user_id, exercise: body.exercise || '' });
-      await this.state.storage.setAlarm(Date.now() + body.delay);
+      await this.state.storage.put('fireAt', body.fire_at);
+      await this.state.storage.setAlarm(body.fire_at);
       return new Response('ok');
     }
 
     if (action === 'cancel') {
       await this.state.storage.deleteAlarm().catch(() => {});
       await this.state.storage.delete('notif');
+      await this.state.storage.delete('fireAt');
       return new Response('ok');
     }
 
@@ -955,6 +963,7 @@ export class RestTimerDO {
     const notif = await this.state.storage.get('notif');
     if (!notif?.user_id) return;
     await this.state.storage.delete('notif');
+    await this.state.storage.delete('fireAt');
 
     if (!this.env.VAPID_PUBLIC_KEY || !this.env.VAPID_PRIVATE_KEY) return;
 

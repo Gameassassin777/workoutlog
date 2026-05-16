@@ -1,7 +1,7 @@
 // app.js — Main application logic for Tropical Workout Tracker
 // ═══════════════════════════════════════════════════════════════
 
-const APP_VERSION = 'v148';
+const APP_VERSION = 'v149';
 
 // ─── Built-in exercise → muscle group lookup (no API needed) ───
 const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Forearms',
@@ -411,10 +411,12 @@ const App = {
   _scheduleServerRestNotif(seconds, exercise) {
     const userId = this.settings?.serverId;
     if (!userId || seconds <= 0) return;
+    // Send absolute fire_at so out-of-order HTTP requests can't set a stale alarm
+    const fire_at = Timer.targetEnd || (Date.now() + seconds * 1000);
     fetch(this.API_BASE + '/api/rest-timer/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, exercise: exercise || '', delay_ms: seconds * 1000 }),
+      body: JSON.stringify({ user_id: userId, exercise: exercise || '', fire_at }),
     }).catch(() => {});
   },
 
@@ -5747,8 +5749,11 @@ const App = {
           }
         }
         this._updateMiniTimer(remaining, total);
+        // Pre-cancel server alarm with 3 s to spare so the cancel POST arrives
+        // at the DO before the alarm fires — prevents duplicate push when app is open
+        if (remaining > 0 && remaining <= 3) this._cancelServerRestNotif();
       },
-      // onComplete — cancel server alarm (app was open, local audio/vibrate handled it)
+      // onComplete — cancel server alarm (belt-and-suspenders for the pre-cancel above)
       () => {
         this._cancelServerRestNotif();
         navigator.vibrate?.([100, 60, 100, 60, 100]);
