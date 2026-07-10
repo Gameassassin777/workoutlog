@@ -1056,6 +1056,15 @@ const App = {
     const renderer = renderers[name];
     if (renderer) {
       const renderNext = async () => {
+        // Fade out before swap so the screen doesn't pop. bg-video shows through
+        // the transparent gap, so no white flash.
+        container.style.opacity = '0';
+        container.style.transform = 'translateY(4px)';
+        // Double-rAF guarantees the browser commits the fade-out state before
+        // we tear down innerHTML. Without it the swap can batch with the
+        // opacity change and skip the transition entirely.
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
         container.innerHTML = await renderer();
         const screenHeader = document.getElementById('screen-header');
         if (screenHeader) {
@@ -1072,6 +1081,12 @@ const App = {
           container.style.paddingBottom = '';
         }
         this.bindScreenEvents(name, data);
+
+        // Fade in the new content on the next frame so the transition fires.
+        requestAnimationFrame(() => {
+          container.style.opacity = '1';
+          container.style.transform = 'translateY(0)';
+        });
       };
 
       await renderNext();
@@ -2331,7 +2346,7 @@ const App = {
     const setsTotal = this.settings.defaultSetsPerExercise;
     const iconUrl = this._getExerciseIconUrl(ex.name);
     return `
-      <div class="card slide-up" style="animation-delay: ${exIdx * 0.05}s">
+      <div class="card slide-up" data-exercise-block="${exIdx}" style="animation-delay: ${exIdx * 0.05}s">
         <div class="flex flex-between" style="align-items: center; margin-bottom: 12px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:36px;height:36px;border-radius:8px;background:var(--glass-mid);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;position:relative;color:var(--text-muted);">
@@ -4547,82 +4562,32 @@ const App = {
         break;
 
       case 'logs':
-        document.querySelectorAll('[data-tab]').forEach(btn => {
+        // Tab switcher — idempotent. Previously every tab click called
+        // bindScreenEvents('logs'), which stacked another click listener
+        // on every [data-tab] button each swap. After N tab clicks, a single
+        // click fired N times. Guard with [data-tab-bound] so each button
+        // binds exactly once per screen render.
+        document.querySelectorAll('[data-tab]:not([data-tab-bound])').forEach(btn => {
+          btn.setAttribute('data-tab-bound', '1');
           btn.addEventListener('click', () => {
-            // Only swap the tab content — never re-render the full screen (avoids double header)
             const tabContent = document.getElementById('logs-tab-content');
-            if (tabContent) {
-              tabContent.innerHTML = btn.dataset.tab === 'history'
-                ? this._renderLogsHistory()
-                : this._renderLogsStats();
-              // Update active tab pill styling
-              document.querySelectorAll('[data-tab]').forEach(t =>
-                t.classList.toggle('active', t.dataset.tab === btn.dataset.tab)
-              );
-            }
-            this.bindScreenEvents('logs');
+            if (!tabContent) return;
+            tabContent.innerHTML = btn.dataset.tab === 'history'
+              ? this._renderLogsHistory()
+              : this._renderLogsStats();
+            document.querySelectorAll('[data-tab]').forEach(t =>
+              t.classList.toggle('active', t.dataset.tab === btn.dataset.tab)
+            );
+            // Only re-bind the swapped-in content — don't recurse into
+            // bindScreenEvents('logs') or we re-enter the [data-tab] forEach
+            // and pile up listeners on the persistent tab buttons.
+            this._bindLogsTabContent();
           });
         });
         this.bindClick('btn-export-history', () => ExportImport.exportCSV());
         this.bindClick('btn-start-from-logs', () => this.showScreen('startWorkout'));
-        const histSearch = document.getElementById('history-search');
-        if (histSearch) histSearch.addEventListener('input', (e) => this.filterHistory(e.target.value));
-        document.querySelectorAll('[data-workout-id]').forEach(el => {
-          el.addEventListener('click', () => {
-            const w = this.workouts.find(w => w.id === el.dataset.workoutId);
-            if (w) this.showScreen('workoutDetail', { workout: w });
-          });
-        });
-        document.querySelectorAll('[data-pr-exercise]').forEach(el => {
-          el.addEventListener('click', () => this.openExerciseProgressModal(el.dataset.prExercise));
-        });
-
-        // ── Stats expand/collapse toggles ─────────────────────
-        this.bindClick('btn-toggle-graph', () => {
-          const btn = document.getElementById('btn-toggle-graph');
-          if (!btn) return;
-          const card = document.getElementById('vol-graph-card');
-          if (btn.dataset.mode === 'recent') {
-            btn.dataset.mode = 'all';
-            btn.textContent = 'Last 14 ▴';
-            card.innerHTML = this._buildVolumeLineGraph(0);
-          } else {
-            btn.dataset.mode = 'recent';
-            btn.textContent = 'All time ▾';
-            card.innerHTML = this._buildVolumeLineGraph(14);
-          }
-        });
-
-        this.bindClick('btn-toggle-weekly', () => {
-          const btn = document.getElementById('btn-toggle-weekly');
-          if (!btn) return;
-          const card = document.getElementById('weekly-vol-card');
-          const cur = parseInt(btn.dataset.weeks);
-          if (cur === 4) {
-            btn.dataset.weeks = '12';
-            btn.textContent = '4 weeks ▴';
-            card.innerHTML = this._buildWeeklyVolBars(12);
-          } else {
-            btn.dataset.weeks = '4';
-            btn.textContent = '12 weeks ▾';
-            card.innerHTML = this._buildWeeklyVolBars(4);
-          }
-        });
-
-        this.bindClick('btn-toggle-calendar', () => {
-          const btn = document.getElementById('btn-toggle-calendar');
-          if (!btn) return;
-          const card = document.getElementById('cal-card');
-          if (btn.dataset.mode === 'recent') {
-            btn.dataset.mode = 'all';
-            btn.textContent = '2 weeks ▴';
-            card.innerHTML = this._buildCalendarHTML(true);
-          } else {
-            btn.dataset.mode = 'recent';
-            btn.textContent = 'Full history ▾';
-            card.innerHTML = this._buildCalendarHTML(false);
-          }
-        });
+        // Initial bind for whatever tab is currently rendered.
+        this._bindLogsTabContent();
         break;
 
       case 'profile':
@@ -4805,6 +4770,75 @@ const App = {
   bindClick(id, handler) {
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', handler);
+  },
+
+  // ─── HELPER: Bind listeners inside #logs-tab-content only ──
+  // Extracted from the 'logs' case so tab swaps can re-bind just the
+  // freshly-rendered content without re-entering bindScreenEvents('logs')
+  // (which would stack listeners on the persistent [data-tab] buttons).
+  _bindLogsTabContent() {
+    const tabContent = document.getElementById('logs-tab-content');
+    if (!tabContent) return;
+
+    // History tab
+    const histSearch = tabContent.querySelector('#history-search');
+    if (histSearch) histSearch.addEventListener('input', (e) => this.filterHistory(e.target.value));
+    tabContent.querySelectorAll('[data-workout-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        const w = this.workouts.find(w => w.id === el.dataset.workoutId);
+        if (w) this.showScreen('workoutDetail', { workout: w });
+      });
+    });
+    tabContent.querySelectorAll('[data-pr-exercise]').forEach(el => {
+      el.addEventListener('click', () => this.openExerciseProgressModal(el.dataset.prExercise));
+    });
+
+    // Stats tab — expand/collapse toggles
+    this.bindClick('btn-toggle-graph', () => {
+      const btn = document.getElementById('btn-toggle-graph');
+      if (!btn) return;
+      const card = document.getElementById('vol-graph-card');
+      if (btn.dataset.mode === 'recent') {
+        btn.dataset.mode = 'all';
+        btn.textContent = 'Last 14 ▴';
+        card.innerHTML = this._buildVolumeLineGraph(0);
+      } else {
+        btn.dataset.mode = 'recent';
+        btn.textContent = 'All time ▾';
+        card.innerHTML = this._buildVolumeLineGraph(14);
+      }
+    });
+
+    this.bindClick('btn-toggle-weekly', () => {
+      const btn = document.getElementById('btn-toggle-weekly');
+      if (!btn) return;
+      const card = document.getElementById('weekly-vol-card');
+      const cur = parseInt(btn.dataset.weeks);
+      if (cur === 4) {
+        btn.dataset.weeks = '12';
+        btn.textContent = '4 weeks ▴';
+        card.innerHTML = this._buildWeeklyVolBars(12);
+      } else {
+        btn.dataset.weeks = '4';
+        btn.textContent = '12 weeks ▾';
+        card.innerHTML = this._buildWeeklyVolBars(4);
+      }
+    });
+
+    this.bindClick('btn-toggle-calendar', () => {
+      const btn = document.getElementById('btn-toggle-calendar');
+      if (!btn) return;
+      const card = document.getElementById('cal-card');
+      if (btn.dataset.mode === 'recent') {
+        btn.dataset.mode = 'all';
+        btn.textContent = '2 weeks ▴';
+        card.innerHTML = this._buildCalendarHTML(true);
+      } else {
+        btn.dataset.mode = 'recent';
+        btn.textContent = 'Full history ▾';
+        card.innerHTML = this._buildCalendarHTML(false);
+      }
+    });
   },
 
   // ─── WORKOUT LOGIC ─────────────────────────────────────────
@@ -5222,7 +5256,8 @@ const App = {
   },
 
   bindSetInputs() {
-    document.querySelectorAll('[data-field]').forEach(input => {
+    document.querySelectorAll('[data-field]:not([data-bound])').forEach(input => {
+      input.setAttribute('data-bound', '1');
       // Use 'input' not 'change' so the live volume ticker updates on every keystroke
       input.addEventListener('input', (e) => {
         const exIdx = parseInt(e.target.dataset.ex);
@@ -5239,7 +5274,8 @@ const App = {
   },
 
   bindRemoveSetButtons() {
-    document.querySelectorAll('[data-remove-set]').forEach(btn => {
+    document.querySelectorAll('[data-remove-set]:not([data-bound])').forEach(btn => {
+      btn.setAttribute('data-bound', '1');
       btn.addEventListener('click', () => {
         const exIdx = parseInt(btn.dataset.removeSet);
         const setIdx = parseInt(btn.dataset.removeSetIdx);
@@ -5247,13 +5283,18 @@ const App = {
         if (!ex) return;
         if (ex.sets.length <= 1) { this.showToast('Need at least one set'); return; }
         ex.sets.splice(setIdx, 1);
-        this.showScreen('activeWorkout');
+        this.syncSession();
+        // Surgical: re-render just this exercise block instead of the whole screen.
+        // Avoids the full-screen flash that showScreen('activeWorkout') caused
+        // every time the user trimmed a set.
+        this._reRenderExercise(exIdx);
       });
     });
   },
 
   bindSetCompleteButtons() {
-    document.querySelectorAll('[data-complete-set]').forEach(btn => {
+    document.querySelectorAll('[data-complete-set]:not([data-bound])').forEach(btn => {
+      btn.setAttribute('data-bound', '1');
       btn.addEventListener('click', (e) => {
         const exIdx = parseInt(btn.dataset.ex);
         const setIdx = parseInt(btn.dataset.set);
@@ -5290,7 +5331,8 @@ const App = {
   },
 
   bindAddSetButtons() {
-    document.querySelectorAll('[data-add-set]').forEach(btn => {
+    document.querySelectorAll('[data-add-set]:not([data-bound])').forEach(btn => {
+      btn.setAttribute('data-bound', '1');
       btn.addEventListener('click', () => {
         const exIdx = parseInt(btn.dataset.addSet);
         const ex = this.activeWorkout.exercises[exIdx];
@@ -5307,19 +5349,52 @@ const App = {
           completed: false
         });
         this.syncSession();
-        this.showScreen('activeWorkout');
+        // Surgical re-render of just this exercise block — adds the new set
+        // row without flashing the entire workout screen.
+        this._reRenderExercise(exIdx);
       });
     });
   },
 
   bindExerciseMenus() {
-    document.querySelectorAll('[data-exercise-menu]').forEach(btn => {
+    document.querySelectorAll('[data-exercise-menu]:not([data-bound])').forEach(btn => {
+      btn.setAttribute('data-bound', '1');
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const exIdx = parseInt(btn.dataset.exerciseMenu);
         this.showExerciseMenu(exIdx);
       });
     });
+  },
+
+  // ─── Surgical re-render of one exercise block ──────────────
+  // Re-renders just the affected card instead of calling showScreen('activeWorkout')
+  // (which swaps innerHTML on #screen-container and visually flashes the whole
+  // workout screen). Used by add-set, remove-set, bilateral toggle, rename.
+  // The bind* helpers above are idempotent via [data-bound] so re-calling them
+  // here only attaches listeners to the freshly-rendered elements.
+  _reRenderExercise(exIdx) {
+    const ex = this.activeWorkout?.exercises[exIdx];
+    if (!ex) return;
+    const oldBlock = document.querySelector(`[data-exercise-block="${exIdx}"]`);
+    if (!oldBlock) {
+      // Block doesn't exist in DOM — fall back to full screen render
+      this.showScreen('activeWorkout');
+      return;
+    }
+    oldBlock.outerHTML = this.renderExerciseBlock(ex, exIdx);
+    const newBlock = document.querySelector(`[data-exercise-block="${exIdx}"]`);
+    if (!newBlock) return;
+    // Don't re-animate the slide-up on every add-set click — strip the class
+    // so the card stays put and only the new set row appears.
+    newBlock.classList.remove('slide-up');
+    newBlock.style.animationDelay = '';
+    // Re-bind events. Idempotent guards skip elements that are already bound.
+    this.bindSetInputs();
+    this.bindRemoveSetButtons();
+    this.bindSetCompleteButtons();
+    this.bindAddSetButtons();
+    this.bindExerciseMenus();
   },
 
   showExerciseMenu(exIdx) {
@@ -5357,7 +5432,7 @@ const App = {
       ex.bilateral = !ex.bilateral;
       this._saveBilateralPref(ex.name, ex.bilateral);
       document.getElementById('modal-container').innerHTML = '';
-      this.showScreen('activeWorkout');
+      this._reRenderExercise(exIdx);
     });
 
     // ── Rename ──
@@ -5382,7 +5457,7 @@ const App = {
         if (!newName) { this.showToast('Enter a name'); return; }
         ex.name = newName;
         document.getElementById('modal-container').innerHTML = '';
-        this.showScreen('activeWorkout');
+        this._reRenderExercise(exIdx);
       });
     });
 
