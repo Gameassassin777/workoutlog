@@ -7941,6 +7941,10 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
       st.goalReached = true;
       this._plungeOnGoalReached();
     }
+    
+    if (st.overclocking) {
+      st.overclockAmount = Math.max(0, st.elapsed - st.goal);
+    }
 
     // Update ring/labels without a full re-render (only while running)
     this._plungeUpdateRing();
