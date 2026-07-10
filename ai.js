@@ -28,14 +28,20 @@ const AI = {
   async fetchWithRetry(url, options, maxRetries = 4, onProgress = null) {
     // Gemini rate limits reset per minute — delays must be long enough to clear the window
     const retryDelays = [12000, 30000, 65000]; // 12s, 30s, 65s
+    let currentUrl = url;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      const response = await fetch(url, options);
+      const response = await fetch(currentUrl, options);
       if (!response.ok) {
         if (response.status === 429 && attempt < maxRetries) {
           const delay = retryDelays[attempt - 1] || 65000;
           console.warn(`Rate limited (429). Retrying in ${delay/1000}s... (attempt ${attempt}/${maxRetries})`);
           if (onProgress) onProgress(`Rate limit hit — waiting ${delay/1000}s before retry ${attempt}/${maxRetries - 1}...`);
           await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        if (response.status >= 500 && currentUrl.includes('gemini-3.1-flash:') && attempt < maxRetries) {
+          console.warn(`API Error ${response.status}. Falling back to 3.1-flash-preview...`);
+          currentUrl = currentUrl.replace('gemini-3.1-flash:', 'gemini-3.1-flash-preview:');
           continue;
         }
       }

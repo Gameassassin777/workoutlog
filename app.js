@@ -197,6 +197,10 @@ const App = {
     notifChatMessages: false,
     notifBoardReset: true,
     notifPromptDismissed: false,
+    notifPlungeDailyReminder: true,
+    notifPlungeDailyReminderTime: '20:00',
+    notifPlungeMitoReady: true,
+    notifPlungeStreakAtRisk: true,
     socialPrivacyVolume: true,
     socialPrivacyFeed: true,
     pollinationsPortrait: '',
@@ -689,6 +693,65 @@ const App = {
         // Re-schedule for next Sunday
         this._scheduleLocalNotifications();
       }, delay));
+    }
+
+    // Plunge Daily Reminder
+    if (this.settings.notifPlungeDailyReminder && this.settings.notifPlungeDailyReminderTime) {
+      const [hh, mm] = (this.settings.notifPlungeDailyReminderTime || '20:00').split(':').map(Number);
+      const fire = new Date(now);
+      fire.setHours(hh, mm, 0, 0);
+      if (fire <= now) fire.setDate(fire.getDate() + 1);
+      const delay = fire - now;
+      this._notifTimers.push(setTimeout(() => {
+        const todayStr = new Date().toDateString();
+        const plungedToday = (this.plunges || []).some(p => new Date(p.date).toDateString() === todayStr);
+        if (!plungedToday) {
+          this._fireLocalNotif('Cold Plunge Reminder', 'You haven\'t taken your daily cold plunge yet. Get it done.', 'plunge-daily');
+        }
+        this._scheduleLocalNotifications();
+      }, delay));
+    }
+
+    // Plunge Streak at Risk — fires at 8pm on the 3rd day of the grace window
+    if (this.settings.notifPlungeStreakAtRisk && this._plungeStreak() > 0) {
+      const fire = new Date(now);
+      fire.setHours(20, 0, 0, 0);
+      if (fire <= now) fire.setDate(fire.getDate() + 1);
+      const delay = fire - now;
+      this._notifTimers.push(setTimeout(() => {
+        const sorted = this._sortedPlunges();
+        if (sorted.length > 0) {
+          const lastPlunge = sorted[0].date;
+          const daysSince = (Date.now() - new Date(lastPlunge).getTime()) / 86400000;
+          if (daysSince >= 3 && daysSince < 4 && this._plungeStreak() > 0) {
+            this._fireLocalNotif(
+              'Plunge Streak on the Line',
+              `${this._plungeStreak()}-day plunge streak expires tomorrow. Keep the ice alive.`,
+              'plunge-streak-risk'
+            );
+          }
+        }
+      }, delay));
+    }
+
+    // Plunge Mito Ready Alert — fires at 8am on the day it becomes available
+    if (this.settings.notifPlungeMitoReady) {
+      const mitoStatus = this._mitoStatus();
+      if (!mitoStatus.allowed && mitoStatus.nextInDays && mitoStatus.nextInDays > 0) {
+        const fire = new Date();
+        fire.setTime(now.getTime() + mitoStatus.nextInDays * 86400000);
+        // Target 8am on the day it becomes available
+        fire.setHours(8, 0, 0, 0);
+        if (fire <= now) fire.setDate(fire.getDate() + 1);
+        const delay = fire - now;
+        this._notifTimers.push(setTimeout(() => {
+          this._fireLocalNotif(
+            'Mito Session Ready',
+            'Your deep mitochondrial protocol is available today. Time for 8 minutes of pure cold.',
+            'plunge-mito-ready'
+          );
+        }, delay));
+      }
     }
   },
 
@@ -3493,7 +3556,7 @@ const App = {
               <input type="checkbox" id="notif-board" ${s.notifBoardReset ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
             </div>
 
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <div>
                 <div class="text-sm text-white">Chat Messages</div>
                 <div class="text-xs text-sea mt-1">Push when someone drops in the chat</div>
@@ -3501,11 +3564,42 @@ const App = {
               <input type="checkbox" id="notif-chat" ${s.notifChatMessages ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
             </div>
 
+            <div style="height:1px;background:var(--glass-border);margin:14px 0;"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div>
+                <div class="text-sm text-white">Plunge: Daily Reminder</div>
+                <div class="text-xs text-sea mt-1">Nudge if you haven't plunged yet</div>
+              </div>
+              <input type="checkbox" id="notif-plunge-daily" ${s.notifPlungeDailyReminder ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            </div>
+            <div id="notif-plunge-time-row" style="${s.notifPlungeDailyReminder ? '' : 'display:none;'}margin-bottom:12px;">
+              <label class="input-label">Plunge Reminder Time</label>
+              <input type="time" class="input" id="notif-plunge-time" value="${s.notifPlungeDailyReminderTime || '20:00'}" style="width:140px;">
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div>
+                <div class="text-sm text-white">Plunge: Mito Ready</div>
+                <div class="text-xs text-sea mt-1">Alert when your 3-day cooldown ends</div>
+              </div>
+              <input type="checkbox" id="notif-plunge-mito" ${s.notifPlungeMitoReady ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <div>
+                <div class="text-sm text-white">Plunge: Streak at Risk</div>
+                <div class="text-xs text-sea mt-1">Alert before you lose your cold streak</div>
+              </div>
+              <input type="checkbox" id="notif-plunge-streak" ${s.notifPlungeStreakAtRisk ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+            </div>
+
             <button id="btn-test-notif" style="width:100%;padding:10px;background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.25);border-radius:var(--radius-md);color:var(--aqua);font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;">
               🔔 Send Test Notification
             </button>
           </div>
         </div>
+
 
         <!-- Appearance -->
         <div class="section-header">
@@ -4488,11 +4582,34 @@ const App = {
         bindNotifToggle('notif-streak', 'notifStreakAtRisk');
         bindNotifToggle('notif-board',  'notifBoardReset');
         bindNotifToggle('notif-chat',   'notifChatMessages');
+        bindNotifToggle('notif-plunge-daily', 'notifPlungeDailyReminder');
+        bindNotifToggle('notif-plunge-mito', 'notifPlungeMitoReady');
+        bindNotifToggle('notif-plunge-streak', 'notifPlungeStreakAtRisk');
+
+        // Note: the bindNotifToggle function has a hardcoded check for 'notifDailyReminder'
+        // to show/hide its time input. We'll add an explicit listener for plunge daily time.
+        const plungeDailyToggle = document.getElementById('notif-plunge-daily');
+        if (plungeDailyToggle) {
+          plungeDailyToggle.addEventListener('change', (e) => {
+            const tr = document.getElementById('notif-plunge-time-row');
+            if (tr) tr.style.display = e.target.checked ? '' : 'none';
+          });
+        }
+
         const notifTimeInput = document.getElementById('notif-time');
         if (notifTimeInput) {
           notifTimeInput.addEventListener('change', (e) => {
             this.settings.notifDailyReminderTime = e.target.value;
             DB.saveSetting('notifDailyReminderTime', e.target.value);
+            this._scheduleLocalNotifications();
+          });
+        }
+
+        const notifPlungeTimeInput = document.getElementById('notif-plunge-time');
+        if (notifPlungeTimeInput) {
+          notifPlungeTimeInput.addEventListener('change', (e) => {
+            this.settings.notifPlungeDailyReminderTime = e.target.value;
+            DB.saveSetting('notifPlungeDailyReminderTime', e.target.value);
             this._scheduleLocalNotifications();
           });
         }
@@ -7758,15 +7875,21 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
       days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
     });
     let streak = 0;
+    let emptyDaysInARow = 0;
     const cursor = new Date();
     // Walk back day-by-day from today
     for (let i = 0; i < 365; i++) {
       const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
       if (days.has(key)) {
         streak++;
+        emptyDaysInARow = 0; // reset grace counter on plunge
       } else if (i > 0) {
-        // Allow today to be empty (haven't plunged yet today) without breaking streak
-        break;
+        // Today doesn't count against grace window if missed
+        emptyDaysInARow++;
+        if (emptyDaysInARow >= 4) {
+          // Grace window exceeded (4 days without a plunge) — streak broken
+          break;
+        }
       }
       cursor.setDate(cursor.getDate() - 1);
     }
