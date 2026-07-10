@@ -1,13 +1,14 @@
 // db.js — IndexedDB wrapper for Tropical Workout Tracker
 const DB_NAME = 'TropicalFitDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const STORES = {
   workouts: 'workouts',
   exercises: 'exercises',
   settings: 'settings',
   profile: 'profile',
-  chatLogs: 'chatLogs'
+  chatLogs: 'chatLogs',
+  plunges: 'plunges'
 };
 
 function openDB() {
@@ -37,8 +38,16 @@ function openDB() {
           const chatStore = db.createObjectStore(STORES.chatLogs, { keyPath: 'id' });
           chatStore.createIndex('date', 'date', { unique: false });
         }
+        // Falls through to v2
+        case 1: {
+          // v1 → v2: add plunges store
+          if (!db.objectStoreNames.contains(STORES.plunges)) {
+            const plungeStore = db.createObjectStore(STORES.plunges, { keyPath: 'id' });
+            plungeStore.createIndex('date', 'date', { unique: false });
+            plungeStore.createIndex('type', 'type', { unique: false });
+          }
+        }
         // Future migrations go here:
-        // case 1: { /* v1 → v2 */ }
         // case 2: { /* v2 → v3 */ }
       }
     };
@@ -187,15 +196,28 @@ const DB = {
     return this.delete(STORES.chatLogs, id);
   },
 
+  async getAllPlunges() {
+    return this.getAll(STORES.plunges);
+  },
+
+  async savePlunge(plunge) {
+    return this.put(STORES.plunges, plunge);
+  },
+
+  async deletePlunge(id) {
+    return this.delete(STORES.plunges, id);
+  },
+
   async getExportData() {
     const workouts = await this.getAllWorkouts();
     const exercises = await this.getAllExercises();
     const chatLogs = await this.getAllChatLogs();
     const profile = await this.getProfile();
+    const plunges = await this.getAllPlunges();
     const settings = {};
     const allSettings = await this.getAll(STORES.settings);
     allSettings.forEach(s => { settings[s.key] = s.value; });
-    return { workouts, exercises, chatLogs, profile, settings, exportDate: new Date().toISOString(), version: 1 };
+    return { workouts, exercises, chatLogs, profile, plunges, settings, exportDate: new Date().toISOString(), version: 2 };
   },
 
   async importData(data) {
@@ -210,6 +232,9 @@ const DB = {
     }
     if (data.profile) {
       await this.saveProfile(data.profile);
+    }
+    if (data.plunges) {
+      for (const p of data.plunges) await this.savePlunge(p);
     }
     if (data.settings) {
       for (const [key, value] of Object.entries(data.settings)) {

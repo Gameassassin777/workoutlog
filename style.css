@@ -1318,3 +1318,275 @@ body.keyboard-open .chat-input-bar {
 body.keyboard-open .chat-global-input-bar {
   padding-bottom: 10px !important;
 }
+
+/* ─── Plunge Screen ─────────────────────────────────────────── */
+.plunge-screen {
+  padding: 12px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.plunge-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 0 8px;
+}
+
+.plunge-status-pill {
+  background: var(--glass-white);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur-md); -webkit-backdrop-filter: var(--blur-md);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+
+.plunge-ring {
+  display: block;
+  filter: drop-shadow(0 8px 24px rgba(0,200,255,0.25));
+}
+.plunge-ring .plunge-time-text {
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -0.02em;
+}
+.plunge-ring .plunge-goal-text {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+}
+
+.plunge-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.plunge-start-btn,
+.plunge-stop-btn,
+.plunge-mito-btn {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 1.05em;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+}
+
+.plunge-start-btn {
+  background: linear-gradient(135deg, #00C2D4 0%, #00E8FF 100%);
+  color: #021628;
+  box-shadow: 0 6px 24px rgba(0,200,255,0.45), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.plunge-stop-btn {
+  background: linear-gradient(135deg, #FF6B3D 0%, #FF5E3A 100%);
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(255,94,58,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+
+.plunge-oc-hint {
+  font-size: 0.82em;
+  color: var(--coral);
+  font-weight: 500;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.plunge-card {
+  background: var(--glass-mid);
+  backdrop-filter: var(--blur-md); -webkit-backdrop-filter: var(--blur-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-glass);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plunge-mito-ready {
+  border-color: rgba(155, 92, 255, 0.40);
+  background: linear-gradient(135deg, rgba(155,92,255,0.18), rgba(0,200,255,0.10));
+}
+.plunge-mito-ready .plunge-card-title {
+  color: #c8a8ff;
+}
+.plunge-mito-ready .plunge-mito-btn {
+  margin-top: 8px;
+  background: linear-gradient(135deg, #9b5cff 0%, #5a2bff 100%);
+  color: #fff;
+  border: 1px solid rgba(155,92,255,0.5);
+  box-shadow: 0 4px 18px rgba(155,92,255,0.4);
+}
+
+.plunge-mito-cooldown {
+  opacity: 0.78;
+}
+
+.plunge-card-title {
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.plunge-card-sub {
+  font-size: 0.86em;
+  color: var(--text-sub);
+  line-height: 1.4;
+}
+
+.plunge-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+.plunge-stat {
+  background: var(--glass-light);
+  backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 12px 8px;
+  text-align: center;
+}
+.plunge-stat-num {
+  font-size: 1.4em;
+  font-weight: 800;
+  color: var(--aqua);
+  letter-spacing: -0.02em;
+}
+.plunge-stat-lbl {
+  font-size: 0.7em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+.plunge-section-title {
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.plunge-history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plunge-history-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--glass-light);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+.plunge-history-type {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center; justify-content: center;
+  font-size: 1em;
+  background: var(--glass-white);
+}
+.plunge-type-mito { background: rgba(155,92,255,0.22); }
+.plunge-type-daily { background: rgba(0,200,255,0.18); }
+
+.plunge-history-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.plunge-history-date {
+  font-size: 0.78em;
+  color: var(--text-muted);
+}
+.plunge-history-dur {
+  font-size: 0.96em;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.plunge-oc {
+  font-size: 0.78em;
+  color: var(--coral);
+  font-weight: 600;
+}
+.plunge-history-status {
+  font-size: 1.1em;
+  color: var(--palm);
+  font-weight: 700;
+  width: 24px; text-align: center;
+}
+
+.plunge-empty {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  background: var(--glass-light);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--glass-border);
+}
+
+.plunge-protocol .protocol-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 0.88em;
+}
+.plunge-protocol .protocol-row:last-child { border-bottom: none; }
+.protocol-label {
+  font-weight: 600;
+  color: var(--text-main);
+}
+.protocol-val {
+  color: var(--text-sub);
+  font-size: 0.92em;
+  text-align: right;
+}
+
+.plunge-tip {
+  font-size: 0.82em;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 12px;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+.plunge-info-modal .modal-body p {
+  margin: 0 0 12px;
+  line-height: 1.55;
+  color: var(--text-sub);
+}
+.plunge-info-modal .modal-body strong {
+  color: var(--text-main);
+}
+
+/* 6 nav items, tighter sizing so all six fit on small screens */
+.bottom-nav .nav-item span {
+  font-size: 0.62em;
+}
+@media (max-width: 380px) {
+  .bottom-nav .nav-item span {
+    font-size: 0.58em;
+  }
+  .bottom-nav .nav-icon svg {
+    width: 22px; height: 22px;
+  }
+}

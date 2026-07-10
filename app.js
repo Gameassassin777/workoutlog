@@ -203,7 +203,10 @@ const App = {
     selfieDescription: '',
     portraitCustomText: '',
     portraitStyle: 'photorealistic',
-    serverId: ''
+    serverId: '',
+    plungeOverclock: true,
+    plungeSound: true,
+    plungeMitoAutoSchedule: true,
   },
 
   DEFAULT_PROFILE: {
@@ -327,6 +330,7 @@ const App = {
     // Background task to ensure all custom exercises have an AI generated icon
 
     this.chatLogs = await DB.getAllChatLogs();
+    this.plunges = await DB.getAllPlunges() || [];
 
     // Load bilateral preferences (persisted across sessions)
     try { this._bilateralCache = JSON.parse(localStorage.getItem('bilateralCache') || '{}'); }
@@ -984,7 +988,7 @@ const App = {
       
       // Ensure horizontal swipe is dominant and intentional
       if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 60 && Date.now() - startTime < 400) {
-        const mainTabs = ['home', 'logs', 'social', 'settings'];
+        const mainTabs = ['home', 'plunge', 'logs', 'social', 'chat', 'settings'];
         
         // Only allow swiping if we are currently on one of the main root tabs
         if (mainTabs.includes(this.currentScreen)) {
@@ -1007,7 +1011,7 @@ const App = {
       startWorkout: 'home', activeWorkout: 'home',
       restTimer: 'home', workoutComplete: 'home',
       stats: 'logs', chat: 'chat', settings: 'settings',
-      social: 'social',
+      social: 'social', plunge: 'plunge',
       exerciseLibrary: 'home', workoutDetail: 'logs',
       profile: 'settings', fileUpload: 'chat'
     };
@@ -1051,6 +1055,7 @@ const App = {
       fileUpload: () => this.renderFileUpload(),
       logs: () => this.renderLogs(),
       social: () => this.renderSocial(),
+      plunge: () => this.renderPlunge(),
     };
 
     const renderer = renderers[name];
@@ -3523,6 +3528,27 @@ const App = {
           </div>
         </div>
 
+        <!-- Plunge -->
+        <div class="section-header">
+          <span class="section-title">Cold Plunge</span>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+              <div class="text-sm text-white text-bold">Overclock 🔥</div>
+              <div class="text-xs text-sea mt-2">Keep timing past goal — ring goes red, 2× XP on the extra time</div>
+            </div>
+            <input type="checkbox" id="setting-plunge-overclock" ${s.plungeOverclock ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div class="text-sm text-white text-bold">Sound &amp; Haptics</div>
+              <div class="text-xs text-sea mt-2">Chime + vibrate at goal and on save</div>
+            </div>
+            <input type="checkbox" id="setting-plunge-sound" ${s.plungeSound ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
+          </div>
+        </div>
+
         <!-- Workout Defaults -->
         ${this.deferredPrompt ? `
         <div class="section-header">
@@ -4251,6 +4277,20 @@ const App = {
             this.applyTheme();
           });
         }
+        const plungeOverclockToggle = document.getElementById('setting-plunge-overclock');
+        if (plungeOverclockToggle) {
+          plungeOverclockToggle.addEventListener('change', (e) => {
+            this.settings.plungeOverclock = e.target.checked;
+            DB.saveSetting('plungeOverclock', e.target.checked);
+          });
+        }
+        const plungeSoundToggle = document.getElementById('setting-plunge-sound');
+        if (plungeSoundToggle) {
+          plungeSoundToggle.addEventListener('change', (e) => {
+            this.settings.plungeSound = e.target.checked;
+            DB.saveSetting('plungeSound', e.target.checked);
+          });
+        }
         // Username live save
         const usernameInput = document.getElementById('setting-username');
         if (usernameInput) {
@@ -4588,6 +4628,17 @@ const App = {
         this.bindClick('btn-start-from-logs', () => this.showScreen('startWorkout'));
         // Initial bind for whatever tab is currently rendered.
         this._bindLogsTabContent();
+        break;
+
+      case 'plunge':
+        this.bindClick('btn-plunge-start-daily', () => this._plungeStart('daily'));
+        this.bindClick('btn-plunge-start-mito', () => {
+          const st = this._plungeState();
+          if (st.running) return;
+          this._plungeStart('mito');
+        });
+        this.bindClick('btn-plunge-stop', () => this._plungeStop());
+        this.bindClick('btn-plunge-info', () => this._showPlungeInfo());
         break;
 
       case 'profile':
@@ -7597,6 +7648,509 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
     toast.textContent = message;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), duration);
+  },
+
+  // ─── PLUNGE SCREEN — Cold Shower Tracker ──────────────────
+
+  // Constants for the protocol. Mito session is a deep mitochondrial stimulus
+  // (~8 min) spaced to avoid habituation — every 3 days, max 2 per rolling 7.
+  // Daily session is a brief catecholamine lift — 30s start, auto-scales to 3 min.
+  PLUNGE_DAILY_GOAL_START: 30,      // seconds, first-time goal
+  PLUNGE_DAILY_GOAL_MAX: 180,       // 3 min cap
+  PLUNGE_MITO_GOAL: 480,            // 8 min
+  PLUNGE_MITO_MIN_GAP_DAYS: 3,      // >= 72h between mito sessions
+  PLUNGE_MITO_MAX_PER_WEEK: 2,
+
+  _plungeState() {
+    if (!this._plungeRuntime) {
+      this._plungeRuntime = {
+        running: false,
+        startTime: 0,         // performance.now() reference
+        elapsed: 0,           // accumulated seconds before last pause (not used here — single-shot timer)
+        interval: null,       // rAF or setInterval handle
+        goal: 0,              // current goal in seconds
+        goalReached: false,
+        mode: 'daily',        // 'daily' | 'mito'
+        overclocking: false,
+        overclockAmount: 0,
+        wakeLock: null,
+        audioCtx: null,
+        silentSrc: null,
+      };
+    }
+    return this._plungeRuntime;
+  },
+
+  _sortedPlunges() {
+    return [...(this.plunges || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+  },
+
+  _plungesOfType(type, withinDays) {
+    const now = Date.now();
+    return this._sortedPlunges().filter(p => {
+      if (p.type !== type) return false;
+      if (withinDays == null) return true;
+      return (now - new Date(p.date).getTime()) <= withinDays * 86400000;
+    });
+  },
+
+  // Daily goal auto-scales up from 30s based on recent performance.
+  // If the user hit goal last time, step up. If they overclocked past goal,
+  // step up faster (to where they actually got). Never exceed cap.
+  _calculateDailyGoal() {
+    const recent = this._plungesOfType('daily', 7);
+    if (recent.length === 0) return this.PLUNGE_DAILY_GOAL_START;
+
+    const last = recent[0];
+    const lastDur = last.duration || 0;
+
+    // If they didn't reach goal last time, hold goal steady
+    if (!last.goalReached) return Math.max(last.goal || this.PLUNGE_DAILY_GOAL_START, this.PLUNGE_DAILY_GOAL_START);
+
+    // Step logic: small step after reaching goal, bigger step if they overclocked
+    const overclock = last.overclockAmount || 0;
+    const total = lastDur + overclock;
+    let next;
+    if (total >= last.goal + 60) {
+      // Pushed well past goal — bump by 30s
+      next = last.goal + 30;
+    } else {
+      // Steady 15s bump
+      next = last.goal + 15;
+    }
+    return Math.min(next, this.PLUNGE_DAILY_GOAL_MAX);
+  },
+
+  _canDoMitoToday() {
+    const mitos = this._plungesOfType('mito', 7);
+    if (mitos.length >= this.PLUNGE_MITO_MAX_PER_WEEK) {
+      // find the 2nd-most-recent; next allowed is 7d after the oldest of the last 2
+      return { allowed: false, reason: 'weekly-cap' };
+    }
+    if (mitos.length > 0) {
+      const lastMito = mitos[0];
+      const daysSince = (Date.now() - new Date(lastMito.date).getTime()) / 86400000;
+      if (daysSince < this.PLUNGE_MITO_MIN_GAP_DAYS) {
+        return { allowed: false, reason: 'gap', nextInDays: this.PLUNGE_MITO_MIN_GAP_DAYS - daysSince };
+      }
+    }
+    return { allowed: true };
+  },
+
+  // Days since last mito, for the "next mito available" countdown
+  _mitoStatus() {
+    const can = this._canDoMitoToday();
+    const lastMito = this._plungesOfType('mito')[0];
+    return {
+      ...can,
+      lastMitoDate: lastMito ? lastMito.date : null,
+      mitoCountThisWeek: this._plungesOfType('mito', 7).length,
+    };
+  },
+
+  _plungeStreak() {
+    // Streak = consecutive days with at least one plunge (daily or mito)
+    const all = this._sortedPlunges();
+    if (all.length === 0) return 0;
+    const days = new Set();
+    all.forEach(p => {
+      const d = new Date(p.date);
+      days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+    });
+    let streak = 0;
+    const cursor = new Date();
+    // Walk back day-by-day from today
+    for (let i = 0; i < 365; i++) {
+      const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
+      if (days.has(key)) {
+        streak++;
+      } else if (i > 0) {
+        // Allow today to be empty (haven't plunged yet today) without breaking streak
+        break;
+      }
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  },
+
+  _plungeTotalSeconds(type) {
+    return this._sortedPlunges()
+      .filter(p => type == null || p.type === type)
+      .reduce((sum, p) => sum + (p.duration || 0) + (p.overclockAmount || 0), 0);
+  },
+
+  _fmtPlungeTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    if (m === 0) return `${s}s`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  },
+
+  renderPlunge() {
+    const st = this._plungeState();
+    const dailyGoal = this._calculateDailyGoal();
+    const mitoStatus = this._mitoStatus();
+    const now = new Date();
+    const todayPlunges = this._sortedPlunges().filter(p => {
+      const d = new Date(p.date);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    });
+    const didDailyToday = todayPlunges.some(p => p.type === 'daily');
+    const didMitoToday = todayPlunges.some(p => p.type === 'mito');
+    const streak = this._plungeStreak();
+    const totalToday = todayPlunges.reduce((s, p) => s + (p.duration || 0) + (p.overclockAmount || 0), 0);
+    // 7-day total
+    const last7 = this._plungesOfType(null, 7);
+    const weekTotal = last7.reduce((s, p) => s + (p.duration || 0) + (p.overclockAmount || 0), 0);
+
+    // Ring SVG progress (0..1)
+    const progress = st.running ? Math.min(st.elapsed / st.goal, 1) : 0;
+    const goalReached = st.goalReached;
+    const ringR = 130;
+    const ringC = 2 * Math.PI * ringR;
+    const dashOffset = ringC * (1 - progress);
+    const ringColor = st.overclocking ? '#ff5e3a' : (st.mode === 'mito' ? '#9b5cff' : '#00E8FF');
+
+    const elapsedDisplay = this._fmtPlungeTime(st.running ? st.elapsed : (st.mode === 'mito' ? this.PLUNGE_MITO_GOAL : dailyGoal));
+    const goalLabel = st.running
+      ? (st.overclocking
+          ? `OVERCLOCK 🔥 +${this._fmtPlungeTime(st.overclockAmount)}`
+          : (goalReached ? 'Goal reached! Keep going or stop' : `Goal: ${this._fmtPlungeTime(st.goal)}`))
+      : (st.mode === 'mito' ? `Mito session · ${this._fmtPlungeTime(this.PLUNGE_MITO_GOAL)}` : `Today's goal · ${this._fmtPlungeTime(dailyGoal)}`);
+
+    // Mito readiness panel
+    let mitoPanel;
+    if (st.running && st.mode === 'mito') {
+      mitoPanel = '';
+    } else if (mitoStatus.allowed) {
+      mitoPanel = `
+        <div class="plunge-card plunge-mito-ready">
+          <div class="plunge-card-title">⚡ Deep mito session ready</div>
+          <div class="plunge-card-sub">${this._fmtPlungeTime(this.PLUNGE_MITO_GOAL)} at coldest tap water · 2×/week max · every 3 days</div>
+          <button class="btn-primary plunge-mito-btn" id="btn-plunge-start-mito">Start Mito Session</button>
+        </div>`;
+    } else {
+      const reason = mitoStatus.reason;
+      const msg = reason === 'weekly-cap'
+        ? `Hit 2 mito sessions this week — next available in ${Math.ceil((7 - (Date.now() - new Date(this._plungesOfType('mito', 7)[1]?.date).getTime()) / 86400000))} day(s). Daily sessions still encouraged.`
+        : `Last mito was recently — next available in ${Math.ceil(mitoStatus.nextInDays)} day(s). Daily sessions still encouraged.`;
+      mitoPanel = `
+        <div class="plunge-card plunge-mito-cooldown">
+          <div class="plunge-card-title">Mito in cooldown</div>
+          <div class="plunge-card-sub">${msg}</div>
+        </div>`;
+    }
+
+    // Recent sessions
+    const recent = this._sortedPlunges().slice(0, 6);
+    const recentHtml = recent.length === 0
+      ? `<div class="plunge-empty">No plunges yet — your first cold shower lives below.</div>`
+      : recent.map(p => `
+          <div class="plunge-history-row">
+            <div class="plunge-history-type plunge-type-${p.type}">${p.type === 'mito' ? '⚡' : '❄'}</div>
+            <div class="plunge-history-meta">
+              <div class="plunge-history-date">${this._fmtPlungeDate(p.date)}</div>
+              <div class="plunge-history-dur">${this._fmtPlungeTime(p.duration + (p.overclockAmount || 0))}${p.overclockAmount ? ` <span class="plunge-oc">(+${this._fmtPlungeTime(p.overclockAmount)} OC 🔥)</span>` : ''}</div>
+            </div>
+            <div class="plunge-history-status">${p.goalReached ? '✓' : '–'}</div>
+          </div>`).join('');
+
+    return `
+      <div class="header">
+        <span class="header-title">Cold Plunge</span>
+        <button class="header-back" id="btn-plunge-info" style="margin-left:auto;color:var(--text-sub);">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+      </div>
+      <div class="fade-in plunge-screen">
+        <div class="plunge-hero">
+          <div class="plunge-status-pill">${st.running ? (st.overclocking ? 'OVERCLOCKING 🔥' : (st.mode === 'mito' ? 'MITO ⚡' : 'IN COLD')) : (didDailyToday ? '✓ Daily done' : 'Ready when you are')}</div>
+          <svg class="plunge-ring" viewBox="0 0 300 300" width="260" height="260">
+            <circle cx="150" cy="150" r="${ringR}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14"/>
+            <circle cx="150" cy="150" r="${ringR}" fill="none" stroke="${ringColor}" stroke-width="14"
+                    stroke-linecap="round"
+                    stroke-dasharray="${ringC}"
+                    stroke-dashoffset="${dashOffset}"
+                    transform="rotate(-90 150 150)"
+                    style="transition: stroke-dashoffset 0.2s linear;"/>
+            <text x="150" y="148" text-anchor="middle" fill="#fff" font-size="56" font-weight="700" class="plunge-time-text">${elapsedDisplay}</text>
+            <text x="150" y="180" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="13" class="plunge-goal-text">${goalLabel}</text>
+          </svg>
+          <div class="plunge-controls">
+            ${st.running
+              ? `<button class="btn-primary plunge-stop-btn" id="btn-plunge-stop">Stop & Save</button>`
+              : `<button class="btn-primary plunge-start-btn" id="btn-plunge-start-daily">Start Daily · ${this._fmtPlungeTime(dailyGoal)}</button>`}
+            ${st.running && this.settings.plungeOverclock && !st.overclocking && goalReached
+              ? `<div class="plunge-oc-hint">Keep going — overclock is on, you'll earn 2× XP past goal</div>`
+              : ''}
+          </div>
+        </div>
+
+        ${mitoPanel}
+
+        <div class="plunge-stats-grid">
+          <div class="plunge-stat">
+            <div class="plunge-stat-num">${streak}</div>
+            <div class="plunge-stat-lbl">day streak</div>
+          </div>
+          <div class="plunge-stat">
+            <div class="plunge-stat-num">${this._fmtPlungeTime(totalToday)}</div>
+            <div class="plunge-stat-lbl">today</div>
+          </div>
+          <div class="plunge-stat">
+            <div class="plunge-stat-num">${this._fmtPlungeTime(weekTotal)}</div>
+            <div class="plunge-stat-lbl">last 7d</div>
+          </div>
+        </div>
+
+        <div class="plunge-section-title">Recent</div>
+        <div class="plunge-history">${recentHtml}</div>
+
+        <div class="plunge-section-title">Protocol</div>
+        <div class="plunge-card plunge-protocol">
+          <div class="protocol-row"><span class="protocol-label">❄️ Daily</span><span class="protocol-val">Coldest tap water · ${this._fmtPlungeTime(this.PLUNGE_DAILY_GOAL_START)} → ${this._fmtPlungeTime(this.PLUNGE_DAILY_GOAL_MAX)}</span></div>
+          <div class="protocol-row"><span class="protocol-label">⚡ Mito</span><span class="protocol-val">${this._fmtPlungeTime(this.PLUNGE_MITO_GOAL)} · every ${this.PLUNGE_MITO_MIN_GAP_DAYS}d · ${this.PLUNGE_MITO_MAX_PER_WEEK}×/week max</span></div>
+          <div class="protocol-row"><span class="protocol-label">🔥 Overclock</span><span class="protocol-val">${this.settings.plungeOverclock ? 'On' : 'Off'} · 2× XP past goal</span></div>
+        </div>
+
+        <div class="plunge-tip">Always end your shower on the coldest setting. No temperature input needed — your water does the work.</div>
+      </div>
+    `;
+  },
+
+  _fmtPlungeDate(iso) {
+    const d = new Date(iso);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    const yest = new Date(now); yest.setDate(yest.getDate() - 1);
+    const isYest = d.toDateString() === yest.toDateString();
+    const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (sameDay) return `Today · ${time}`;
+    if (isYest) return `Yesterday · ${time}`;
+    return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${time}`;
+  },
+
+  // Timer lifecycle — single-shot rAF loop. Stores elapsed seconds on the runtime.
+  _plungeTick() {
+    const st = this._plungeState();
+    if (!st.running) return;
+    st.elapsed = (performance.now() - st.startTime) / 1000;
+
+    // Check goal-reached transition
+    if (!st.goalReached && st.elapsed >= st.goal) {
+      st.goalReached = true;
+      this._plungeOnGoalReached();
+    }
+
+    // Update ring/labels without a full re-render (only while running)
+    this._plungeUpdateRing();
+
+    if (st.running) {
+      st.interval = requestAnimationFrame(() => this._plungeTick());
+    }
+  },
+
+  _plungeUpdateRing() {
+    const st = this._plungeState();
+    const ringR = 130;
+    const ringC = 2 * Math.PI * ringR;
+    const progress = Math.min(st.elapsed / st.goal, 1);
+    const dashOffset = ringC * (1 - progress);
+    const ring = document.querySelector('.plunge-ring circle:nth-child(2)');
+    if (ring) {
+      ring.setAttribute('stroke-dashoffset', dashOffset);
+      if (st.overclocking && ring.getAttribute('stroke') !== '#ff5e3a') ring.setAttribute('stroke', '#ff5e3a');
+    }
+    const timeText = document.querySelector('.plunge-time-text');
+    if (timeText) {
+      // Show total elapsed (including overclock)
+      timeText.textContent = this._fmtPlungeTime(st.elapsed);
+    }
+    const goalText = document.querySelector('.plunge-goal-text');
+    if (goalText) {
+      if (st.overclocking) {
+        goalText.textContent = `OVERCLOCK 🔥 +${this._fmtPlungeTime(st.overclockAmount)}`;
+      } else if (st.goalReached) {
+        goalText.textContent = 'Goal reached! Keep going or stop';
+      } else {
+        goalText.textContent = `Goal: ${this._fmtPlungeTime(st.goal)}`;
+      }
+    }
+    const pill = document.querySelector('.plunge-status-pill');
+    if (pill) {
+      if (st.overclocking) pill.textContent = 'OVERCLOCKING 🔥';
+      else if (st.mode === 'mito') pill.textContent = 'MITO ⚡';
+      else pill.textContent = 'IN COLD';
+    }
+  },
+
+  _plungeOnGoalReached() {
+    const st = this._plungeState();
+    // Chime + haptic
+    this._plungeBeep(880, 0.18);
+    if (navigator.vibrate) navigator.vibrate(120);
+
+    // Enter overclock if enabled
+    if (this.settings.plungeOverclock) {
+      st.overclocking = true;
+      st.overclockAmount = 0;
+      // Track overclock seconds separately from goal
+      // (overclockAmount = elapsed - goal, computed at stop)
+      this._plungeBeep(1320, 0.12, 200);
+    }
+  },
+
+  // Short Web Audio beep. Optional delay schedules it.
+  _plungeBeep(freq, duration, delayMs = 0) {
+    if (!this.settings.plungeSound) return;
+    setTimeout(() => {
+      try {
+        const st = this._plungeState();
+        if (!st.audioCtx) st.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = st.audioCtx;
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) { /* silent */ }
+    }, delayMs);
+  },
+
+  // Silent audio loop to keep iOS from sleeping the tab during long sessions
+  async _plungeKeepAwake(on) {
+    const st = this._plungeState();
+    if (on) {
+      try {
+        if (!st.audioCtx) st.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (st.audioCtx.state === 'suspended') await st.audioCtx.resume();
+        // No-op oscillator at 0.001 gain, looped via constant source would be cleaner,
+        // but a 1-second silence wav is heavy. Skip — wake lock alone suffices.
+      } catch (e) {}
+      if ('wakeLock' in navigator) {
+        try {
+          st.wakeLock = await navigator.wakeLock.request('screen');
+          st.wakeLock.addEventListener?.('release', () => { st.wakeLock = null; });
+        } catch (e) {}
+      }
+    } else {
+      try { if (st.wakeLock) { await st.wakeLock.release(); st.wakeLock = null; } } catch (e) {}
+    }
+  },
+
+  _plungeStart(mode) {
+    const st = this._plungeState();
+    if (st.running) return;
+    st.running = true;
+    st.mode = mode;
+    st.goal = mode === 'mito' ? this.PLUNGE_MITO_GOAL : this._calculateDailyGoal();
+    st.elapsed = 0;
+    st.goalReached = false;
+    st.overclocking = false;
+    st.overclockAmount = 0;
+    st.startTime = performance.now();
+    this._plungeKeepAwake(true);
+    // Re-render to show running controls (Stop button replaces Start)
+    this.showScreen('plunge', {}, false);
+    st.interval = requestAnimationFrame(() => this._plungeTick());
+  },
+
+  async _plungeStop() {
+    const st = this._plungeState();
+    if (!st.running) return;
+    if (st.interval) cancelAnimationFrame(st.interval);
+    st.interval = null;
+    st.running = false;
+    st.elapsed = (performance.now() - st.startTime) / 1000;
+
+    // Compute the saved duration.
+    // - If overclocked: duration = goal, overclockAmount = elapsed - goal
+    // - Else: duration = elapsed (capped at goal if user stopped way past? no — save the real elapsed)
+    let savedDuration, savedOverclock = 0;
+    if (st.overclocking && st.elapsed > st.goal) {
+      savedDuration = st.goal;
+      savedOverclock = st.elapsed - st.goal;
+    } else {
+      savedDuration = Math.min(st.elapsed, st.goal);
+      if (st.elapsed > st.goal) savedOverclock = st.elapsed - st.goal;
+    }
+    const goalReached = savedDuration >= st.goal || st.goalReached;
+
+    const session = {
+      id: this.generateId(),
+      date: new Date().toISOString(),
+      duration: Math.round(savedDuration),
+      goal: Math.round(st.goal),
+      goalReached,
+      type: st.mode,
+      overclocked: savedOverclock > 0,
+      overclockAmount: Math.round(savedOverclock),
+    };
+
+    // XP: base 10 per session + 1 XP/sec + 2× XP on overclock portion
+    let xpGain = 10 + Math.floor(session.duration / 1);
+    if (savedOverclock > 0) xpGain += Math.floor(savedOverclock * 2);
+    if (st.mode === 'mito') xpGain += 50; // big bonus for mito
+
+    this.plunges = this.plunges || [];
+    this.plunges.push(session);
+    await DB.savePlunge(session);
+
+    // Award XP
+    this.profile.xp = (this.profile.xp || 0) + xpGain;
+    await DB.saveProfile(this.profile);
+
+    await this._plungeKeepAwake(false);
+
+    // Final chime
+    this._plungeBeep(660, 0.15);
+    setTimeout(() => this._plungeBeep(880, 0.18), 120);
+
+    // Toast
+    this.showToast(`+${xpGain} XP · ${this._fmtPlungeTime(session.duration + session.overclockAmount)} in the cold`, 'success');
+
+    // Re-render
+    this.showScreen('plunge', {}, false);
+  },
+
+  _showPlungeInfo() {
+    const html = `
+      <div class="modal-overlay" id="modal-plunge-info">
+        <div class="modal-sheet plunge-info-modal">
+          <div class="modal-handle"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <h3 style="margin:0;font-size:1.2em;">Cold Shower Protocol</h3>
+            <button id="btn-plunge-info-close" style="background:var(--glass-white);border:1px solid var(--glass-border);color:var(--text-main);width:32px;height:32px;border-radius:50%;font-size:1.2em;cursor:pointer;">×</button>
+          </div>
+          <div class="modal-body">
+            <p><strong>❄️ Daily sessions.</strong> End every shower on the coldest tap setting. Goal auto-scales: start at 30 seconds, ramp toward a 3-minute cap. Hit goal and the next session bumps up 15s. Push past goal and overclock kicks in — 2× XP on every second past the target.</p>
+            <p><strong>⚡ Mito sessions.</strong> ~8-minute deep cold, scheduled every 3 days, capped at 2 per week. The point is a deep mitochondrial stimulus without habituating the adrenergic response — spacing is the whole game. Mito replaces that day's daily session.</p>
+            <p><strong>🔥 Overclock.</strong> Past your goal, the ring goes red. Time past goal earns 2× XP. Toggle off in Config if you just want to hit goal and get out.</p>
+            <p><strong>Temperature.</strong> No input needed — coldest tap water at the end of the shower is the protocol. If you have an actual tub or plunge pool, this still works; just pick Daily or Mito and start the timer.</p>
+            <p style="opacity:0.7;font-size:0.9em;">Sessions save to the same TropicalFit DB. They count toward XP alongside your workouts.</p>
+          </div>
+        </div>
+      </div>`;
+    this._showModal(html);
+    this.bindClick('btn-plunge-info-close', () => this._closeModal());
+    document.getElementById('modal-plunge-info')?.addEventListener('click', (e) => {
+      if (e.target.id === 'modal-plunge-info') this._closeModal();
+    });
+  },
+
+  _showModal(html) {
+    const mc = document.getElementById('modal-container');
+    if (mc) mc.innerHTML = html;
+  },
+  _closeModal() {
+    const mc = document.getElementById('modal-container');
+    if (mc) mc.innerHTML = '';
   },
 
   // ─── HELPERS ──────────────────────────────────────────────
