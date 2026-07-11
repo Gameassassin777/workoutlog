@@ -1590,3 +1590,77 @@ body.keyboard-open .chat-global-input-bar {
     width: 22px; height: 22px;
   }
 }
+
+/* ─── Frosted Text Legibility ───────────────────────────────── */
+/* Multi-layer halo: dark depth + faint light frost rim. Lets text
+   read against the busy moving video background without darkening
+   card glass. .header-title keeps its own aqua-glow Pacifico shadow. */
+.section-title {
+  text-shadow:
+    0 1px 2px rgba(0,0,0,0.65),
+    0 2px 6px rgba(0,0,0,0.45),
+    0 -1px 0 rgba(255,255,255,0.12),
+    0 0 10px rgba(0,0,0,0.35) !important;
+}
+.text-white, .text-main, .text-bold, .text-extra-bold {
+  text-shadow:
+    0 1px 2px rgba(0,0,0,0.55),
+    0 2px 5px rgba(0,0,0,0.40),
+    0 -1px 0 rgba(255,255,255,0.10),
+    0 0 8px rgba(0,0,0,0.30);
+}
+.text-sea, .text-muted, .text-sub {
+  text-shadow:
+    0 1px 2px rgba(0,0,0,0.50),
+    0 0 6px rgba(0,0,0,0.30);
+}
+/* Big display numbers — heavier halo since they're often over bare video */
+.plunge-time-text, .plunge-stat-num, .stat-num, .card-value,
+.hero-name, .greeting, .level-num, .xp-num {
+  text-shadow:
+    0 2px 4px rgba(0,0,0,0.65),
+    0 4px 12px rgba(0,0,0,0.45),
+    0 -1px 0 rgba(255,255,255,0.15),
+    0 0 16px rgba(0,0,0,0.40);
+}
+/* SVG icons over video bg */
+.nav-icon, .header-back, .header-action, .notif-bell-wrap, .notif-badge {
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55)) drop-shadow(0 0 4px rgba(0,0,0,0.35));
+}
+/* Light theme — flip the halo: white frost under dark text */
+body.theme-light .section-title,
+body.theme-light .text-white,
+body.theme-light .text-main,
+body.theme-light .text-bold,
+body.theme-light .plunge-time-text,
+body.theme-light .plunge-stat-num,
+body.theme-light .stat-num,
+body.theme-light .card-value,
+body.theme-light .hero-name {
+  text-shadow:
+    0 1px 1px rgba(255,255,255,0.55),
+    0 0 4px rgba(255,255,255,0.45) !important;
+}
+body.theme-light .nav-icon,
+body.theme-light .header-back,
+body.theme-light .header-action {
+  filter: drop-shadow(0 1px 1px rgba(255,255,255,0.65));
+}
+@media (prefers-color-scheme: light) {
+  body:not(.theme-dark):not(.theme-light) .section-title,
+  body:not(.theme-dark):not(.theme-light) .text-white,
+  body:not(.theme-dark):not(.theme-light) .text-main,
+  body:not(.theme-dark):not(.theme-light) .plunge-time-text,
+  body:not(.theme-dark):not(.theme-light) .stat-num,
+  body:not(.theme-dark):not(.theme-light) .card-value,
+  body:not(.theme-dark):not(.theme-light) .hero-name {
+    text-shadow:
+      0 1px 1px rgba(255,255,255,0.55),
+      0 0 4px rgba(255,255,255,0.45) !important;
+  }
+  body:not(.theme-dark):not(.theme-light) .nav-icon,
+  body:not(.theme-dark):not(.theme-light) .header-back,
+  body:not(.theme-dark):not(.theme-light) .header-action {
+    filter: drop-shadow(0 1px 1px rgba(255,255,255,0.65));
+  }
+}

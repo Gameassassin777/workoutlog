@@ -1123,41 +1123,26 @@ const App = {
 
     const renderer = renderers[name];
     if (renderer) {
-      const renderNext = async () => {
-        // Fade out before swap so the screen doesn't pop. bg-video shows through
-        // the transparent gap, so no white flash.
-        container.style.opacity = '0';
-        container.style.transform = 'translateY(4px)';
-        // Double-rAF guarantees the browser commits the fade-out state before
-        // we tear down innerHTML. Without it the swap can batch with the
-        // opacity change and skip the transition entirely.
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        container.innerHTML = await renderer();
-        const screenHeader = document.getElementById('screen-header');
-        if (screenHeader) {
-          const h = container.querySelector('.header');
-          screenHeader.innerHTML = '';
-          if (h) screenHeader.appendChild(h);
-        }
-        // Chat manages its own internal scroll — lock the outer container and kill padding
-        if (name === 'chat') {
-          container.style.overflow = 'hidden';
-          container.style.paddingBottom = '0';
-        } else {
-          container.style.overflow = '';
-          container.style.paddingBottom = '';
-        }
-        this.bindScreenEvents(name, data);
-
-        // Fade in the new content on the next frame so the transition fires.
-        requestAnimationFrame(() => {
-          container.style.opacity = '1';
-          container.style.transform = 'translateY(0)';
-        });
-      };
-
-      await renderNext();
+      // Direct innerHTML swap — no opacity fade. The fade-out/rAF/fade-in
+      // wrapper was the source of the perceived "blink" on every button
+      // click that routed through showScreen. Snappy swap feels better than
+      // a 0.36s transition on every interaction.
+      container.innerHTML = await renderer();
+      const screenHeader = document.getElementById('screen-header');
+      if (screenHeader) {
+        const h = container.querySelector('.header');
+        screenHeader.innerHTML = '';
+        if (h) screenHeader.appendChild(h);
+      }
+      // Chat manages its own internal scroll — lock the outer container and kill padding
+      if (name === 'chat') {
+        container.style.overflow = 'hidden';
+        container.style.paddingBottom = '0';
+      } else {
+        container.style.overflow = '';
+        container.style.paddingBottom = '';
+      }
+      this.bindScreenEvents(name, data);
     }
   },
 
@@ -4667,9 +4652,6 @@ const App = {
             btn.disabled = false;
           }
         });
-        if (notifToggleEl) {
-          notifToggleEl.addEventListener('change', () => setTimeout(_updatePermPill, 800));
-        }
         break;
 
       case 'exerciseLibrary':
