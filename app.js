@@ -138,6 +138,13 @@ const App = {
     down: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
     person: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
     trophy: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10L15 12a3 3 0 0 1-6 0L7 3z"/><path d="M7 6H4a2 2 0 0 0 0 4h3"/><path d="M17 6h3a2 2 0 0 1 0 4h-3"/><line x1="12" y1="15" x2="12" y2="20"/><line x1="9" y1="20" x2="15" y2="20"/></svg>`,
+    checkIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    xIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    bellIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+    boltIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    flameIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5a14.7 14.7 0 0 1-3 6.5c-2 1.6-3 3.5-3 5.5a7 7 0 0 0 6 7z"/></svg>`,
+    snowflakeIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="19.5" y2="19.5"/><line x1="19.5" y1="4.5" x2="4.5" y2="19.5"/><polyline points="9 5 12 2 15 5"/><polyline points="9 19 12 22 15 19"/><polyline points="5 9 2 12 5 15"/><polyline points="19 9 22 12 19 15"/></svg>`,
+    waveIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M2 17c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M2 7c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/></svg>`,
     cameraIcon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
     flame: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
     waveCheck: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 4 4 8-9"/><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>`,
@@ -566,7 +573,7 @@ const App = {
       <div class="modal-overlay" id="resume-overlay" style="z-index:2000;">
         <div class="modal-sheet" style="border-top:3px solid var(--sunset);">
           <div class="modal-handle"></div>
-          <div style="font-size:1.8rem; text-align:center; margin-bottom:8px;">🌊</div>
+          <div style="font-size:1.8rem; text-align:center; margin-bottom:8px;">${App.Icons.waveIcon}</div>
           <div class="text-bold text-white text-lg" style="text-align:center; margin-bottom:6px;">Resume Workout?</div>
           <div class="text-sm text-sea" style="text-align:center; margin-bottom:20px;">
             You left a session at ${when} with ${exerciseCount} exercise${exerciseCount !== 1 ? 's' : ''} and ${setCount} completed set${setCount !== 1 ? 's' : ''}.
@@ -821,7 +828,7 @@ const App = {
             <button id="notif-skip-btn" style="padding:11px 16px;background:transparent;border:1px solid var(--glass-border);border-radius:var(--radius-md);font-size:0.80rem;color:var(--text-muted);cursor:pointer;font-family:inherit;">Not now</button>
           </div>
         </div>
-        <button id="notif-close-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 0 0 4px;flex-shrink:0;line-height:1;">✕</button>
+        <button id="notif-close-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 0 0 4px;flex-shrink:0;line-height:1;">${App.Icons.xIcon}</button>
       </div>`;
     document.body.appendChild(card);
 
@@ -1529,7 +1536,7 @@ const App = {
     const lastWO = this.profile?.lastWorkoutDate;
     const daysSince = lastWO ? (Date.now() - new Date(lastWO).getTime()) / 86400000 : 99;
     const permLabel = !('Notification' in window) ? 'Unavailable'
-      : Notification.permission === 'granted' ? 'Enabled ✓'
+      : Notification.permission === 'granted' ? 'Enabled'
       : Notification.permission === 'denied' ? 'Blocked'
       : 'Not set';
 
@@ -2352,7 +2359,7 @@ const App = {
 
     return `
       <div class="header">
-        <button class="header-back" id="btn-cancel-workout">✕</button>
+        <button class="header-back" id="btn-cancel-workout">${App.Icons.xIcon}</button>
         <span class="header-title">${w.title || 'Workout'}</span>
         <button class="header-action" id="btn-finish-workout">Finish</button>
       </div>
@@ -3503,10 +3510,10 @@ const App = {
           <div id="notif-permission-pill" style="margin-bottom:12px;">
             ${(() => {
               const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
-              if (perm === 'granted') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(0,220,120,0.15);border:1px solid rgba(0,220,120,0.35);font-size:0.72rem;color:#00dc78;font-weight:700;">✓ Browser permission granted</span>`;
-              if (perm === 'denied') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,80,60,0.15);border:1px solid rgba(255,80,60,0.35);font-size:0.72rem;color:#ff6050;font-weight:700;">✗ Blocked — enable in browser/OS settings</span>`;
+              if (perm === 'granted') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(0,220,120,0.15);border:1px solid rgba(0,220,120,0.35);font-size:0.72rem;color:#00dc78;font-weight:700;"><span style="display:inline-block;width:14px;height:14px;">${App.Icons.checkIcon}</span> Browser permission granted</span>`;
+              if (perm === 'denied') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,80,60,0.15);border:1px solid rgba(255,80,60,0.35);font-size:0.72rem;color:#ff6050;font-weight:700;"><span style="display:inline-block;width:14px;height:14px;">${App.Icons.xIcon}</span> Blocked — enable in browser/OS settings</span>`;
               if (perm === 'unsupported') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(100,100,100,0.15);border:1px solid rgba(100,100,100,0.35);font-size:0.72rem;color:var(--text-muted);font-weight:700;">Not supported in this browser</span>`;
-              return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,200,60,0.15);border:1px solid rgba(255,200,60,0.35);font-size:0.72rem;color:#ffc83c;font-weight:700;">⚠ Permission not yet granted — tap the toggle</span>`;
+              return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,200,60,0.15);border:1px solid rgba(255,200,60,0.35);font-size:0.72rem;color:#ffc83c;font-weight:700;"><span style="display:inline-block;width:14px;height:14px;">${App.Icons.warningIcon}</span> Permission not yet granted — tap the toggle</span>`;
             })()}
           </div>
 
@@ -3580,7 +3587,7 @@ const App = {
             </div>
 
             <button id="btn-test-notif" style="width:100%;padding:10px;background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.25);border-radius:var(--radius-md);color:var(--aqua);font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;">
-              🔔 Send Test Notification
+              <span style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:4px;">${App.Icons.bellIcon}</span> Send Test Notification
             </button>
           </div>
         </div>
@@ -3614,7 +3621,7 @@ const App = {
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <div>
-              <div class="text-sm text-white text-bold">Overclock 🔥</div>
+              <div class="text-sm text-white text-bold">Overclock</div>
               <div class="text-xs text-sea mt-2">Keep timing past goal — ring goes red, 2× XP on the extra time</div>
             </div>
             <input type="checkbox" id="setting-plunge-overclock" ${s.plungeOverclock ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--lagoon);">
@@ -3724,7 +3731,7 @@ const App = {
                   <div class="text-sm text-white">${f.name}</div>
                   <div class="text-xs text-sea">${f.type}${f.options ? ': ' + f.options.join(', ') : ''}</div>
                 </div>
-                <button class="btn btn-small btn-ghost" data-remove-field="${i}">✕</button>
+                <button class="btn btn-small btn-ghost" data-remove-field="${i}">${App.Icons.xIcon}</button>
               </div>
             `).join('')}
           ` : `
@@ -4604,8 +4611,8 @@ const App = {
           const pill = document.getElementById('notif-permission-pill');
           if (!pill || !('Notification' in window)) return;
           const perm = Notification.permission;
-          if (perm === 'granted') pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(0,220,120,0.15);border:1px solid rgba(0,220,120,0.35);font-size:0.72rem;color:#00dc78;font-weight:700;">✓ Browser permission granted</span>`;
-          else if (perm === 'denied') pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,80,60,0.15);border:1px solid rgba(255,80,60,0.35);font-size:0.72rem;color:#ff6050;font-weight:700;">✗ Blocked — enable in browser/OS settings</span>`;
+          if (perm === 'granted') pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(0,220,120,0.15);border:1px solid rgba(0,220,120,0.35);font-size:0.72rem;color:#00dc78;font-weight:700;"><span style="display:inline-block;width:14px;height:14px;">${App.Icons.checkIcon}</span> Browser permission granted</span>`;
+          else if (perm === 'denied') pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(255,80,60,0.15);border:1px solid rgba(255,80,60,0.35);font-size:0.72rem;color:#ff6050;font-weight:700;"><span style="display:inline-block;width:14px;height:14px;">${App.Icons.xIcon}</span> Blocked — enable in browser/OS settings</span>`;
         };
 
 
@@ -4632,21 +4639,21 @@ const App = {
               // Verify it landed
               const recheck = await this.apiPost('/api/push/status', { user_id: this.settings.serverId });
               if (!recheck?.ok) {
-                this.showToast('❌ Registration failed — try again.', 8000);
+                this.showToast('Registration failed — try again.', 8000);
                 return;
               }
             }
 
             // Step 2: Fire the push — close the app before it arrives
             btn.textContent = 'Close app now!';
-            this.showToast('✅ Push firing in ~5 seconds — close the app now!', 8000);
+            this.showToast('Push firing in ~5 seconds — close the app now!', 8000);
             await this.apiPost('/api/push/test', {
               user_id: this.settings.serverId,
               delay: 5000
             });
 
           } catch (e) {
-            this.showToast('❌ Error: ' + e.message, 8000);
+            this.showToast('Error: ' + e.message, 8000);
           } finally {
             btn.textContent = originalText;
             btn.disabled = false;
@@ -4996,7 +5003,7 @@ const App = {
     const title = document.getElementById('workout-title-input')?.value.trim() || '';
     const notes = document.getElementById('workout-notes-input')?.value.trim() || '';
     const tags = Array.from(document.querySelectorAll('#workout-tags-container .tag'))
-      .map(el => el.textContent.replace('✕', '').trim());
+      .map(el => el.textContent.trim());
 
     // Gather custom fields
     const customFields = {};
@@ -6842,7 +6849,7 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
           const tagEl = document.createElement('span');
           tagEl.className = 'tag';
           tagEl.dataset.tag = tag;
-          tagEl.innerHTML = `${tag} <span class="tag-remove" data-remove-tag="${tag}">✕</span>`;
+          tagEl.innerHTML = `${tag} <span class="tag-remove" data-remove-tag="${tag}">${App.Icons.xIcon}</span>`;
           container.appendChild(tagEl);
           tagEl.querySelector('.tag-remove').addEventListener('click', () => tagEl.remove());
         }
@@ -6888,7 +6895,7 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
             <label class="input-label">Add Tags</label>
             <input type="text" class="input" placeholder="Press Enter to add" id="post-tags-input">
             <div class="flex gap-4 flex-wrap mt-8" id="post-tags-container">
-              ${(w.tags || []).map(t => `<span class="tag" data-tag="${t}">${t} <span class="tag-remove">✕</span></span>`).join('')}
+              ${(w.tags || []).map(t => `<span class="tag" data-tag="${t}">${t} <span class="tag-remove">${App.Icons.xIcon}</span></span>`).join('')}
             </div>
           </div>
           <button class="btn btn-accent btn-large mt-16" id="btn-save-post-notes">Save</button>
@@ -7096,7 +7103,7 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
                 ${this.Icons.dumbbell}
               </button>
               <button class="btn-remove-ex" data-ex="${exIdx}"
-                style="background:none;border:none;color:rgba(255,100,100,0.7);cursor:pointer;font-size:1.1rem;padding:2px 6px;line-height:1;" title="Remove exercise">✕</button>
+                style="background:none;border:none;color:rgba(255,100,100,0.7);cursor:pointer;font-size:1.1rem;padding:2px 6px;line-height:1;" title="Remove exercise">${App.Icons.xIcon}</button>
             </div>
           </div>
           <div class="edit-sets-list" data-ex="${exIdx}">
@@ -7919,7 +7926,7 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
     const elapsedDisplay = this._fmtPlungeTime(st.running ? st.elapsed : (st.mode === 'mito' ? this.PLUNGE_MITO_GOAL : dailyGoal));
     const goalLabel = st.running
       ? (st.overclocking
-          ? `OVERCLOCK 🔥 +${this._fmtPlungeTime(st.overclockAmount)}`
+          ? `OVERCLOCK +${this._fmtPlungeTime(st.overclockAmount)}`
           : (goalReached ? 'Goal reached! Keep going or stop' : `Goal: ${this._fmtPlungeTime(st.goal)}`))
       : (st.mode === 'mito' ? `Mito session · ${this._fmtPlungeTime(this.PLUNGE_MITO_GOAL)}` : `Today's goal · ${this._fmtPlungeTime(dailyGoal)}`);
 
@@ -7930,7 +7937,7 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
     } else if (mitoStatus.allowed) {
       mitoPanel = `
         <div class="plunge-card plunge-mito-ready">
-          <div class="plunge-card-title">⚡ Deep mito session ready</div>
+          <div class="plunge-card-title"><span style="display:inline-block;width:14px;height:14px;vertical-align:middle;margin-top:-2px;">${App.Icons.boltIcon}</span> Deep mito session ready</div>
           <div class="plunge-card-sub">${this._fmtPlungeTime(this.PLUNGE_MITO_GOAL)} at coldest tap water · 2×/week max · every 3 days</div>
           <button class="btn-primary plunge-mito-btn" id="btn-plunge-start-mito">Start Mito Session</button>
         </div>`;
@@ -7952,12 +7959,12 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
       ? `<div class="plunge-empty">No plunges yet — your first cold shower lives below.</div>`
       : recent.map(p => `
           <div class="plunge-history-row">
-            <div class="plunge-history-type plunge-type-${p.type}">${p.type === 'mito' ? '⚡' : '❄'}</div>
+            <div class="plunge-history-type plunge-type-${p.type}">${p.type === 'mito' ? `<span style="display:inline-block;width:14px;height:14px;">${App.Icons.boltIcon}</span>` : `<span style="display:inline-block;width:14px;height:14px;">${App.Icons.snowflakeIcon}</span>`}</div>
             <div class="plunge-history-meta">
               <div class="plunge-history-date">${this._fmtPlungeDate(p.date)}</div>
-              <div class="plunge-history-dur">${this._fmtPlungeTime(p.duration + (p.overclockAmount || 0))}${p.overclockAmount ? ` <span class="plunge-oc">(+${this._fmtPlungeTime(p.overclockAmount)} OC 🔥)</span>` : ''}</div>
+              <div class="plunge-history-dur">${this._fmtPlungeTime(p.duration + (p.overclockAmount || 0))}${p.overclockAmount ? ` <span class="plunge-oc">(+${this._fmtPlungeTime(p.overclockAmount)} OC)</span>` : ''}</div>
             </div>
-            <div class="plunge-history-status">${p.goalReached ? '✓' : '–'}</div>
+            <div class="plunge-history-status">${p.goalReached ? `<span style="display:inline-block;width:16px;height:16px;vertical-align:middle;">${App.Icons.checkIcon}</span>` : '–'}</div>
           </div>`).join('');
 
     return `
@@ -7969,7 +7976,7 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
       </div>
       <div class="fade-in plunge-screen">
         <div class="plunge-hero">
-          <div class="plunge-status-pill">${st.running ? (st.overclocking ? 'OVERCLOCKING 🔥' : (st.mode === 'mito' ? 'MITO ⚡' : 'IN COLD')) : (didDailyToday ? '✓ Daily done' : 'Ready when you are')}</div>
+          <div class="plunge-status-pill">${st.running ? (st.overclocking ? 'OVERCLOCKING' : (st.mode === 'mito' ? 'MITO' : 'IN COLD')) : (didDailyToday ? `<span style="display:inline-block;width:12px;height:12px;margin-right:2px;vertical-align:middle;">${App.Icons.checkIcon}</span> Daily done` : 'Ready when you are')}</div>
           <svg class="plunge-ring" viewBox="0 0 300 300" width="260" height="260">
             <circle cx="150" cy="150" r="${ringR}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14"/>
             <circle cx="150" cy="150" r="${ringR}" fill="none" stroke="${ringColor}" stroke-width="14"
@@ -8013,9 +8020,9 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
 
         <div class="plunge-section-title">Protocol</div>
         <div class="plunge-card plunge-protocol">
-          <div class="protocol-row"><span class="protocol-label">❄️ Daily</span><span class="protocol-val">Coldest tap water · ${this._fmtPlungeTime(this.PLUNGE_DAILY_GOAL_START)} → ${this._fmtPlungeTime(this.PLUNGE_DAILY_GOAL_MAX)}</span></div>
-          <div class="protocol-row"><span class="protocol-label">⚡ Mito</span><span class="protocol-val">${this._fmtPlungeTime(this.PLUNGE_MITO_GOAL)} · every ${this.PLUNGE_MITO_MIN_GAP_DAYS}d · ${this.PLUNGE_MITO_MAX_PER_WEEK}×/week max</span></div>
-          <div class="protocol-row"><span class="protocol-label">🔥 Overclock</span><span class="protocol-val">${this.settings.plungeOverclock ? 'On' : 'Off'} · 2× XP past goal</span></div>
+          <div class="protocol-row"><span class="protocol-label"><span style="display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;margin-top:-2px;">${App.Icons.snowflakeIcon}</span> Daily</span><span class="protocol-val">Coldest tap water · ${this._fmtPlungeTime(this.PLUNGE_DAILY_GOAL_START)} → ${this._fmtPlungeTime(this.PLUNGE_DAILY_GOAL_MAX)}</span></div>
+          <div class="protocol-row"><span class="protocol-label"><span style="display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;margin-top:-2px;">${App.Icons.boltIcon}</span> Mito</span><span class="protocol-val">${this._fmtPlungeTime(this.PLUNGE_MITO_GOAL)} · every ${this.PLUNGE_MITO_MIN_GAP_DAYS}d · ${this.PLUNGE_MITO_MAX_PER_WEEK}×/week max</span></div>
+          <div class="protocol-row"><span class="protocol-label"><span style="display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;margin-top:-2px;">${App.Icons.flameIcon}</span> Overclock</span><span class="protocol-val">${this.settings.plungeOverclock ? 'On' : 'Off'} · 2× XP past goal</span></div>
         </div>
 
         <div class="plunge-tip">Always end your shower on the coldest setting. No temperature input needed — your water does the work.</div>
@@ -8078,7 +8085,7 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
     const goalText = document.querySelector('.plunge-goal-text');
     if (goalText) {
       if (st.overclocking) {
-        goalText.textContent = `OVERCLOCK 🔥 +${this._fmtPlungeTime(st.overclockAmount)}`;
+        goalText.textContent = `OVERCLOCK +${this._fmtPlungeTime(st.overclockAmount)}`;
       } else if (st.goalReached) {
         goalText.textContent = 'Goal reached! Keep going or stop';
       } else {
@@ -8087,8 +8094,8 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
     }
     const pill = document.querySelector('.plunge-status-pill');
     if (pill) {
-      if (st.overclocking) pill.textContent = 'OVERCLOCKING 🔥';
-      else if (st.mode === 'mito') pill.textContent = 'MITO ⚡';
+      if (st.overclocking) pill.textContent = 'OVERCLOCKING';
+      else if (st.mode === 'mito') pill.textContent = 'MITO';
       else pill.textContent = 'IN COLD';
     }
   },
@@ -8238,9 +8245,9 @@ ${JSON.stringify(recentWorkouts)}${communityCtx}`;
             <button id="btn-plunge-info-close" style="background:var(--glass-white);border:1px solid var(--glass-border);color:var(--text-main);width:32px;height:32px;border-radius:50%;font-size:1.2em;cursor:pointer;">×</button>
           </div>
           <div class="modal-body">
-            <p><strong>❄️ Daily sessions.</strong> End every shower on the coldest tap setting. Goal auto-scales: start at 30 seconds, ramp toward a 3-minute cap. Hit goal and the next session bumps up 15s. Push past goal and overclock kicks in — 2× XP on every second past the target.</p>
-            <p><strong>⚡ Mito sessions.</strong> ~8-minute deep cold, scheduled every 3 days, capped at 2 per week. The point is a deep mitochondrial stimulus without habituating the adrenergic response — spacing is the whole game. Mito replaces that day's daily session.</p>
-            <p><strong>🔥 Overclock.</strong> Past your goal, the ring goes red. Time past goal earns 2× XP. Toggle off in Config if you just want to hit goal and get out.</p>
+            <p><strong><span style="display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;">${App.Icons.snowflakeIcon}</span> Daily sessions.</strong> End every shower on the coldest tap setting. Goal auto-scales: start at 30 seconds, ramp toward a 3-minute cap. Hit goal and the next session bumps up 15s. Push past goal and overclock kicks in — 2× XP on every second past the target.</p>
+            <p><strong><span style="display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;">${App.Icons.boltIcon}</span> Mito sessions.</strong> ~8-minute deep cold, scheduled every 3 days, capped at 2 per week. The point is a deep mitochondrial stimulus without habituating the adrenergic response — spacing is the whole game. Mito replaces that day's daily session.</p>
+            <p><strong><span style="display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;">${App.Icons.flameIcon}</span> Overclock.</strong> Past your goal, the ring goes red. Time past goal earns 2× XP. Toggle off in Config if you just want to hit goal and get out.</p>
             <p><strong>Temperature.</strong> No input needed — coldest tap water at the end of the shower is the protocol. If you have an actual tub or plunge pool, this still works; just pick Daily or Mito and start the timer.</p>
             <p style="opacity:0.7;font-size:0.9em;">Sessions save to the same TropicalFit DB. They count toward XP alongside your workouts.</p>
           </div>

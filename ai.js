@@ -58,7 +58,7 @@ const AI = {
 
 ## TropicalFit App Features (help users navigate these)
 - **Shore (Home)**: Dashboard showing streak, XP, level, volume. Tap "Start Session" to begin a workout.
-- **Active Workout**: Log exercises, sets, weight, and reps. Tap the ✓ checkmark on a set to complete it — the rest timer starts automatically.
+- **Active Workout**: Log exercises, sets, weight, and reps. Tap the checkmark on a set to complete it — the rest timer starts automatically.
 - **Rest Timer**: Auto-counts down between sets. "↓ Minimize" collapses it to a bar at the bottom of the screen. Tap the bar to re-open the full timer. Adjust with −15s / +30s. "Skip Rest" ends the rest early.
 - **Exercise options (⋮)**: Tap during a workout to change rest time, rename, reorder, add notes, or toggle bilateral (dumbbells × 2).
 - **Logs tab**: Complete workout history. Tap any workout for details + AI analysis. Tap an exercise name to see full history and PRs.
